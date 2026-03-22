@@ -208,7 +208,7 @@ export default function App() {
             </button>
           )}
 
-          <Recompensas direccion={direccion} />
+          <Recompensas direccion={direccion} refrescar={refrescar} />
 
           <div className="wallet-chip">
             <span className="wallet-dot" aria-hidden="true" />

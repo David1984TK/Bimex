@@ -76,7 +76,7 @@ function calcularRecompensas(totalMXNe) {
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
-export default function Recompensas({ direccion }) {
+export default function Recompensas({ direccion, refrescar }) {
   const [abierto,    setAbierto]    = useState(false);
   const [totalMXNe,  setTotalMXNe]  = useState(0);
   const [cargando,   setCargando]   = useState(true);
@@ -102,7 +102,7 @@ export default function Recompensas({ direccion }) {
         setCargando(false);
       }
     })();
-  }, [direccion]);
+  }, [direccion, refrescar]);
 
   // Cierra con Escape o clic fuera
   useEffect(() => {
