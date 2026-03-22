@@ -15,7 +15,7 @@ import { signTransaction } from "@stellar/freighter-api";
 // ─── Configuración ────────────────────────────────────────────────────────────
 
 export const CONFIG = {
-  CONTRACT_ID: import.meta.env.VITE_CONTRACT_ID ?? "CAEYEIIH4MHXDVEBAPNGV2LJ7DAO4JSVBIN3E3I6TBK56AMRWERNRM3B",
+  CONTRACT_ID: (import.meta.env.VITE_CONTRACT_ID ?? "CAEYEIIH4MHXDVEBAPNGV2LJ7DAO4JSVBIN3E3I6TBK56AMRWERNRM3B").trim(),
   RPC_URL: import.meta.env.VITE_RPC_URL ?? "https://soroban-testnet.stellar.org",
   NETWORK_PASSPHRASE: Networks.TESTNET,
   TOKEN_MXNE: import.meta.env.VITE_TOKEN_MXNE ?? "CDDIGHPVTW4PSCQCU67NQ4NXZ4NX5GDLNL3O67WT5RQ4GT6RXIEYPC4P",
