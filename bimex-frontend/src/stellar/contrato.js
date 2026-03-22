@@ -156,9 +156,12 @@ export async function obtenerBalanceMXNe(direccion) {
 
 export async function obtenerTotalProyectos() {
   try {
+    console.log("[Bimex] llamando total_proyectos en contrato:", CONFIG.CONTRACT_ID);
     const total = await simularLectura("total_proyectos", []);
+    console.log("[Bimex] total_proyectos respuesta:", total);
     return Number(total);
-  } catch {
+  } catch (e) {
+    console.error("[Bimex] Error en total_proyectos:", e);
     return 0;
   }
 }

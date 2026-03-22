@@ -19,11 +19,13 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
 
   async function cargar() {
     setCargando(true);
+    console.log("[Bimex] cargar() iniciado");
     try {
       const data = await obtenerTodosLosProyectos();
+      console.log("[Bimex] proyectos obtenidos:", data.length, data);
       setProyectos(data);
     } catch (e) {
-      console.error("Error cargando proyectos:", e);
+      console.error("[Bimex] Error cargando proyectos:", e);
     } finally {
       setCargando(false);
     }
