@@ -1,0 +1,37 @@
+# ===== SECRETS =====
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ===== NODE =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ===== VITE BUILD =====
+dist/
+dist-ssr/
+*.local
+
+# ===== RUST / SOROBAN =====
+target/
+**/*.rs.bk
+Cargo.lock
+
+# ===== MACOS =====
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ===== EDITOR =====
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ===== CLAUDE =====
+.claude/

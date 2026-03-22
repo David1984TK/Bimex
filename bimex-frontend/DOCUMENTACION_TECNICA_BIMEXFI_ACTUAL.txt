@@ -1,0 +1,156 @@
+BIMEXFI - DOCUMENTACION TECNICA ACTUAL
+Hackathon: Hack+ Alebrije | Stellar | CDMX
+Fecha de corte: 20 de marzo de 2026
+
+============================================================
+1) RESUMEN DEL SISTEMA
+============================================================
+BimexFi es una dApp de crowdfunding cero-perdida sobre Stellar/Soroban.
+Modelo:
+- El backer aporta MXNe.
+- El principal queda bloqueado en contrato.
+- El rendimiento (yield) se dirige al proyecto.
+- El backer puede retirar su principal.
+
+============================================================
+2) STACK Y ENTORNO
+============================================================
+- Frontend: React + Vite + JavaScript
+- Wallet: Freighter (@stellar/freighter-api)
+- SDK: @stellar/stellar-sdk
+- Red: Stellar Testnet
+- RPC: https://soroban-testnet.stellar.org
+- Contrato app:
+  CBJBWJAYZDYG6SNIMTDWGVLQ7TD24X3JU2IHJXYY4JVWGONQIS7KEZOG
+- Token MXNe SAC:
+  CDDIGHPVTW4PSCQCU67NQ4NXZ4NX5GDLNL3O67WT5RQ4GT6RXIEYPC4P
+
+============================================================
+3) CAMBIOS APLICADOS EN ESTA ETAPA
+============================================================
+3.1 Correccion de importaciones y naming
+- Se corrigio el namespace RPC al de la version actual del SDK:
+  SorobanRpc -> rpc
+- Se resolvio inconsistencia de mayusculas/minusculas de archivo:
+  Contrato.js -> contrato.js
+- Se actualizaron imports para apuntar a ../stellar/contrato
+
+3.2 Integracion real con contrato (frontend)
+- Crear proyecto ahora llama al contrato on-chain (ya no simulacion)
+  desde CrearProyecto.jsx.
+- Detalle de proyecto ahora usa llamadas reales para:
+  - contribuir
+  - retirar_principal
+  - obtener_aportacion
+  - calcular_yield
+- Lista de proyectos obtiene datos reales del contrato y refresca
+  por contador de recarga y boton manual.
+
+3.3 Sesion de wallet y logout
+- Se implemento cierre de sesion desde App con intento de revocar permiso
+  en Freighter usando setAllowed().
+- Se corrigio el consumo de respuestas de Freighter:
+  isConnected() e isAllowed() se leen como objetos con propiedades.
+- Se agrego capa de almacenamiento segura en src/utils/storage.js para
+  manejar sessionStorage/localStorage con fallback en memoria.
+- El bloqueo de autologin se guarda con clave:
+  bimex.wallet.blockAutologin
+  (preferencia por sessionStorage, fallback automatico).
+
+============================================================
+4) FUNCIONALIDADES ACTUALES (EN PRODUCCION DE DEMO)
+============================================================
+4.1 Wallet / autenticacion
+- Detecta si Freighter esta instalada.
+- Solicita permiso de acceso (requestAccess).
+- Verifica red correcta (Testnet).
+- Restaura sesion automaticamente si:
+  - autoConectar esta habilitado, y
+  - no hay bloqueo de autologin activo.
+- Cierre de sesion:
+  - limpia estado local de app,
+  - intenta revocar autorizacion de dApp en Freighter,
+  - bloquea autologin para evitar entrar directo al dashboard.
+
+4.2 Proyectos
+- Lectura on-chain de total de proyectos y detalle por id.
+- Listado con estados:
+  - cargando,
+  - vacio,
+  - grid con cards.
+- Barra de progreso por proyecto (aportado/meta).
+- Formato de montos desde stroops a MXNe.
+
+4.3 Crear proyecto
+- Formulario con validaciones:
+  - nombre obligatorio,
+  - meta obligatoria,
+  - meta > 0.
+- Convierte MXNe a stroops.
+- Ejecuta crear_proyecto on-chain.
+- Cierra modal y refresca lista al confirmarse flujo UI.
+
+4.4 Detalle de proyecto y acciones del backer
+- Carga mi aportacion y mi yield desde contrato.
+- Permite contribuir con conversion MXNe -> stroops.
+- Permite retirar principal on-chain.
+- Muestra feedback visual mediante toast.
+- Muestra estado de "Mi posicion" cuando existe aportacion.
+
+============================================================
+5) API FRONTEND DISPONIBLE (src/stellar/contrato.js)
+============================================================
+Lectura:
+- obtenerTotalProyectos()
+- obtenerProyecto(id)
+- obtenerTodosLosProyectos()
+- obtenerAportacion(idProyecto, direccionBacker)
+- calcularYield(idProyecto, direccionBacker)
+
+Escritura:
+- crearProyecto(direccion, nombre, metaMXNe)
+- contribuir(direccion, idProyecto, cantidadMXNe)
+- retirarPrincipal(direccion, idProyecto)
+- reclamarYield(direccion, idProyecto)
+
+Helpers:
+- stroopsAMXNe(stroops)
+- mxneAStroops(mxne)
+
+============================================================
+6) FLUJO DE TX IMPLEMENTADO
+============================================================
+- Construccion de tx con TransactionBuilder.
+- prepareTransaction() para footprints Soroban.
+- Firma con Freighter (signTransaction).
+- Envio con sendTransaction().
+- Polling de confirmacion con getTransaction() hasta:
+  - SUCCESS,
+  - FAILED,
+  - timeout de intentos.
+
+============================================================
+7) ARCHIVOS CLAVE
+============================================================
+- src/stellar/contrato.js
+- src/components/ConectarWallet.jsx
+- src/components/ListaProyectos.jsx
+- src/components/CrearProyecto.jsx
+- src/components/DetalleProyecto.jsx
+- src/App.jsx
+- src/utils/storage.js
+
+============================================================
+8) NOTAS OPERATIVAS PARA DEMO
+============================================================
+- Si una sesion previa persiste por cache/HMR del navegador, usar hard refresh
+  (Cmd+Shift+R) para garantizar estado fresco.
+- La dApp esta preparada para alternar entre sessionStorage/localStorage
+  via helper de storage, con fallback seguro en memoria.
+
+============================================================
+9) ESTADO ACTUAL
+============================================================
+- Integracion principal contrato + wallet: operativa.
+- Flujo crear/listar/contribuir/retirar: integrado en frontend.
+- Gestion de sesion y autologin: controlada con bloqueo explicito.
