@@ -393,7 +393,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
               </p>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <div>
-                  <div style={{ fontSize: "0.8rem", color: "var(--muted)" }}>Tu lana adentro</div>
+                  <div style={{ fontSize: "0.8rem", color: "var(--muted)" }}>Tu capital aportado</div>
                   <div style={{ fontFamily: "'DM Mono'", color: "var(--primary)", fontSize: "1.1rem" }}>
                     {stroopsAMXNe(miAportacion)}
                   </div>

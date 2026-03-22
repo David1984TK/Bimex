@@ -401,7 +401,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                 <span>ℹ️</span>
                 <div style={{ fontSize: "0.8rem", color: "var(--muted)", lineHeight: 1.6 }}>
                   <p style={{ marginBottom: "8px" }}>
-                    Tus backers prestan su lana, no la donan — eso los hace confiar más.
+                    Tus backers aportan capital, no lo donan — eso genera mayor confianza.
                     <strong style={{ color: "var(--primary)" }}> Tú recibes el yield</strong>,
                     ellos sacan lo que metieron cuando el proyecto termina.
                   </p>

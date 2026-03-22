@@ -49,7 +49,7 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
         <div>
           <h2 style={estilos.titulo}>Proyectos</h2>
           <p style={{ color: "var(--muted)", fontSize: "0.88rem", marginTop: 4 }}>
-            Apoya iniciativas mexicanas. Lo peor que te puede pasar: salir tablas.
+            Apoya proyectos de impacto real. Tu capital siempre es recuperable.
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -79,7 +79,7 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
         <p style={{ fontSize: "0.86rem", color: "var(--muted)", lineHeight: 1.6 }}>
           <strong style={{ color: "var(--text2)" }}>¿Cómo funciona?</strong>{" "}
           Tu MXNe entra al contrato — no a nuestra cuenta, al código. El yield financia el proyecto
-          y lo que metiste, lo sacas cuando termina. El contrato lo cuida mejor que el colchón.
+          y tu capital lo recuperas íntegro al finalizar el proyecto.
         </p>
       </div>
 
