@@ -449,8 +449,8 @@ mod test {
         // Fondos suficientes para cubrir el yield con tasas demo elevadas
         asset_client.mint(&contrato_id, &100_000_000_000i128);
 
-        // yield_cetes_bps=25000, yield_amm_bps=10000 (tasas demo visibles)
-        cliente.inicializar(&admin, &token_mxne, &25000u32, &10000u32);
+        // yield_cetes_bps=500000, yield_amm_bps=200000 (tasas demo moderadas — Opción A)
+        cliente.inicializar(&admin, &token_mxne, &500000u32, &200000u32);
         (env, cliente, admin, dueno, backer, token_mxne)
     }
 
@@ -476,7 +476,7 @@ mod test {
         let cliente = BimexContratoClient::new(&env, &contrato_id);
         asset.mint(&contrato_id, &100_000_000_000i128);
 
-        cliente.inicializar(&admin, &token_mxne, &25000u32, &10000u32);
+        cliente.inicializar(&admin, &token_mxne, &500000u32, &200000u32);
 
         // Paso 1 — crear proyecto con meta = 200M
         let doc_hash = BytesN::from_array(&env, &[0u8; 32]);
@@ -503,15 +503,15 @@ mod test {
         // Paso 3 — avanzar 30 min y verificar yield_detallado
         env.ledger().with_mut(|l| l.timestamp = 30 * 60);
 
-        // yield_cetes = 50M * 25000 * 30 / 10_000 / 525_600 = 7_134
-        // yield_amm   = 50M * 10000 * 30 / 10_000 / 525_600 = 2_853
+        // yield_cetes = 50M * 500000 * 30 / 10_000 / 525_600 = 142_694
+        // yield_amm   = 50M * 200000 * 30 / 10_000 / 525_600 = 57_077
         let detalle = cliente.calcular_yield_detallado(&id);
-        assert_eq!(detalle.cetes, 7_134i128);
-        assert_eq!(detalle.amm,   2_853i128);
-        assert_eq!(detalle.total, 9_987i128);
+        assert_eq!(detalle.cetes, 142_694i128);
+        assert_eq!(detalle.amm,   57_077i128);
+        assert_eq!(detalle.total, 199_771i128);
 
         let yield_reclamado = cliente.reclamar_yield(&id);
-        assert_eq!(yield_reclamado, 9_987i128);
+        assert_eq!(yield_reclamado, 199_771i128);
 
         // Paso 4 — backer contribuye 100M más → total 200M = meta → Liberado
         cliente.contribuir(&backer, &id, &100_000_000i128);

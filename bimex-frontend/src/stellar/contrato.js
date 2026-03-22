@@ -19,8 +19,8 @@ export const CONFIG = {
   RPC_URL: import.meta.env.VITE_RPC_URL ?? "https://soroban-testnet.stellar.org",
   NETWORK_PASSPHRASE: Networks.TESTNET,
   TOKEN_MXNE: import.meta.env.VITE_TOKEN_MXNE ?? "CDDIGHPVTW4PSCQCU67NQ4NXZ4NX5GDLNL3O67WT5RQ4GT6RXIEYPC4P",
-  YIELD_CETES_BPS: 10000000,  // tasa demo Capa 1 — fórmula divide entre MINUTOS_ANO (525600)
-  YIELD_AMM_BPS:   4000000,   // tasa demo Capa 2 — visible en minutos durante demo
+  YIELD_CETES_BPS: 500000,   // tasa demo Capa 1 — Opción A moderada
+  YIELD_AMM_BPS:   200000,   // tasa demo Capa 2 — visible en ~10 min
 };
 
 // ─── Servidor RPC ─────────────────────────────────────────────────────────────
