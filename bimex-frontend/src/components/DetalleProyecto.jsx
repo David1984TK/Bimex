@@ -33,8 +33,9 @@ function estimarYieldDueno(proyecto) {
   const ammCap   = BigInt(proyecto.capital_en_amm   ?? 0);
   const cetesBps = BigInt(CONFIG.YIELD_CETES_BPS);
   const ammBps   = BigInt(CONFIG.YIELD_AMM_BPS);
-  const yieldCetes = (cetesCap * cetesBps * minutos) / BigInt(10_000);
-  const yieldAmm   = (ammCap   * ammBps   * minutos) / BigInt(10_000);
+  const MINUTOS_ANO = BigInt(525_600);
+  const yieldCetes = (cetesCap * cetesBps * minutos) / BigInt(10_000) / MINUTOS_ANO;
+  const yieldAmm   = (ammCap   * ammBps   * minutos) / BigInt(10_000) / MINUTOS_ANO;
   return yieldCetes + yieldAmm;
 }
 
@@ -50,8 +51,9 @@ function estimarYieldDetallado(proyecto) {
   const ammCap   = BigInt(proyecto.capital_en_amm   ?? 0);
   const cetesBps = BigInt(CONFIG.YIELD_CETES_BPS);
   const ammBps   = BigInt(CONFIG.YIELD_AMM_BPS);
-  const cetes = (cetesCap * cetesBps * minutos) / BigInt(10_000);
-  const amm   = (ammCap   * ammBps   * minutos) / BigInt(10_000);
+  const MINUTOS_ANO = BigInt(525_600);
+  const cetes = (cetesCap * cetesBps * minutos) / BigInt(10_000) / MINUTOS_ANO;
+  const amm   = (ammCap   * ammBps   * minutos) / BigInt(10_000) / MINUTOS_ANO;
   return { cetes, amm, total: cetes + amm };
 }
 
