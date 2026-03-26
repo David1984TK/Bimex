@@ -1,0 +1,885 @@
+================================================================================
+                    DOCUMENTACIÓN - BIMEXFI
+           Zero-Loss Crowdfunding dApp en Stellar/Soroban
+================================================================================
+
+Proyecto: BimexFi
+Hackathon: Hack+ Alebrije (Stellar | CDMX)
+Categoría: DeFi & Real-World Assets
+Fecha: 2026
+Estado: En desarrollo
+
+================================================================================
+1. RESUMEN EJECUTIVO
+================================================================================
+
+BimexFi es una aplicación descentralizada (dApp) de crowdfunding sin pérdida
+implementada en Stellar/Soroban. El modelo funciona así:
+
+- Los patrocinadores (backers) bloquean capital en MXNe (token stablecoin)
+- El capital genera rendimiento (yield) a través de:
+  * ~9.45% APY de CETES (Etherfuse Stablebonds)
+  * ~4% APY de AMM (Automated Market Maker)
+  * Total: ~13.45% APY
+
+- El yield (ganancia) se destina al proyecto que está buscando financiamiento
+- El patrcinador puede reclamar su capital principal en cualquier momento
+- Una vez alcanzada la meta, se "libera" el proyecto y se activa la reclamación
+  de yield
+
+Ventaja clave: El patrcinador NO pierde su inversión original, solo dona el
+rendimiento generado.
+
+================================================================================
+2. ARQUITECTURA GENERAL
+================================================================================
+
+ESTRUCTURA DE DIRECTORIOS:
+/Users/dav/Desktop/Bimex/Bimex/
+├── bimex/                    # Smart Contract (Rust/Soroban)
+│   ├── contracts/bimex/
+│   │   ├── src/lib.rs        # Lógica principal del contrato
+│   │   └── Cargo.toml        # Dependencias Rust
+│   └── ...
+│
+└── bimex-frontend/           # Aplicación Frontend (React/Vite)
+    ├── src/
+    │   ├── App.jsx           # Componente raíz
+    │   ├── main.jsx          # Punto de entrada
+    │   ├── stellar/
+    │   │   └── contrato.js   # Interfaz con el contrato
+    │   ├── components/       # Componentes React
+    │   │   ├── ConectarWallet.jsx
+    │   │   ├── ListaProyectos.jsx
+    │   │   ├── CrearProyecto.jsx
+    │   │   ├── DetalleProyecto.jsx
+    │   │   ├── Recompensas.jsx
+    │   │   ├── MiCuenta.jsx
+    │   │   └── AdminPanel.jsx
+    │   ├── hooks/            # React hooks personalizados
+    │   │   └── useCetesRate.js
+    │   └── utils/            # Utilidades
+    │       └── storage.js    # Manejo de localStorage
+    ├── package.json
+    ├── vite.config.js
+    └── vercel.json          # Configuración despliegue Vercel
+
+FLUJO DE DATOS:
+1. Usuario conecta wallet (Freighter)
+2. Frontend obtiene dirección del usuario
+3. Frontend llama funciones en src/stellar/contrato.js
+4. contrato.js prepara transacciones y las firma con Freighter
+5. Transacciones se envían a Soroban Testnet
+6. Frontend actualiza estado con respuestas del contrato
+
+================================================================================
+3. SMART CONTRACT (SOROBAN/RUST)
+================================================================================
+
+UBICACIÓN: /Users/dav/Desktop/Bimex/Bimex/bimex/contracts/bimex/src/lib.rs
+
+ESTADO DEL CONTRATO:
+El contrato mantiene un mapa de proyectos con los siguientes campos:
+
+```
+Proyecto {
+  id: u32,                    # ID único del proyecto
+  direccion: Address,         # Dirección del creador
+  nombre: String,             # Nombre del proyecto
+  meta_mxne: i128,           # Meta en MXNe (stroops)
+  aportaciones: Map<Address, i128>,  # Aportaciones por usuario
+  total_aportado: i128,       # Total bloqueado en contrato
+  estado: u32,               # Estado del proyecto
+    # 0 = EtapaInicial (aún recolectando)
+    # 1 = EnProgreso (meta alcanzada)
+    # 2 = Abandonado
+    # 3 = Liberado (proyecto completado)
+  fecha_creacion: u64,       # Timestamp de creación
+  yield_reclamado: Map<Address, i128>  # Yield reclamado por usuario
+}
+```
+
+CONVERSIÓN DE UNIDADES:
+- 1 MXNe = 10,000,000 stroops
+- Funciones helper:
+  * stroopsAMXNe(stroops) → stroops / 10,000,000
+  * mxneAStroops(mxne) → mxne * 10,000,000
+
+CÁLCULO DE YIELD:
+Fórmula: aportacion × tasa_anual × (dias_transcurridos / 365)
+
+Tasas:
+- CETES: 9.45% APY
+- AMM: 4% APY
+- Total: 13.45% APY
+
+El rendimiento se calcula por minuto en el contrato.
+
+FUNCIONES PÚBLICAS DE LECTURA (read-only):
+1. obtenerTotalProyectos() → u32
+   Retorna el número total de proyectos creados
+
+2. obtenerProyecto(id: u32) → Proyecto
+   Retorna detalles completos de un proyecto por ID
+
+3. obtenerTodosLosProyectos() → Vec<Proyecto>
+   Retorna lista de todos los proyectos
+
+4. obtenerAportacion(idProyecto: u32, direccion: Address) → i128
+   Retorna la aportación en stroops de un usuario a un proyecto específico
+
+5. calcularYield(idProyecto: u32, direccion: Address) → i128
+   Calcula el yield generado (NO reclamado) para un usuario en stroops
+
+FUNCIONES PÚBLICAS DE ESCRITURA (write):
+1. crearProyecto(direccion: Address, nombre: String, meta_mxne: i128)
+   Crea un nuevo proyecto
+   - direccion: quién es el creador (msg_sender)
+   - nombre: nombre del proyecto
+   - meta_mxne: meta en MXNe (se convierte internamente a stroops)
+
+2. contribuir(direccion: Address, idProyecto: u32, cantidad_mxne: i128)
+   Patrcinador aporta MXNe a un proyecto
+   - Se valida que tenga balance suficiente
+   - Se bloquea en el contrato
+   - Se registra la aportación
+
+3. retirarPrincipal(direccion: Address, idProyecto: u32)
+   Patrcinador recupera su capital original en cualquier momento
+   - Solo retira principal, no el yield
+   - Actualiza total_aportado
+
+4. reclamarYield(direccion: Address, idProyecto: u32)
+   Patrcinador reclama el rendimiento generado
+   - Solo cuando proyecto está en estado "Liberado"
+   - Transfiere el yield al usuario
+
+================================================================================
+4. FRONTEND (REACT/VITE)
+================================================================================
+
+UBICACIÓN: /Users/dav/Desktop/Bimex/Bimex/bimex-frontend/
+
+STACK TECNOLÓGICO:
+- React 19
+- Vite (bundler)
+- JavaScript (sin TypeScript)
+- Tailwind CSS (o CSS personalizado)
+- @stellar/freighter-api ^6.0.1
+- @stellar/stellar-sdk ^14.6.1
+
+CONFIGURACIÓN IMPORTANTE:
+- .npmrc: legacy-peer-deps=true (necesario para compatibilidad)
+- Dev server: npm run dev (puerto 5173)
+- Build: npm run build
+- Deploy: Vercel (vercel.json configura SPA rewrites)
+
+COMPONENTES PRINCIPALES:
+
+┌─ App.jsx (raíz)
+│  ├─ Navbar con opciones de conexión
+│  ├─ Landing page con estadísticas
+│  ├─ Rutas a cada página
+│  └─ Estado global de usuario
+│
+├─ ConectarWallet.jsx
+│  ├─ Botón "Conectar con Freighter"
+│  ├─ Detecta si wallet está instalado
+│  ├─ Extrae dirección y saldo MXNe
+│  └─ Almacena en sessionStorage
+│
+├─ ListaProyectos.jsx
+│  ├─ Lista todos los proyectos
+│  ├─ Muestra: nombre, meta, progreso, yield
+│  ├─ Filtrado por estado (EtapaInicial/EnProgreso/Liberado)
+│  └─ Enlaces a detalles de proyecto
+│
+├─ CrearProyecto.jsx
+│  ├─ Formulario para crear nuevo proyecto
+│  ├─ Input: nombre y meta en MXNe
+│  ├─ Calcula yield esperado: meta × 13.45% × (meses/12)
+│  ├─ Valida inputs (no negativos, no notación científica)
+│  └─ Llama crearProyecto en contrato
+│
+├─ DetalleProyecto.jsx
+│  ├─ Vista completa de un proyecto
+│  ├─ Contribuir: input cantidad, validación balance, confirmación
+│  ├─ Reclamar principal: solo si tiene aportación
+│  ├─ Reclamar yield: solo si proyecto está Liberado
+│  ├─ Validaciones implementadas:
+│  │  - Bloquea valores negativos
+│  │  - Bloquea notación científica (1e9)
+│  │  - Valida balance antes de contribuir
+│  │  - Mensajes de error claros por estado
+│  └─ Muestra balance disponible del usuario
+│
+├─ AdminPanel.jsx
+│  ├─ Solo visible para dirección de admin
+│  ├─ Puede cambiar estado de proyectos
+│  ├─ Acceso restringido (solo desarrolladores)
+│  └─ Manejo de fondos si es necesario
+│
+├─ MiCuenta.jsx
+│  ├─ Resumen de aportes del usuario
+│  ├─ Proyectos donde ha contribuido
+│  ├─ Principal bloqueado vs. yield generado
+│  └─ Historial de transacciones
+│
+└─ Recompensas.jsx
+   ├─ Estadísticas de yield generado
+   ├─ Gráficos de ganancias
+   ├─ Proyecciones
+   └─ Historial de reclamaciones
+
+FLUJO DE UNA CONTRIBUCIÓN:
+1. Usuario navegaa DetalleProyecto
+2. Ingresa cantidad en MXNe
+3. Sistema valida:
+   - Cantidad > 0
+   - Sin notación científica
+   - Balance suficiente (llama obtenerBalanceMXNe)
+4. Usuario confirma
+5. contrato.js prepara transacción
+6. Freighter firma la transacción
+7. Se envía a Soroban RPC
+8. Frontend espera confirmación
+9. Actualiza estado local
+10. Muestra éxito/error
+
+FUNCIONES EN contrato.js (src/stellar/contrato.js):
+
+Lectura:
+- obtenerTotalProyectos()
+- obtenerProyecto(id)
+- obtenerTodosLosProyectos()
+- obtenerAportacion(idProyecto, direccion)
+- calcularYield(idProyecto, direccion)
+- obtenerBalanceMXNe(direccion)  ← especial: llama SAC de MXNe
+
+Escritura:
+- crearProyecto(nombre, metaMXNe)
+- contribuir(idProyecto, cantidadMXNe)
+- retirarPrincipal(idProyecto)
+- reclamarYield(idProyecto)
+
+ALMACENAMIENTO LOCAL:
+(src/utils/storage.js)
+- sessionStorage (temporal, se limpia al cerrar pestaña):
+  * usuario_direccion
+  * usuario_balance_mxne
+  * usuario_conectado
+
+================================================================================
+5. CONTRATO IDS (TESTNET STELLAR)
+================================================================================
+
+RED: Stellar Testnet
+
+APP CONTRACT ID:
+CDFFTEQLNIG2RAUONFXSQX2YS2UTQTCBEUAPK6S42XFNIOQEYPBJVH5T
+
+MXNe SAC TOKEN ID (Stablecoin):
+CDDIGHPVTW4PSCQCU67NQ4NXZ4NX5GDLNL3O67WT5RQ4GT6RXIEYPC4P
+
+SOROBAN RPC ENDPOINT:
+https://soroban-testnet.stellar.org
+
+FRIENDBOT (para fondeo de cuentas de prueba):
+https://friendbot.stellar.org
+
+================================================================================
+6. INSTALACIÓN Y CONFIGURACIÓN LOCAL
+================================================================================
+
+REQUISITOS:
+- Node.js 18+ (para el frontend)
+- Rust 1.70+ (para el contrato, si modificas)
+- Freighter extension instalada en navegador
+- Acceso a Stellar Testnet
+
+INSTALACIÓN FRONTEND:
+
+1. Navega al directorio:
+   cd /Users/dav/Desktop/Bimex/Bimex/bimex-frontend
+
+2. Instala dependencias:
+   npm install
+   (usa legacy-peer-deps=true del .npmrc)
+
+3. Crea archivo .env.local con:
+   VITE_CONTRACT_ID=CDFFTEQLNIG2RAUONFXSQX2YS2UTQTCBEUAPK6S42XFNIOQEYPBJVH5T
+   VITE_TOKEN_MXNE=CDDIGHPVTW4PSCQCU67NQ4NXZ4NX5GDLNL3O67WT5RQ4GT6RXIEYPC4P
+   VITE_RPC_URL=https://soroban-testnet.stellar.org
+   VITE_ADMIN_ADDRESS=tu_dirección_aqui
+   VITE_FAUCET_SECRET=secret_key_del_faucet (opcional)
+
+4. Inicia servidor de desarrollo:
+   npm run dev
+   Abre: http://localhost:5173
+
+5. Para compilar para producción:
+   npm run build
+   npm run preview
+
+INSTALACIÓN CONTRATO (si necesitas modificar/desplegar):
+
+1. Navega al directorio:
+   cd /Users/dav/Desktop/Bimex/Bimex/bimex
+
+2. Instala Soroban CLI:
+   cargo install --locked stellar-cli
+
+3. Compila el contrato:
+   soroban contract build
+
+4. Deploy a testnet:
+   soroban contract deploy \
+     --wasm target/wasm32-unknown-unknown/release/bimex.wasm \
+     --source alice \
+     --network testnet
+
+================================================================================
+7. DESPLIEGUE EN PRODUCCIÓN
+================================================================================
+
+FRONTEND EN VERCEL:
+
+Pasos:
+1. Push código a repositorio (GitHub/GitLab)
+2. Conecta repo a Vercel
+3. Vercel detecta automáticamente Vite
+4. Configure variables de entorno en Vercel dashboard:
+   - VITE_CONTRACT_ID
+   - VITE_TOKEN_MXNE
+   - VITE_RPC_URL
+   - VITE_ADMIN_ADDRESS
+   - VITE_FAUCET_SECRET (si lo necesitas)
+5. Deploy automático con cada push a rama main
+
+URL ACTUAL:
+https://bimex-frontend.vercel.app
+
+DESPLIEGUE MANUAL:
+npx vercel --prod --force
+(--force omite cache si necesitas forzar redeploy)
+
+NOTA: .npmrc con legacy-peer-deps=true ya está configurado para que
+Vercel compile correctamente.
+
+vercel.json configura SPA rewrites (todas las rutas → index.html)
+
+================================================================================
+8. VARIABLES DE ENTORNO
+================================================================================
+
+FRONTEND (.env.local):
+
+VITE_CONTRACT_ID
+  Descripción: ID del smart contract en Soroban
+  Ejemplo: CDFFTEQLNIG2RAUONFXSQX2YS2UTQTCBEUAPK6S42XFNIOQEYPBJVH5T
+  Uso: Enrutador para todas las llamadas al contrato
+
+VITE_TOKEN_MXNE
+  Descripción: ID del token SAC para MXNe
+  Ejemplo: CDDIGHPVTW4PSCQCU67NQ4NXZ4NX5GDLNL3O67WT5RQ4GT6RXIEYPC4P
+  Uso: Para obtener balance del usuario, transferencias
+
+VITE_RPC_URL
+  Descripción: Endpoint RPC de Soroban
+  Valor: https://soroban-testnet.stellar.org (testnet)
+  Uso: Comunicación con blockchain
+
+VITE_ADMIN_ADDRESS
+  Descripción: Dirección que puede acceder a AdminPanel
+  Formato: Dirección Stellar pública (G...)
+  Uso: Control de acceso en AdminPanel.jsx
+
+VITE_FAUCET_SECRET (opcional)
+  Descripción: Secret key para faucet automático de MXNe
+  Nota: Nunca exponer en cliente, solo en backend si necesario
+  Uso: Botón "100 MXNe gratis" para testing
+
+================================================================================
+9. ESTADOS DE PROYECTO
+================================================================================
+
+Un proyecto transita por estos estados:
+
+┌─────────────────────────────────────────┐
+│ 0 - ETAPA INICIAL (EtapaInicial)       │
+│ - Se está recolectando capital         │
+│ - Usuarios pueden contribuir           │
+│ - Los aportes se bloquean en contrato  │
+│ - El yield se genera automáticamente   │
+│ - Usuario NO puede reclamar yield aún  │
+│ - Usuario PUEDE retirar principal      │
+└──────────────┬──────────────────────────┘
+               │ (meta alcanzada)
+               ↓
+┌─────────────────────────────────────────┐
+│ 1 - EN PROGRESO (EnProgreso)           │
+│ - Se alcanzó la meta                   │
+│ - Se sigue generando yield             │
+│ - Usuario PUEDE reclamar yield ahora   │
+│ - Usuario PUEDE retirar principal      │
+│ - Proyecto está activo                 │
+└──────────────┬──────────────────────────┘
+               │ (decisión admin)
+               ├─→ 3 - LIBERADO (Liberado)
+               │   ├─ Yield se puede reclamar
+               │   ├─ Principal disponible
+               │   └─ Proyecto completado
+               │
+               └─→ 2 - ABANDONADO (Abandonado)
+                   ├─ Se canceló el proyecto
+                   ├─ Principales retornan a usuarios
+                   └─ Sin yield
+
+VALIDACIONES DE ESTADO:
+
+Contribuir:
+- Solo en estado 0 (EtapaInicial)
+- Validar balance usuario
+- Validar cantidad > 0
+
+Reclamar Yield:
+- Válido en estados 1 (EnProgreso) y 3 (Liberado)
+- Error en estado 0: "El yield solo se puede reclamar cuando el proyecto
+  está liberado (meta alcanzada)"
+- Validar que tenga yield pendiente
+
+Retirar Principal:
+- Válido en cualquier momento
+- En cualquier estado
+
+================================================================================
+10. CÁLCULO DE YIELD
+================================================================================
+
+TASAS DE RENDIMIENTO (REALES):
+
+Composición del 13.45% APY:
+1. CETES (Etherfuse Stablebonds): 9.45% APY
+   - Inversión en instrumentos del gobierno mexicano
+   - Bajo riesgo
+   - Parte del protocolo Etherfuse
+
+2. AMM (Automated Market Maker): 4% APY
+   - Liquidez en el AMM de Stellar/Soroban
+   - Comisiones de transacciones
+   - Interés variable
+
+FÓRMULA DE CÁLCULO:
+
+yield_generado = principal × tasa_anual × (tiempo_transcurrido / tiempo_total)
+
+Para un proyecto:
+aportacion_stroops = cantidad_mxne × 10,000,000
+
+yield_minuto = aportacion_stroops × (0.1345 / 365 / 24 / 60)
+
+yield_total = suma de yields por minuto desde fecha_contribucion hasta ahora
+
+DISPLAY EN FRONTEND:
+
+En CrearProyecto.jsx:
+"Cuando se alcance la meta de X MXNe:"
+"Se generarán aproximadamente Y MXNe de yield en Z meses"
+
+Formula mostrada:
+Y = X × 13.45% × (Z / 12)
+
+Ejemplo:
+- Meta: 1000 MXNe
+- Tiempo estimado: 6 meses
+- Yield esperado: 1000 × 0.1345 × (6/12) = 67.25 MXNe
+
+NOTA: El yield real puede variar según:
+- Duración exacta del proyecto
+- Volatilidad de tasas en CETES y AMM
+- Cambios en el protocolo
+
+================================================================================
+11. INTERFAZ CON FREIGHTER
+================================================================================
+
+FREIGHTER es la wallet de Stellar. BimexFi la usa para:
+1. Conectar cuenta del usuario
+2. Firmar transacciones
+3. Validar autoridad del usuario
+
+FLUJO DE CONEXIÓN:
+
+1. Usuario hace click en "Conectar con Freighter"
+2. ConectarWallet.jsx importa API de Freighter
+3. Se llama: Freighter.getPublicKey()
+4. Si está instalado, retorna dirección (G...)
+5. Si no está instalado, error
+6. Se guarda dirección en sessionStorage
+
+FLUJO DE TRANSACCIÓN:
+
+1. Frontend prepara transacción (contrato.js)
+2. Añade operaciones Soroban.invokeHostFunction()
+3. Firma con: Freighter.signTransaction(transactionXDR)
+4. Retorna: { signedTxXdr, signerAddress }
+5. Frontend envía transacción a RPC
+6. RPC retorna hash de transacción
+7. Frontend sondea pollTransaction(hash, options)
+8. Cuando está confirmada, actualiza UI
+
+DEPENDENCIAS:
+@stellar/freighter-api ^6.0.1
+@stellar/stellar-sdk ^14.6.1
+
+IMPORTANTE:
+- Freighter debe estar instalado en navegador
+- Usuario debe autorizar cada transacción
+- signedTxXdr viene con signerAddress incluido (v6+)
+
+================================================================================
+12. FLUJOS DE USUARIO (CASOS DE USO)
+================================================================================
+
+CASO 1: Crear un proyecto
+
+1. Usuario navegaa "Crear Proyecto"
+2. Ingresa:
+   - Nombre: "Escuela Rural"
+   - Meta: 10000 MXNe
+3. Sistema calcula: "Generará 1345 MXNe de yield en 12 meses"
+4. Usuario confirma
+5. Frontend llama contrato.crearProyecto()
+6. Freighter solicita firma
+7. Usuario autoriza en wallet
+8. Transacción se envía
+9. Proyecto aparece en lista con estado EtapaInicial
+
+CASO 2: Contribuir a un proyecto
+
+1. Usuario navega a DetalleProyecto
+2. Ve: Meta 10000, Aportado 5000, Falta 5000
+3. Ingresa cantidad: 2000 MXNe
+4. Sistema valida:
+   - Cantidad válida (2000 > 0, sin 1e9)
+   - Balance suficiente (user tiene 3000)
+5. Botón "Confirmar" se habilita
+6. Usuario hace click
+7. Frontend llama contrato.contribuir()
+8. Freighter firma
+9. Transacción confirmada
+10. UI actualiza: progreso ahora es 7000/10000
+11. Mensaje de éxito: "¡Contribución registrada!"
+
+CASO 3: Reclamar yield (proyecto en Liberado)
+
+1. Usuario en DetalleProyecto de proyecto Liberado
+2. Ve: "Principal: 2000 MXNe | Yield disponible: 268 MXNe"
+3. Hace click en "Reclamar yield"
+4. Frontend llama contrato.reclamarYield()
+5. Transacción firmada y enviada
+6. Balance se actualiza: +268 MXNe
+7. Yield disponible → 0
+
+CASO 4: Retirar principal (cualquier momento)
+
+1. Usuario en DetalleProyecto
+2. Ve: "Retirar principal: 2000 MXNe"
+3. Hace click en botón
+4. Confirmación: "¿Retirar 2000 MXNe?"
+5. Frontend llama contrato.retirarPrincipal()
+6. Transacción confirmada
+7. Principal disponible en wallet
+8. Aportación se reduce a 0 en proyecto
+
+================================================================================
+13. VALIDACIONES Y MANEJO DE ERRORES
+================================================================================
+
+VALIDACIONES EN FRONTEND:
+
+DetalleProyecto.jsx:
+┌─ Input cantidad
+│  ├─ onKeyDown: bloquea teclas - + e E (notación científica)
+│  ├─ handleCantidadChange: regex para números válidos
+│  └─ No permite negativos
+│
+├─ Validación balance
+│  ├─ Llama obtenerBalanceMXNe(direccion)
+│  ├─ Si balance < cantidad:
+│  │  ├─ Mensaje: "Saldo insuficiente — tienes X disponibles"
+│  │  ├─ Botón "Confirmar" deshabilitado
+│  │  └─ No se procesa transacción
+│  └─ Si balance >= cantidad: OK
+│
+├─ Validación estado para reclamar yield
+│  ├─ Si estado es 0 (EtapaInicial):
+│  │  └─ Mensaje: "El yield solo se puede reclamar cuando el proyecto
+│  │      está liberado (meta alcanzada)"
+│  ├─ Si estado es 1 o 3 (EnProgreso/Liberado): OK
+│  └─ Si estado es 2 (Abandonado): No se puede reclamar
+│
+└─ Validación cantidad > 0
+   └─ Si cantidad = 0: botón deshabilitado
+
+ERRORES COMUNES:
+
+"Cantidad inválida"
+→ Verifica que sea > 0, sin notación científica
+
+"Saldo insuficiente"
+→ Usuario no tiene suficiente MXNe, debe usar faucet o comprar
+
+"Wallet no conectada"
+→ Usuario debe hacer click en "Conectar con Freighter"
+
+"El yield solo se puede reclamar cuando el proyecto está liberado"
+→ Proyecto aún en EtapaInicial o EnProgreso, espera a Liberado
+
+"Transacción rechazada"
+→ Usuario rechazó firma en Freighter
+
+"Error de conexión RPC"
+→ Problema con Soroban testnet, reintentar
+
+================================================================================
+14. TESTING Y DEBUG
+================================================================================
+
+HERRAMIENTAS ÚTILES:
+
+1. Freighter Extension
+   - Ver dirección conectada
+   - Ver balance de tokens
+   - Autorizar/rechazar transacciones
+   - Network: debe estar en Testnet
+
+2. Stellar Testnet Friendbot
+   URL: https://friendbot.stellar.org/?addr=GADRPZ7JKMNZ2DKMU5VVXASWKPJEXUKPDVLWZC2FPLQ5EGZ2V7UC5HEW
+   Uso: Fondear cuenta XLM (necesario para operaciones)
+
+3. Stellar Lab
+   URL: https://stellar.expert/explorer/testnet/
+   Uso: Ver transacciones, cuentas, contratoss
+
+4. Browser DevTools
+   F12 → Console
+   Ver errores de JavaScript
+   Validar que contrato.js esté conectando bien
+
+5. Network Tab
+   Ver request/response de RPC
+   Validar que transacciones se envían correctamente
+
+TEST CHECKLIST:
+
+□ Wallet conecta correctamente
+□ Balance se obtiene sin errores
+□ Crear proyecto funciona
+□ Contribuir valida cantidad
+□ Reclamar yield en estado correcto
+□ Retirar principal en cualquier estado
+□ Errores se muestran claramente
+□ UI actualiza después de transacción
+□ Balance se refleja correctamente
+
+================================================================================
+15. STACK TECNOLÓGICO DETALLADO
+================================================================================
+
+BLOCKCHAIN:
+- Stellar (blockchain principal)
+- Soroban (smart contracts de Stellar)
+- Network: Testnet (https://soroban-testnet.stellar.org)
+
+SMART CONTRACT:
+- Lenguaje: Rust
+- Framework: Soroban SDK
+- Compilación: WebAssembly (WASM)
+- Storage: Persistent ledger del blockchain
+
+FRONTEND:
+- Framework: React 19
+- Bundler: Vite
+- Lenguaje: JavaScript (ES6+)
+- Estilos: CSS personalizado o Tailwind
+- Package manager: npm
+
+INTERACCIÓN BLOCKCHAIN:
+- SDK: @stellar/stellar-sdk ^14.6.1
+- Wallet: @stellar/freighter-api ^6.0.1
+- RPC Client: rpc.Server de stellar-sdk
+- Transacciones: Soroban.invokeHostFunction()
+
+DESPLIEGUE:
+- Frontend: Vercel (servidor estático)
+- Smart Contract: Soroban Testnet
+
+LIBRERÍAS CLAVE:
+```json
+{
+  "dependencies": {
+    "@stellar/freighter-api": "^6.0.1",
+    "@stellar/stellar-sdk": "^14.6.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.0.0",
+    "vite": "^4.4.0"
+  }
+}
+```
+
+================================================================================
+16. RECURSOS Y REFERENCIAS
+================================================================================
+
+DOCUMENTACIÓN OFICIAL:
+- Stellar Dev Docs: https://developers.stellar.org
+- Soroban Book: https://soroban.stellar.org/docs
+- Freighter API: https://github.com/stellar/freighter-api
+
+REDES DE PRUEBA:
+- Soroban Testnet RPC: https://soroban-testnet.stellar.org
+- Stellar Testnet Dashboard: https://stellar.expert/explorer/testnet/
+- Friendbot (faucet XLM): https://friendbot.stellar.org
+
+HERRAMIENTAS:
+- Stellar CLI: https://github.com/stellar/stellar-cli
+- Stellar Lab: https://lab.stellar.org
+- Freighter Wallet: https://www.freighter.app
+
+REFERENCIAS DEL HACKATHON:
+- Hack+ Alebrije: https://hackalebrije.com
+- Etherfuse (CETES): https://etherfuse.com
+- Stellar: https://stellar.org
+
+EJEMPLOS DE CÓDIGO:
+- ai-etherfuse-integration:
+  https://github.com/carstenjacobsen/ai-etherfuse-integration
+- Regional starter pack:
+  https://github.com/ElliotFriend/regional-starter-pack
+- Ya Otter Save:
+  https://github.com/briwylde08/ya-otter-save
+
+CONTACTO Y SOPORTE:
+- Stellar Community: https://stellar.org/community
+- Stellar Discord: https://discord.gg/stellar-development-foundation
+- Soroban Issues: https://github.com/stellar/rs-soroban-sdk/issues
+
+================================================================================
+17. NOTAS DE DESARROLLO Y GOTCHAS
+================================================================================
+
+PROBLEMAS CONOCIDOS:
+
+1. Storage TTL
+   Problema: El almacenamiento en Soroban expira (~30 días)
+   Solución: Extender TTL proactivamente cada 518400 ledgers
+   Código: Use Contract::extend_ttl() en funciones críticas
+
+2. Notación científica en input
+   Problema: Usuario ingresa "1e9" en cantidad (notación científica)
+   Solución: Bloqueamos tecla "e", "E", "+", "-"
+   Implementación: DetalleProyecto.jsx onKeyDown handlers
+
+3. Balance validation
+   Problema: Usuario intenta contribuir sin validar balance
+   Solución: Llamamos obtenerBalanceMXNe() antes de permitir
+   Nota: Esta es una llamada de lectura, no consume gas
+
+4. Freighter signature format
+   Problema: Versiones viejas de Freighter retornan string, no objeto
+   Solución: Usamos versión ^6.0.1 que retorna { signedTxXdr, signerAddress }
+   Nota: No soportamos versiones < 6.0
+
+5. CORS y RPC
+   Problema: Algunos RPC testnet pueden tener issues de CORS
+   Solución: Usar endpoint oficial: https://soroban-testnet.stellar.org
+   Workaround: Si falla, reintentar en unos segundos
+
+6. Vercel deployment con legacy deps
+   Problema: npm install falla en Vercel sin legacy-peer-deps
+   Solución: .npmrc con legacy-peer-deps=true
+   Nota: Ya está configurado
+
+MEJORAS FUTURAS:
+
+1. Migrar a mainnet (actualmente testnet solo)
+2. Agregar más fuentes de yield (Blend protocol)
+3. UI/UX mejorada (Dark mode, mobile optimizations)
+4. Analytics y tracking de proyectos
+5. Sistema de recompensas adicionales
+6. Integración con más wallets (Albedo, etc)
+7. Soporte multiidioma (actualmente solo español)
+8. Sistema de puntuación/reputación para proyectos
+9. Pagos automáticos de yield
+10. Auditoría de seguridad del contrato
+
+================================================================================
+18. COMANDOS ÚTILES
+================================================================================
+
+DESARROLLO LOCAL:
+
+# Instalar dependencias
+npm install
+
+# Desarrollo (hotreload)
+npm run dev
+
+# Build producción
+npm run build
+
+# Preview build local
+npm run preview
+
+# Lint (si está configurado)
+npm run lint
+
+DESPLIEGUE:
+
+# Push a GitHub (si tienes origin)
+git push origin main
+
+# Deploy a Vercel (requiere CLI)
+npx vercel
+
+# Deploy forzado (omite cache)
+npx vercel --prod --force
+
+CONTRATO (si lo modificas):
+
+# Build contrato WASM
+soroban contract build
+
+# Deploy a testnet
+soroban contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/bimex.wasm \
+  --source alice \
+  --network testnet
+
+# Ver estado del contrato
+stellar contract info CDFFTEQLNIG2RAUONFXSQX2YS2UTQTCBEUAPK6S42XFNIOQEYPBJVH5T
+
+DEBUG:
+
+# Ver logs de transacción (en DevTools)
+Consola del navegador: Network tab
+Filtra por "soroban-testnet.stellar.org"
+
+# Ver estado del contrato en testnet
+https://stellar.expert/explorer/testnet/contract/
+CDFFTEQLNIG2RAUONFXSQX2YS2UTQTCBEUAPK6S42XFNIOQEYPBJVH5T
+
+================================================================================
+FIN DE DOCUMENTACIÓN
+================================================================================
+
+Versión: 1.0
+Fecha: 2026-03-25
+Actualizado por: AI Assistant
+Estado: Completo
+
+Para preguntas adicionales o actualizaciones, contacta al equipo de desarrollo.
