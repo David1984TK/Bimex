@@ -14,13 +14,19 @@ import { signTransaction } from "@stellar/freighter-api";
 
 // ─── Configuración ────────────────────────────────────────────────────────────
 
+const _network = import.meta.env.VITE_NETWORK ?? "testnet";
+const _isMainnet = _network === "mainnet";
+
 export const CONFIG = {
   CONTRACT_ID: (import.meta.env.VITE_CONTRACT_ID ?? "CAEYEIIH4MHXDVEBAPNGV2LJ7DAO4JSVBIN3E3I6TBK56AMRWERNRM3B").trim(),
   RPC_URL: import.meta.env.VITE_RPC_URL ?? "https://soroban-testnet.stellar.org",
-  NETWORK_PASSPHRASE: Networks.TESTNET,
+  NETWORK_PASSPHRASE: _isMainnet ? Networks.PUBLIC : Networks.TESTNET,
+  NETWORK: _network,
   TOKEN_MXNE: import.meta.env.VITE_TOKEN_MXNE ?? "CDDIGHPVTW4PSCQCU67NQ4NXZ4NX5GDLNL3O67WT5RQ4GT6RXIEYPC4P",
-  YIELD_CETES_BPS: 5000000,  // tasa demo Capa 1 — ~10 MXNe/min por 16K
-  YIELD_AMM_BPS:   2000000,  // tasa demo Capa 2
+  // Tasas reales en producción (bps): 945 = 9.45% CETES, 400 = 4% AMM
+  // Tasas demo en testnet: 5000000 / 2000000 (~10 MXNe/min por 16K)
+  YIELD_CETES_BPS: _isMainnet ? 945 : 5000000,
+  YIELD_AMM_BPS:   _isMainnet ? 400 : 2000000,
 };
 
 // ─── Servidor RPC ─────────────────────────────────────────────────────────────
