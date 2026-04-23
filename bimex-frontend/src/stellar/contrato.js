@@ -22,7 +22,11 @@ export const CONFIG = {
   RPC_URL: import.meta.env.VITE_RPC_URL ?? "https://soroban-testnet.stellar.org",
   NETWORK_PASSPHRASE: _isMainnet ? Networks.PUBLIC : Networks.TESTNET,
   NETWORK: _network,
-  TOKEN_MXNE: import.meta.env.VITE_TOKEN_MXNE ?? "CDDIGHPVTW4PSCQCU67NQ4NXZ4NX5GDLNL3O67WT5RQ4GT6RXIEYPC4P",
+  TOKEN_MXNE: import.meta.env.VITE_TOKEN_MXNE ?? (
+    _isMainnet
+      ? "CAPW7JXJ6H6SGJ5MVM25356FAYOVT3ICZUIZRT4KGZHLUNMTWNMUI3RM"  // MXNe Mainnet (issuer: brale.xyz)
+      : "CDDIGHPVTW4PSCQCU67NQ4NXZ4NX5GDLNL3O67WT5RQ4GT6RXIEYPC4P"  // MXNe Testnet
+  ),
   // Tasas reales en producción (bps): 945 = 9.45% CETES, 400 = 4% AMM
   // Tasas demo en testnet: 5000000 / 2000000 (~10 MXNe/min por 16K)
   YIELD_CETES_BPS: _isMainnet ? 945 : 5000000,
