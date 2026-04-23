@@ -163,7 +163,7 @@ function TabMisProyectos({ proyectos, direccion, onVerProyecto }) {
   }
 
   return (
-    <div className="cuenta-grid" style={estilos.grid} role="list" aria-label={t("cuenta.ariaProjects")}>
+    <div className="cuenta-grid" style={estilos.grid} role="list" aria-label="Mis proyectos">
       {misProyectos.map((p) => (
         <CardMiProyecto key={p.id} proyecto={p} onVerProyecto={onVerProyecto} />
       ))}
@@ -306,7 +306,7 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
       </div>
 
       {/* Grid de contribuciones */}
-      <div className="cuenta-grid" style={estilos.grid} role="list" aria-label={t("cuenta.ariaContributions")}>
+      <div className="cuenta-grid" style={estilos.grid} role="list" aria-label="Mis contribuciones">
         {contribuciones.map(({ proyecto, aportacion, yieldAcum }) => (
           <CardContribucion
             key={proyecto.id}
@@ -323,8 +323,7 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-export default function MiCuenta({ direccion, onVerProyecto }) {
-  const { t } = useTranslation();
+export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido }) {
   const [tab, setTab] = useState("proyectos");
   const [proyectos, setProyectos] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -369,8 +368,10 @@ export default function MiCuenta({ direccion, onVerProyecto }) {
         );
         if (cancelado) return;
         const positivos = resultados.filter((a) => a > BigInt(0));
+        const total = positivos.reduce((acc, a) => acc + a, BigInt(0));
         setNumApoyados(positivos.length);
-        setTotalInvertido(positivos.reduce((acc, a) => acc + a, BigInt(0)));
+        setTotalInvertido(total);
+        onTotalInvertido?.(total);
       } catch (e) {
         console.error("Error calculando resumen:", e);
         if (!cancelado) {
@@ -419,7 +420,7 @@ export default function MiCuenta({ direccion, onVerProyecto }) {
       </div>
 
       {/* Tabs */}
-      <div className="cuenta-tabs-row" style={estilos.tabsRow} role="tablist" aria-label={t("cuenta.ariaSections")}>
+      <div className="cuenta-tabs-row" style={estilos.tabsRow} role="tablist" aria-label="Secciones de mi cuenta">
         <button
           role="tab"
           aria-selected={tab === "proyectos"}

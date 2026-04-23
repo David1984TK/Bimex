@@ -66,7 +66,7 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
       {/* Stats strip */}
       {proyectosPublicos.length > 0 && (
         <div className="stats-strip-scroll lista-stats-strip" style={estilos.statsStrip}>
-          <StatStrip icon="📦" label={t("lista.statTotal")} valor={proyectosPublicos.length} />
+          <StatStrip icon="📦" label="Total" valor={proyectosPublicos.length} />
           <div style={estilos.statsDivider} />
           <StatStrip icon="🚀" label={t("lista.statProgress")} valor={enProgreso} />
           <div style={estilos.statsDivider} />

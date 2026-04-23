@@ -347,9 +347,9 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
 
           {/* Stats */}
           <div className="detalle-stats-grid" style={estilos.statsGrid}>
-            <StatBox label={t("detalle.totalLocked")} valor={stroopsAMXNe(proyecto.aportado ?? 0)} color="var(--text)" />
-            <StatBox label={t("detalle.goal")}        valor={stroopsAMXNe(proyecto.meta ?? 0)}     color="var(--muted)" />
-            <StatBox label={t("detalle.yieldDelivered")} valor={stroopsAMXNe(proyecto.yield_entregado ?? 0)} color="var(--amber)" />
+            <StatBox label="Total bloqueado" valor={stroopsAMXNe(proyecto.aportado ?? 0)} color="var(--text)" />
+            <StatBox label="Meta"            valor={stroopsAMXNe(proyecto.meta ?? 0)}     color="var(--muted)" />
+            <StatBox label="Yield entregado" valor={stroopsAMXNe(proyecto.yield_entregado ?? 0)} color="var(--amber)" />
           </div>
 
           {/* Yield detallado del dueño — Capa 1 CETES + Capa 2 AMM */}
