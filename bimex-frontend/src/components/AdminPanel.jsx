@@ -268,7 +268,7 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
                       </div>
 
                       {/* Meta info */}
-                      <div style={estilos.metaGrid}>
+                      <div className="admin-meta-grid" style={estilos.metaGrid}>
                         <div>
                           <div style={estilos.metaLabel}>Dueño</div>
                           <code style={estilos.metaValor}>
@@ -329,7 +329,7 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
                         </div>
                       ) : (
                         /* Botones de acción */
-                        <div style={{ display: "flex", gap: "8px", marginTop: "14px", flexWrap: "wrap" }}>
+                        <div className="admin-acciones" style={{ display: "flex", gap: "8px", marginTop: "14px", flexWrap: "wrap" }}>
                           <button
                             className="btn btn-primary"
                             style={{ flex: 1, minWidth: "120px", justifyContent: "center" }}
