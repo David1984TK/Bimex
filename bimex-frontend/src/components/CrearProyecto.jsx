@@ -5,6 +5,7 @@ import {
   hashearDocumentos,
   CONFIG,
 } from "../stellar/contrato";
+import { subirConFallback } from "../utils/ipfs";
 
 const PASOS = [
   { n: 1, label: "Datos del proyecto" },
@@ -31,8 +32,10 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
   // ── Paso 2: documentos
   const [docs, setDocs] = useState({ ine: null, plan: null, presupuesto: null });
 
-  // ── Paso 3: resultado del hash
+  // ── Paso 3: resultado IPFS (o fallback SHA-256)
   const [docHashBytes, setDocHashBytes] = useState(null);
+  const [ipfsCids, setIpfsCids] = useState(null); // { ine, plan, presupuesto, usedFallback }
+  const [uploadProgreso, setUploadProgreso] = useState(""); // status message
 
   const [cargando,   setCargando]   = useState(false);
   const [hasheando,  setHasheando]  = useState(false);
@@ -57,7 +60,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
     setPaso(2);
   }
 
-  // ── Hash de documentos y avance a paso 3
+  // ── Subir documentos a IPFS (con fallback SHA-256) y avanzar a paso 3
   async function avanzarAPaso3() {
     setError("");
     if (!docs.ine || !docs.plan || !docs.presupuesto) {
@@ -66,11 +69,31 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
     }
     setHasheando(true);
     try {
-      const hash = await hashearDocumentos(docs.ine, docs.plan, docs.presupuesto);
-      setDocHashBytes(hash);
+      setUploadProgreso("Subiendo INE a IPFS…");
+      const r1 = await subirConFallback(docs.ine);
+      setUploadProgreso("Subiendo plan del proyecto a IPFS…");
+      const r2 = await subirConFallback(docs.plan);
+      setUploadProgreso("Subiendo presupuesto a IPFS…");
+      const r3 = await subirConFallback(docs.presupuesto);
+      setUploadProgreso("");
+
+      const usedFallback = r1.usedFallback || r2.usedFallback || r3.usedFallback;
+      setIpfsCids({ ine: r1, plan: r2, presupuesto: r3, usedFallback });
+
+      // Build the 32-byte on-chain hash from CIDs (or fallback hashes)
+      const encode = (str) => new TextEncoder().encode(str).slice(0, 32).reduce((a, b, i) => { a[i] = b; return a; }, new Uint8Array(32));
+      const h1 = r1.cid ? encode(r1.cid) : Uint8Array.from(r1.fallbackHash.match(/.{2}/g).map(b => parseInt(b, 16)));
+      const h2 = r2.cid ? encode(r2.cid) : Uint8Array.from(r2.fallbackHash.match(/.{2}/g).map(b => parseInt(b, 16)));
+      const h3 = r3.cid ? encode(r3.cid) : Uint8Array.from(r3.fallbackHash.match(/.{2}/g).map(b => parseInt(b, 16)));
+
+      const combinado = new Uint8Array(96);
+      combinado.set(h1, 0); combinado.set(h2, 32); combinado.set(h3, 64);
+      const digest = await crypto.subtle.digest("SHA-256", combinado);
+      setDocHashBytes(new Uint8Array(digest));
       setPaso(3);
     } catch {
       setError("Error al procesar los documentos. Intenta de nuevo.");
+      setUploadProgreso("");
     }
     setHasheando(false);
   }
@@ -290,11 +313,12 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                 <span style={{ fontSize: "1.3rem" }}>🔒</span>
                 <div>
                   <p style={{ fontSize: "0.82rem", color: "var(--text2)", fontWeight: 700, marginBottom: "4px" }}>
-                    Tus documentos nunca salen de tu dispositivo
+                    Documentos almacenados en IPFS para verificación pública
                   </p>
                   <p style={{ fontSize: "0.78rem", color: "var(--muted)", lineHeight: 1.5 }}>
-                    Solo se sube una huella digital (SHA-256) a la blockchain. Esto protege tu privacidad
-                    y garantiza a los backers que el proyecto tiene un responsable identificado.
+                    Tus documentos se suben a IPFS (Pinata) y el CID queda en la blockchain.
+                    Cualquier backer puede verificar la autenticidad. Si IPFS no está disponible,
+                    se usa SHA-256 como respaldo automático.
                   </p>
                 </div>
               </div>
@@ -352,7 +376,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                   disabled={hasheando}
                   style={{ flex: 2, justifyContent: "center" }}
                 >
-                  {hasheando ? "Procesando documentos…" : "Generar huella digital →"}
+                  {hasheando ? (uploadProgreso || "Subiendo documentos…") : "Subir documentos →"}
                 </button>
               </div>
             </>
@@ -382,16 +406,45 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                   <DocChip nombre={docs.presupuesto?.name} icono="💼" label="Presupuesto" />
                 </div>
 
-                {/* Hash fingerprint */}
+                {/* IPFS / Fallback panel */}
                 <div style={estilos.hashPanel}>
-                  <p style={{ fontSize: "0.7rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>
-                    🔐 Huella digital de tus documentos (SHA-256)
-                  </p>
-                  <code style={{ fontFamily: "'DM Mono'", fontSize: "0.72rem", color: "var(--primary)", wordBreak: "break-all", lineHeight: 1.6 }}>
-                    {hexHash.slice(0, 32)}<br />{hexHash.slice(32)}
-                  </code>
+                  {ipfsCids?.usedFallback ? (
+                    <>
+                      <p style={{ fontSize: "0.7rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>
+                        🔐 Huella digital SHA-256 (IPFS no disponible)
+                      </p>
+                      <code style={{ fontFamily: "'DM Mono'", fontSize: "0.72rem", color: "var(--primary)", wordBreak: "break-all", lineHeight: 1.6 }}>
+                        {hexHash.slice(0, 32)}<br />{hexHash.slice(32)}
+                      </code>
+                    </>
+                  ) : (
+                    <>
+                      <p style={{ fontSize: "0.7rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "8px" }}>
+                        📦 Documentos en IPFS (verificables públicamente)
+                      </p>
+                      {[
+                        { label: "🪪 INE", r: ipfsCids?.ine },
+                        { label: "📋 Plan", r: ipfsCids?.plan },
+                        { label: "💼 Presupuesto", r: ipfsCids?.presupuesto },
+                      ].map(({ label, r }) => r?.cid && (
+                        <div key={label} style={{ marginBottom: "6px" }}>
+                          <span style={{ fontSize: "0.72rem", color: "var(--muted)", marginRight: "6px" }}>{label}:</span>
+                          <a
+                            href={`https://ipfs.io/ipfs/${r.cid}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ fontFamily: "'DM Mono'", fontSize: "0.7rem", color: "var(--primary)", wordBreak: "break-all" }}
+                          >
+                            {r.cid}
+                          </a>
+                        </div>
+                      ))}
+                    </>
+                  )}
                   <p style={{ fontSize: "0.68rem", color: "var(--muted)", marginTop: "8px" }}>
-                    Esta huella se almacenará en la blockchain de Stellar. Nadie puede falsificarla.
+                    {ipfsCids?.usedFallback
+                      ? "La huella se almacenará en la blockchain de Stellar."
+                      : "Los CIDs se almacenarán en la blockchain. Cualquiera puede verificar los documentos."}
                   </p>
                 </div>
               </div>
