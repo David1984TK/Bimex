@@ -345,7 +345,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
           </div>
 
           {/* Stats */}
-          <div style={estilos.statsGrid}>
+          <div className="detalle-stats-grid" style={estilos.statsGrid}>
             <StatBox label="Total bloqueado" valor={stroopsAMXNe(proyecto.aportado ?? 0)} color="var(--text)" />
             <StatBox label="Meta"            valor={stroopsAMXNe(proyecto.meta ?? 0)}     color="var(--muted)" />
             <StatBox label="Yield entregado" valor={stroopsAMXNe(proyecto.yield_entregado ?? 0)} color="var(--amber)" />
@@ -361,7 +361,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
                 {stroopsAMXNe(yieldDuenoEstimado)}
               </div>
               {/* Desglose por capa */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px" }}>
+              <div className="detalle-yield-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px" }}>
                 <div style={estilos.yieldCapa}>
                   <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                     🏦 Capa 1 · CETES
@@ -415,7 +415,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
             <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "20px" }}>
 
               {/* Fila principal de acciones */}
-              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <div className="detalle-acciones" style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
 
                 {/* Contribuir */}
                 {aceptaFondos && (
