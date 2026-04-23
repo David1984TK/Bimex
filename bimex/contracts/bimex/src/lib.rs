@@ -2,7 +2,7 @@
 
 use soroban_sdk::{
     contract, contractimpl, contracttype,
-    token, Address, Env, String, BytesN,
+    token, Address, Env, String,
 };
 
 // ============================================================
@@ -36,8 +36,8 @@ pub struct Proyecto {
     // Capa 2: AMM Stellar
     pub capital_en_amm: i128,
     pub yield_amm_acumulado: i128,
-    // Verificación documental: SHA-256 bundle de (hash_INE || hash_plan || hash_presupuesto)
-    pub doc_hash: BytesN<32>,
+    // Verificación documental: CID de IPFS del bundle de documentos (INE + plan + presupuesto)
+    pub doc_cid: String,
     // Motivo de rechazo (solo cuando estado == Rechazado)
     pub motivo_rechazo: String,
 }
@@ -112,14 +112,14 @@ impl BimexContrato {
     }
 
     /// Crea un proyecto con verificación documental.
-    /// `doc_hash` es el SHA-256 del bundle de documentos oficiales (INE + plan + presupuesto).
-    /// Los documentos permanecen en el dispositivo del creador; solo el hash queda en la cadena.
+    /// `doc_cid` es el CID de IPFS del bundle de documentos (INE + plan + presupuesto).
+    /// Los documentos se almacenan en IPFS; solo el CID queda en la cadena.
     pub fn crear_proyecto(
         env: Env,
         dueno: Address,
         nombre: String,
         meta: i128,
-        doc_hash: BytesN<32>,
+        doc_cid: String,
     ) -> u32 {
         dueno.require_auth();
         assert!(meta > 0, "La meta debe ser mayor a 0");
@@ -132,13 +132,13 @@ impl BimexContrato {
             meta,
             total_aportado: 0,
             yield_entregado: 0,
-            estado: EstadoProyecto::EnRevision,  // inicia en revisión hasta que admin apruebe
+            estado: EstadoProyecto::EnRevision,
             timestamp_inicio: env.ledger().timestamp(),
             capital_en_cetes: 0,
             yield_cetes_acumulado: 0,
             capital_en_amm: 0,
             yield_amm_acumulado: 0,
-            doc_hash,
+            doc_cid,
             motivo_rechazo: String::from_str(&env, ""),
         };
 
@@ -421,11 +421,11 @@ mod test {
     use soroban_sdk::{
         testutils::{Address as _, Ledger},
         token::StellarAssetClient,
-        BytesN, Env, String,
+        Env, String,
     };
 
-    fn doc_hash_vacio(env: &Env) -> BytesN<32> {
-        BytesN::from_array(env, &[0u8; 32])
+    fn cid_vacio(env: &Env) -> String {
+        String::from_str(env, "QmTEST000000000000000000000000000000000000000000")
     }
 
     fn crear_env_con_token() -> (Env, BimexContratoClient<'static>, Address, Address, Address, Address) {
@@ -479,12 +479,12 @@ mod test {
         cliente.inicializar(&admin, &token_mxne, &5000000u32, &2000000u32);
 
         // Paso 1 — crear proyecto con meta = 200M
-        let doc_hash = BytesN::from_array(&env, &[0u8; 32]);
+        let doc_cid = String::from_str(&env, "QmXyz1234567890abcdef1234567890abcdef12345678");
         let id = cliente.crear_proyecto(
             &dueno,
             &String::from_str(&env, "Huerto comunitario CDMX"),
             &200_000_000i128,
-            &doc_hash,
+            &doc_cid,
         );
         assert_eq!(id, 0);
         assert_eq!(cliente.obtener_proyecto(&id).estado, EstadoProyecto::EnRevision);
@@ -528,7 +528,7 @@ mod test {
     fn test_estado_capital() {
         let (env, cliente, _admin, dueno, backer, _token) = crear_env_con_token();
 
-        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test capital"), &10_000_000i128, &doc_hash_vacio(&env));
+        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test capital"), &10_000_000i128, &cid_vacio(&env));
         cliente.admin_aprobar(&id);
         cliente.contribuir(&backer, &id, &200_000_000i128);
 
@@ -542,7 +542,7 @@ mod test {
     fn test_abandonar_y_continuar() {
         let (env, cliente, _admin, dueno, backer, _token) = crear_env_con_token();
 
-        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Proyecto prueba"), &10_000_000i128, &doc_hash_vacio(&env));
+        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Proyecto prueba"), &10_000_000i128, &cid_vacio(&env));
         // Aprobar primero antes de poder abandonar
         cliente.admin_aprobar(&id);
         cliente.abandonar_proyecto(&id);
@@ -561,7 +561,7 @@ mod test {
     fn test_meta_alcanzada() {
         let (env, cliente, _admin, dueno, backer, _token) = crear_env_con_token();
 
-        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Meta exacta"), &100_000_000i128, &doc_hash_vacio(&env));
+        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Meta exacta"), &100_000_000i128, &cid_vacio(&env));
         cliente.admin_aprobar(&id);
         cliente.contribuir(&backer, &id, &100_000_000i128);
 
@@ -573,8 +573,8 @@ mod test {
     fn test_crear_multiples_proyectos() {
         let (env, cliente, _admin, dueno, _backer, _token) = crear_env_con_token();
 
-        let id0 = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Proyecto A"), &10_000_000i128, &doc_hash_vacio(&env));
-        let id1 = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Proyecto B"), &20_000_000i128, &doc_hash_vacio(&env));
+        let id0 = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Proyecto A"), &10_000_000i128, &cid_vacio(&env));
+        let id1 = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Proyecto B"), &20_000_000i128, &cid_vacio(&env));
 
         assert_eq!(id0, 0);
         assert_eq!(id1, 1);

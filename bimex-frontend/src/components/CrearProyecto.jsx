@@ -41,8 +41,8 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
   // ── Paso 2: documentos
   const [docs, setDocs] = useState({ ine: null, plan: null, presupuesto: null });
 
-  // ── Paso 3: resultado del hash
-  const [docHashBytes, setDocHashBytes] = useState(null);
+  // ── Paso 3: CID del documento (IPFS o hex del hash como fallback)
+  const [docCid, setDocCid] = useState(null);
 
   const [cargando,   setCargando]   = useState(false);
   const [hasheando,  setHasheando]  = useState(false);
@@ -75,7 +75,10 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
     setHasheando(true);
     try {
       const hash = await hashearDocumentos(docs.ine, docs.plan, docs.presupuesto);
-      setDocHashBytes(hash);
+      // Convert hash bytes to hex string as the document CID.
+      // Replace with a real IPFS upload when the pinning service is integrated.
+      const cid = Array.from(hash).map(b => b.toString(16).padStart(2, "0")).join("");
+      setDocCid(cid);
       setPaso(3);
     } catch {
       setError(t("crear.errHash"));
@@ -85,12 +88,12 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
 
   async function manejarSubmit(e) {
     e.preventDefault();
-    if (paso !== 3 || !docHashBytes) return;
+    if (paso !== 3 || !docCid) return;
     setCargando(true);
     setError("");
     try {
       const metaStroops = mxneAStroops(Number(forma.meta));
-      await crearProyectoContrato(direccion, forma.nombre, metaStroops, docHashBytes);
+      await crearProyectoContrato(direccion, forma.nombre, metaStroops, docCid);
       onCreado();
     } catch (err) {
       console.error("Error al crear proyecto:", err);
@@ -99,10 +102,8 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
     setCargando(false);
   }
 
-  // Hex del hash para mostrar al usuario
-  const hexHash = docHashBytes
-    ? Array.from(docHashBytes).map(b => b.toString(16).padStart(2, "0")).join("")
-    : "";
+  // Hex del CID para mostrar al usuario
+  const hexHash = docCid ?? "";
 
   // Yield estimado con tasas reales: ~9.45% CETES + ~4% AMM = ~13.45% APY
   const APY_CETES = 0.0945;
@@ -366,7 +367,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
           {/* ══════════════════════════════════════════════
               PASO 3: Confirmar y crear
           ══════════════════════════════════════════════ */}
-          {paso === 3 && docHashBytes && (
+          {paso === 3 && docCid && (
             <>
               {/* Resumen del proyecto */}
               <div style={estilos.resumenCard}>
