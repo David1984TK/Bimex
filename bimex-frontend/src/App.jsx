@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { setAllowed } from "@stellar/freighter-api";
 import ConectarWallet   from "./components/ConectarWallet";
 import ListaProyectos   from "./components/ListaProyectos";
@@ -10,6 +11,7 @@ import Recompensas      from "./components/Recompensas";
 import { getStorage }   from "./utils/storage";
 import { obtenerTotalProyectos, obtenerTodosLosProyectos, stroopsAMXNe, mintearMXNePrueba } from "./stellar/contrato";
 import { useCetesRate } from "./hooks/useCetesRate";
+import "./i18n/index.js";
 import "./index.css";
 
 const KEY_SESION_WALLET = "bimex.wallet.session";
@@ -119,6 +121,7 @@ function BtnFaucet({ direccion }) {
 
 // ── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
+  const { t, i18n } = useTranslation();
   const [refrescar,      setRefrescar]      = useState(0);
   const [direccion,      setDireccion]      = useState(null);
   const [proyectoActivo, setProyectoActivo] = useState(null);
@@ -183,28 +186,37 @@ export default function App() {
             onClick={() => setVistaActual("proyectos")}
             style={{ ...st.navTab, background: vistaActual === "proyectos" ? "rgba(255,255,255,0.15)" : "transparent", color: vistaActual === "proyectos" ? "#fff" : "rgba(255,255,255,0.55)" }}
           >
-            Proyectos
+            {t("nav.projects")}
           </button>
           <button
             onClick={() => setVistaActual("micuenta")}
             style={{ ...st.navTab, background: vistaActual === "micuenta" ? "rgba(255,255,255,0.15)" : "transparent", color: vistaActual === "micuenta" ? "#fff" : "rgba(255,255,255,0.55)" }}
           >
-            Mi cuenta
+            {t("nav.myAccount")}
           </button>
         </div>
 
         <div className="navbar-actions">
-          <span className="navbar-hide-tablet" style={st.testnetBadge}>⚡ Testnet</span>
+          <span className="navbar-hide-tablet" style={st.testnetBadge}>⚡ {t("nav.testnet")}</span>
 
           {/* Faucet */}
           <BtnFaucet direccion={direccion} />
+
+          {/* Language toggle */}
+          <button
+            onClick={() => i18n.changeLanguage(i18n.language === "es" ? "en" : "es")}
+            style={{ background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.22)", color: "#E9D5FF", padding: "6px 12px", borderRadius: 8, fontFamily: "Syne, sans-serif", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer" }}
+            aria-label="Switch language"
+          >
+            {t("lang.toggle")}
+          </button>
 
           {/* Admin panel */}
           {esAdmin && (
             <button className="navbar-btn-admin"
               onClick={() => setAdminPanel(true)}
             >
-              Admin
+              {t("nav.admin")}
             </button>
           )}
 
@@ -212,14 +224,14 @@ export default function App() {
 
           <div className="wallet-chip">
             <span className="wallet-dot" aria-hidden="true" />
-            <span aria-label={`Wallet conectada: ${direccion}`}>{formatearDir(direccion)}</span>
+            <span aria-label={`Wallet: ${direccion}`}>{formatearDir(direccion)}</span>
           </div>
 
           <button className="navbar-btn-salir"
             onClick={cerrarSesionWallet}
             disabled={cerrandoSesion}
           >
-            {cerrandoSesion ? "..." : "Salir"}
+            {cerrandoSesion ? t("nav.loggingOut") : t("nav.logout")}
           </button>
         </div>
       </nav>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { obtenerTodosLosProyectos, obtenerAportacion, stroopsAMXNe } from "../stellar/contrato";
 
 // ── Niveles de confianza ──────────────────────────────────────────────────────
@@ -77,6 +78,7 @@ function calcularRecompensas(totalMXNe) {
 
 // ── Componente principal ──────────────────────────────────────────────────────
 export default function Recompensas({ direccion, refrescar }) {
+  const { t } = useTranslation();
   const [abierto,    setAbierto]    = useState(false);
   const [totalMXNe,  setTotalMXNe]  = useState(0);
   const [cargando,   setCargando]   = useState(true);
@@ -135,7 +137,7 @@ export default function Recompensas({ direccion, refrescar }) {
         onClick={() => setAbierto(v => !v)}
         aria-haspopup="dialog"
         aria-expanded={abierto}
-        aria-label={`Recompensas — nivel ${nivel.nombre}, ${desbloqueadas} desbloqueadas`}
+        aria-label={t("recompensas.ariaBtn", { level: nivel.nombre, count: desbloqueadas })}
         style={{
           display: "flex", alignItems: "center", gap: 7,
           background: abierto ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.10)",
@@ -173,29 +175,29 @@ export default function Recompensas({ direccion, refrescar }) {
           ref={panelRef}
           role="dialog"
           aria-modal="false"
-          aria-label="Panel de recompensas"
+          aria-label={t("recompensas.ariaPanel")}
           style={st.panel}
         >
           {/* Header */}
           <div style={st.panelHeader}>
             <div>
               <div style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                Tus recompensas
+                {t("recompensas.label")}
               </div>
               <div style={{ fontFamily: "Syne, sans-serif", fontWeight: 800, fontSize: "1.1rem", color: "var(--text)", marginTop: 2 }}>
-                Nivel {nivel.icono} {nivel.nombre}
+                {t("recompensas.level")} {nivel.icono} {nivel.nombre}
               </div>
             </div>
-            <button onClick={() => setAbierto(false)} aria-label="Cerrar panel de recompensas" style={st.cerrar}>×</button>
+            <button onClick={() => setAbierto(false)} aria-label={t("recompensas.closePanel")} style={st.cerrar}>×</button>
           </div>
 
           {/* Total invertido */}
           <div style={{ ...st.totalCard, background: nivel.bg, border: `1.5px solid ${nivel.border}` }}>
             <div style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-              Total invertido en Bimex
+              {t("recompensas.totalInvested")}
             </div>
             {cargando ? (
-              <div style={{ fontFamily: "'DM Mono'", fontSize: "1.6rem", color: nivel.color, marginTop: 4 }}>Cargando…</div>
+              <div style={{ fontFamily: "'DM Mono'", fontSize: "1.6rem", color: nivel.color, marginTop: 4 }}>{t("recompensas.loading")}</div>
             ) : (
               <div style={{ fontFamily: "'DM Mono'", fontSize: "1.6rem", color: nivel.color, fontWeight: 700, marginTop: 4 }}>
                 {totalMXNe.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXNe
@@ -207,7 +209,7 @@ export default function Recompensas({ direccion, refrescar }) {
           {siguiente && (
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: "0.75rem" }}>
-                <span style={{ color: "var(--muted)" }}>Progreso al nivel {siguiente.icono} {siguiente.nombre}</span>
+                <span style={{ color: "var(--muted)" }}>{t("recompensas.progressTo")} {siguiente.icono} {siguiente.nombre}</span>
                 <span style={{ color: nivel.color, fontWeight: 700, fontFamily: "'DM Mono'" }}>
                   {totalMXNe.toFixed(0)} / {siguiente.min.toLocaleString("es-MX")} MXNe
                 </span>
@@ -223,20 +225,20 @@ export default function Recompensas({ direccion, refrescar }) {
                 <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg, ${nivel.color}, #A78BFA)`, borderRadius: 99, transition: "width 0.6s ease" }} />
               </div>
               <p style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: 6 }}>
-                Te faltan {Math.max(0, siguiente.min - totalMXNe).toLocaleString("es-MX", { maximumFractionDigits: 2 })} MXNe para subir de nivel
+                {t("recompensas.remaining", { amount: Math.max(0, siguiente.min - totalMXNe).toLocaleString("es-MX", { maximumFractionDigits: 2 }) })}
               </p>
             </div>
           )}
           {!siguiente && (
             <div style={{ textAlign: "center", padding: "12px 0", marginBottom: 16 }}>
               <span style={{ fontSize: "1.4rem" }}>🏆</span>
-              <p style={{ fontSize: "0.82rem", color: nivel.color, fontWeight: 700, marginTop: 4 }}>¡Nivel máximo alcanzado!</p>
+              <p style={{ fontSize: "0.82rem", color: nivel.color, fontWeight: 700, marginTop: 4 }}>{t("recompensas.maxLevel")}</p>
             </div>
           )}
 
           {/* Grid de recompensas */}
           <div style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 12 }}>
-            Recompensas ({desbloqueadas}/{recompensas.length})
+            {t("recompensas.rewardsCount", { unlocked: desbloqueadas, total: recompensas.length })}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             {recompensas.map(r => (
@@ -244,7 +246,9 @@ export default function Recompensas({ direccion, refrescar }) {
                 key={r.id}
                 onClick={() => abrirSorpresa(r)}
                 disabled={!r.desbloqueado}
-                aria-label={r.desbloqueado ? `Ver recompensa: ${r.nombre}` : `Recompensa bloqueada: ${r.nombre}. Requiere ${r.umbral.toLocaleString("es-MX")} MXNe`}
+                aria-label={r.desbloqueado
+                  ? t("recompensas.ariaUnlocked", { name: r.nombre })
+                  : t("recompensas.ariaLocked", { name: r.nombre, amount: r.umbral.toLocaleString("es-MX") })}
                 style={{
                   ...st.recompensaBtn,
                   opacity: r.desbloqueado ? 1 : 0.45,
@@ -255,7 +259,7 @@ export default function Recompensas({ direccion, refrescar }) {
               >
                 <span style={{ fontSize: "1.4rem", marginBottom: 4, filter: r.desbloqueado ? "none" : "grayscale(1)" }}>{r.icono}</span>
                 <span style={{ fontSize: "0.72rem", fontWeight: 700, color: r.desbloqueado ? "var(--text)" : "var(--muted)", lineHeight: 1.3, textAlign: "center" }}>
-                  {r.desbloqueado ? r.nombre : "🔒 Bloqueado"}
+                  {r.desbloqueado ? r.nombre : t("recompensas.locked")}
                 </span>
                 {!r.desbloqueado && (
                   <span style={{ fontSize: "0.65rem", color: "var(--muted)", marginTop: 2 }}>
@@ -271,7 +275,7 @@ export default function Recompensas({ direccion, refrescar }) {
           {/* Info */}
           <div style={{ marginTop: 16, padding: "10px 12px", background: "linear-gradient(135deg, rgba(124,58,237,0.06), rgba(79,70,229,0.04))", borderRadius: "var(--radius-sm)", border: "1px solid rgba(124,58,237,0.10)" }}>
             <p style={{ fontSize: "0.72rem", color: "var(--muted)", lineHeight: 1.5, margin: 0 }}>
-              💡 Las recompensas se calculan sobre el total de MXNe aportado en todos los proyectos Bimex. Los regalos sorpresa se envían a tu wallet Stellar.
+              {t("recompensas.tip")}
             </p>
           </div>
         </div>
@@ -292,12 +296,12 @@ export default function Recompensas({ direccion, refrescar }) {
             <p style={{ color: "var(--muted)", fontSize: "0.9rem", marginBottom: 20 }}>{sorpresa.desc}</p>
             <div style={{ padding: "14px", background: "var(--primary-dim)", border: "1.5px solid rgba(124,58,237,0.18)", borderRadius: "var(--radius-sm)", marginBottom: 20 }}>
               <p style={{ fontSize: "0.82rem", color: "var(--primary)", fontWeight: 600, margin: 0 }}>
-                ✅ Recompensa desbloqueada en tu perfil Bimex.<br/>
-                <span style={{ color: "var(--muted)", fontWeight: 400 }}>Los regalos físicos/NFT se gestionarán próximamente.</span>
+                {t("recompensas.unlocked")}<br/>
+                <span style={{ color: "var(--muted)", fontWeight: 400 }}>{t("recompensas.unlockedHint")}</span>
               </p>
             </div>
             <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => setSorpresa(null)}>
-              ¡Genial! Cerrar
+              {t("recompensas.close")}
             </button>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   crearProyecto as crearProyectoContrato,
   mxneAStroops,
@@ -16,7 +17,16 @@ const emojis    = ["🌱", "🤝", "📚", "☀️", "🏥", "🎨", "🏗️", 
 const categorias = ["Comunidad", "Finanzas", "Educación", "Energía", "Salud", "Arte", "Infraestructura"];
 
 export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
+  const { t } = useTranslation();
   const [paso, setPaso] = useState(1);
+
+  const PASOS = [
+    { n: 1, label: t("crear.step1") },
+    { n: 2, label: t("crear.step2") },
+    { n: 3, label: t("crear.step3") },
+  ];
+
+  const categorias = Object.keys(t("crear.categories", { returnObjects: true }));
 
   // ── Paso 1: datos del proyecto
   const [forma, setForma] = useState({
@@ -46,22 +56,20 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
     setDocs(d => ({ ...d, [campo]: archivo ?? null }));
   }
 
-  // ── Validación paso 1
   function avanzarAPaso2() {
     setError("");
-    if (!forma.nombre.trim()) { setError("El nombre del proyecto es obligatorio."); return; }
-    if (!forma.meta || Number(forma.meta) <= 0) { setError("La meta debe ser mayor a 0."); return; }
+    if (!forma.nombre.trim()) { setError(t("crear.errName")); return; }
+    if (!forma.meta || Number(forma.meta) <= 0) { setError(t("crear.errGoal")); return; }
     if (forma.tiempoMeses && (Number(forma.tiempoMeses) < 1 || Number(forma.tiempoMeses) > 120)) {
-      setError("El tiempo estimado debe estar entre 1 y 120 meses."); return;
+      setError(t("crear.errTime")); return;
     }
     setPaso(2);
   }
 
-  // ── Hash de documentos y avance a paso 3
   async function avanzarAPaso3() {
     setError("");
     if (!docs.ine || !docs.plan || !docs.presupuesto) {
-      setError("Debes subir los tres documentos antes de continuar.");
+      setError(t("crear.errDocs"));
       return;
     }
     setHasheando(true);
@@ -70,12 +78,11 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
       setDocHashBytes(hash);
       setPaso(3);
     } catch {
-      setError("Error al procesar los documentos. Intenta de nuevo.");
+      setError(t("crear.errHash"));
     }
     setHasheando(false);
   }
 
-  // ── Envío final
   async function manejarSubmit(e) {
     e.preventDefault();
     if (paso !== 3 || !docHashBytes) return;
@@ -87,7 +94,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
       onCreado();
     } catch (err) {
       console.error("Error al crear proyecto:", err);
-      setError(err?.message || "Error al crear el proyecto. Intenta de nuevo.");
+      setError(err?.message || t("crear.errCreate"));
     }
     setCargando(false);
   }
@@ -104,6 +111,9 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
   const yieldEstimado = forma.meta && forma.tiempoMeses
     ? (Number(forma.meta) * APY_TOTAL * (Number(forma.tiempoMeses) / 12)).toLocaleString("es-MX", { maximumFractionDigits: 0 })
     : null;
+  const yieldNote = yieldEstimado
+    ? t("crear.yieldNote", { months: forma.tiempoMeses, plural: Number(forma.tiempoMeses) !== 1 ? "s" : "" })
+    : null;
 
   return (
     <div className="modal-overlay" onClick={onCerrar} role="presentation">
@@ -117,8 +127,8 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
       >
         {/* Header */}
         <div className="modal-header">
-          <h2 id="crear-titulo">Registrar proyecto</h2>
-          <button className="btn-close" onClick={onCerrar} aria-label="Cerrar formulario de creación">×</button>
+          <h2 id="crear-titulo">{t("crear.title")}</h2>
+          <button className="btn-close" onClick={onCerrar} aria-label={t("crear.closeAria")}>×</button>
         </div>
 
         {/* Indicador de pasos */}
@@ -155,7 +165,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
             <>
               {/* Emoji */}
               <div className="campo">
-                <label>Ícono del proyecto</label>
+                <label>{t("crear.iconLabel")}</label>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                   {emojis.map(em => (
                     <button
@@ -177,37 +187,35 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
 
               {/* Nombre */}
               <div className="campo">
-                <label htmlFor="campo-nombre">Nombre del proyecto</label>
+                <label htmlFor="campo-nombre">{t("crear.nameLabel")}</label>
                 <input
                   id="campo-nombre"
                   className="input"
                   name="nombre"
                   value={forma.nombre}
                   onChange={manejarCambio}
-                  placeholder="Ej. Huerto comunitario CDMX"
+                  placeholder={t("crear.namePlaceholder")}
                   maxLength={60}
                 />
               </div>
 
-              {/* Descripción */}
               <div className="campo">
-                <label htmlFor="campo-descripcion">Descripción breve</label>
+                <label htmlFor="campo-descripcion">{t("crear.descLabel")}</label>
                 <textarea
                   id="campo-descripcion"
                   className="input"
                   name="descripcion"
                   value={forma.descripcion}
                   onChange={manejarCambio}
-                  placeholder="¿Qué hace tu proyecto y para quién?"
+                  placeholder={t("crear.descPlaceholder")}
                   rows={3}
                   style={{ resize: "none" }}
                 />
               </div>
 
-              {/* Categoría + Tiempo */}
               <div className="crear-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
                 <div className="campo" style={{ marginBottom: 0 }}>
-                  <label htmlFor="campo-categoria">Categoría</label>
+                  <label htmlFor="campo-categoria">{t("crear.categoryLabel")}</label>
                   <select
                     id="campo-categoria"
                     className="input"
@@ -216,11 +224,11 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                     onChange={manejarCambio}
                     style={{ cursor: "pointer", background: "#fff" }}
                   >
-                    {categorias.map(c => <option key={c} value={c}>{c}</option>)}
+                    {categorias.map(c => <option key={c} value={c}>{t(`crear.categories.${c}`)}</option>)}
                   </select>
                 </div>
                 <div className="campo" style={{ marginBottom: 0 }}>
-                  <label htmlFor="campo-tiempo">Tiempo estimado (meses)</label>
+                  <label htmlFor="campo-tiempo">{t("crear.timeLabel")}</label>
                   <input
                     id="campo-tiempo"
                     className="input"
@@ -228,16 +236,15 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                     type="number"
                     value={forma.tiempoMeses}
                     onChange={manejarCambio}
-                    placeholder="Ej. 6"
+                    placeholder={t("crear.timePlaceholder")}
                     min="1"
                     max="120"
                   />
                 </div>
               </div>
 
-              {/* Meta */}
               <div className="campo" style={{ marginTop: "18px" }}>
-                <label htmlFor="campo-meta">Meta de financiamiento (MXNe)</label>
+                <label htmlFor="campo-meta">{t("crear.goalLabel")}</label>
                 <input
                   id="campo-meta"
                   className="input"
@@ -245,25 +252,22 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                   type="number"
                   value={forma.meta}
                   onChange={manejarCambio}
-                  placeholder="Ej. 10000"
+                  placeholder={t("crear.goalPlaceholder")}
                   min="1"
                 />
               </div>
 
-              {/* Yield estimado */}
               {yieldEstimado && (
                 <div style={estilos.yieldResumen}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: "0.78rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                      Yield estimado al finalizar
+                      {t("crear.yieldLabel")}
                     </span>
                     <span style={{ fontFamily: "'DM Mono'", color: "var(--amber)", fontWeight: 700, fontSize: "1rem" }}>
                       ≈ ${yieldEstimado} MXNe
                     </span>
                   </div>
-                  <p style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: "4px" }}>
-                    ~9.45% CETES + ~4% AMM · con la meta al 100% durante {forma.tiempoMeses} mes{Number(forma.tiempoMeses) !== 1 ? "es" : ""}
-                  </p>
+                  <p style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: "4px" }}>{yieldNote}</p>
                 </div>
               )}
 
@@ -271,10 +275,10 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
 
               <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
                 <button type="button" className="btn btn-ghost" onClick={onCerrar} style={{ flex: 1 }}>
-                  Cancelar
+                  {t("crear.cancel")}
                 </button>
                 <button type="button" className="btn btn-primary" onClick={avanzarAPaso2} style={{ flex: 2, justifyContent: "center" }}>
-                  Siguiente: Documentos →
+                  {t("crear.nextDocs")}
                 </button>
               </div>
             </>
@@ -289,52 +293,54 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                 <span style={{ fontSize: "1.3rem" }}>🔒</span>
                 <div>
                   <p style={{ fontSize: "0.82rem", color: "var(--text2)", fontWeight: 700, marginBottom: "4px" }}>
-                    Tus documentos nunca salen de tu dispositivo
+                    {t("crear.docsPrivacyTitle")}
                   </p>
                   <p style={{ fontSize: "0.78rem", color: "var(--muted)", lineHeight: 1.5 }}>
-                    Solo se sube una huella digital (SHA-256) a la blockchain. Esto protege tu privacidad
-                    y garantiza a los backers que el proyecto tiene un responsable identificado.
+                    {t("crear.docsPrivacyDesc")}
                   </p>
                 </div>
               </div>
 
-              {/* INE */}
               <CampoDocumento
                 id="doc-ine"
-                label="INE / Identificación oficial"
-                descripcion="Del responsable del proyecto (imagen o PDF)"
+                label={t("crear.docIneLabel")}
+                descripcion={t("crear.docIneDesc")}
                 accept=".pdf,image/jpeg,image/png,image/webp"
                 icono="🪪"
                 archivo={docs.ine}
                 onChange={f => setDoc("ine", f)}
+                selectLabel={t("crear.selectFile")}
+                maxSizeLabel={t("crear.maxSize")}
               />
 
-              {/* Plan del proyecto */}
               <CampoDocumento
                 id="doc-plan"
-                label="Plan del proyecto"
-                descripcion="Descripción detallada, objetivos y cronograma (PDF)"
+                label={t("crear.docPlanLabel")}
+                descripcion={t("crear.docPlanDesc")}
                 accept=".pdf"
                 icono="📋"
                 archivo={docs.plan}
                 onChange={f => setDoc("plan", f)}
+                selectLabel={t("crear.selectFile")}
+                maxSizeLabel={t("crear.maxSize")}
               />
 
-              {/* Presupuesto */}
               <CampoDocumento
                 id="doc-presupuesto"
-                label="Presupuesto detallado"
-                descripcion="Desglose de gastos y justificación del monto (PDF)"
+                label={t("crear.docBudgetLabel")}
+                descripcion={t("crear.docBudgetDesc")}
                 accept=".pdf"
                 icono="💼"
                 archivo={docs.presupuesto}
                 onChange={f => setDoc("presupuesto", f)}
+                selectLabel={t("crear.selectFile")}
+                maxSizeLabel={t("crear.maxSize")}
               />
 
               <div style={estilos.docsTip}>
                 <span>💡</span>
                 <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
-                  Puedes subir borradores — lo importante es que el proyecto sea real y trazable.
+                  {t("crear.docsTip")}
                 </span>
               </div>
 
@@ -342,7 +348,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
 
               <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
                 <button type="button" className="btn btn-ghost" onClick={() => { setPaso(1); setError(""); }} style={{ flex: 1 }}>
-                  ← Atrás
+                  {t("crear.back")}
                 </button>
                 <button
                   type="button"
@@ -351,7 +357,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                   disabled={hasheando}
                   style={{ flex: 2, justifyContent: "center" }}
                 >
-                  {hasheando ? "Procesando documentos…" : "Generar huella digital →"}
+                  {hasheando ? t("crear.processing") : t("crear.generateHash")}
                 </button>
               </div>
             </>
@@ -384,25 +390,24 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                 {/* Hash fingerprint */}
                 <div style={estilos.hashPanel}>
                   <p style={{ fontSize: "0.7rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>
-                    🔐 Huella digital de tus documentos (SHA-256)
+                    {t("crear.hashTitle")}
                   </p>
                   <code style={{ fontFamily: "'DM Mono'", fontSize: "0.72rem", color: "var(--primary)", wordBreak: "break-all", lineHeight: 1.6 }}>
                     {hexHash.slice(0, 32)}<br />{hexHash.slice(32)}
                   </code>
                   <p style={{ fontSize: "0.68rem", color: "var(--muted)", marginTop: "8px" }}>
-                    Esta huella se almacenará en la blockchain de Stellar. Nadie puede falsificarla.
+                    {t("crear.hashNote")}
                   </p>
                 </div>
               </div>
 
-              {/* Info yield */}
               <div style={estilos.infoBanner}>
                 <span>ℹ️</span>
                 <div style={{ fontSize: "0.8rem", color: "var(--muted)", lineHeight: 1.6 }}>
                   <p style={{ marginBottom: "8px" }}>
-                    Tus backers aportan capital, no lo donan — eso genera mayor confianza.
-                    <strong style={{ color: "var(--primary)" }}> Tú recibes el yield</strong>,
-                    ellos sacan lo que metieron cuando el proyecto termina.
+                    {t("crear.yieldInfoTitle")}
+                    <strong style={{ color: "var(--primary)" }}>{t("crear.yieldInfoYou")}</strong>
+                    {t("crear.yieldInfoThey")}
                   </p>
                   <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                     <span style={estilos.badgeVerde}>🏦 9% CETES · Etherfuse</span>
@@ -416,7 +421,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
 
               <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
                 <button type="button" className="btn btn-ghost" onClick={() => { setPaso(2); setError(""); }} style={{ flex: 1 }}>
-                  ← Atrás
+                  {t("crear.back")}
                 </button>
                 <button
                   type="submit"
@@ -424,7 +429,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                   disabled={cargando}
                   style={{ flex: 2, justifyContent: "center" }}
                 >
-                  {cargando ? "Enviando…" : "📬 Mandar a revisión"}
+                  {cargando ? t("crear.submitting") : t("crear.submit")}
                 </button>
               </div>
             </>
@@ -437,7 +442,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
 }
 
 // ── Componente: Campo de documento ───────────────────────────────────────────
-function CampoDocumento({ id, label, descripcion, accept, icono, archivo, onChange }) {
+function CampoDocumento({ id, label, descripcion, accept, icono, archivo, onChange, selectLabel, maxSizeLabel }) {
   return (
     <div style={estilos.campoDoc}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
@@ -461,8 +466,8 @@ function CampoDocumento({ id, label, descripcion, accept, icono, archivo, onChan
             ) : (
               <>
                 <span style={{ fontSize: "1rem" }}>📎</span>
-                <span style={{ fontSize: "0.8rem", color: "var(--primary)", fontWeight: 600 }}>Seleccionar archivo</span>
-                <span style={{ fontSize: "0.72rem", color: "var(--muted)" }}>(máx. 10 MB)</span>
+                <span style={{ fontSize: "0.8rem", color: "var(--primary)", fontWeight: 600 }}>{selectLabel}</span>
+                <span style={{ fontSize: "0.72rem", color: "var(--muted)" }}>{maxSizeLabel}</span>
               </>
             )}
           </label>
