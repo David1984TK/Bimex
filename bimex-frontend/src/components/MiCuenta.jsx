@@ -160,7 +160,7 @@ function TabMisProyectos({ proyectos, direccion, onVerProyecto }) {
   }
 
   return (
-    <div style={estilos.grid} role="list" aria-label="Mis proyectos">
+    <div className="cuenta-grid" style={estilos.grid} role="list" aria-label="Mis proyectos">
       {misProyectos.map((p) => (
         <CardMiProyecto key={p.id} proyecto={p} onVerProyecto={onVerProyecto} />
       ))}
@@ -182,7 +182,7 @@ function CardContribucion({ proyecto, aportacion, yieldAcum, onVerProyecto }) {
       </div>
 
       {/* Métricas */}
-      <div style={estilos.contribMetrics}>
+      <div className="contrib-metrics" style={estilos.contribMetrics}>
         {/* Aportación */}
         <div style={estilos.metricBox}>
           <div style={estilos.metricLabel}>Tu aportación</div>
@@ -302,7 +302,7 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
       </div>
 
       {/* Grid de contribuciones */}
-      <div style={estilos.grid} role="list" aria-label="Mis contribuciones">
+      <div className="cuenta-grid" style={estilos.grid} role="list" aria-label="Mis contribuciones">
         {contribuciones.map(({ proyecto, aportacion, yieldAcum }) => (
           <CardContribucion
             key={proyecto.id}
@@ -382,7 +382,7 @@ export default function MiCuenta({ direccion, onVerProyecto }) {
   const resumenListo = numApoyados !== null && totalInvertido !== null;
 
   return (
-    <div style={estilos.contenedor}>
+    <div className="cuenta-contenedor" style={estilos.contenedor}>
 
       {/* Header */}
       <div style={estilos.header}>
@@ -395,7 +395,7 @@ export default function MiCuenta({ direccion, onVerProyecto }) {
       </div>
 
       {/* Summary strip */}
-      <div style={estilos.summaryStrip}>
+      <div className="cuenta-summary-strip" style={estilos.summaryStrip}>
         <StatItem
           label="Total invertido"
           valor={resumenListo ? stroopsAMXNe(totalInvertido) : "—"}
@@ -414,7 +414,7 @@ export default function MiCuenta({ direccion, onVerProyecto }) {
       </div>
 
       {/* Tabs */}
-      <div style={estilos.tabsRow} role="tablist" aria-label="Secciones de mi cuenta">
+      <div className="cuenta-tabs-row" style={estilos.tabsRow} role="tablist" aria-label="Secciones de mi cuenta">
         <button
           role="tab"
           aria-selected={tab === "proyectos"}

@@ -136,8 +136,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                 fontSize: "0.74rem",
                 color: paso === p.n ? "var(--primary)" : "var(--muted)",
                 fontWeight: paso === p.n ? 700 : 400,
-                display: window.innerWidth < 400 ? "none" : "inline",
-              }}>
+              }} className="paso-label">
                 {p.label}
               </span>
               {i < PASOS.length - 1 && (
@@ -206,7 +205,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
               </div>
 
               {/* Categoría + Tiempo */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+              <div className="crear-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
                 <div className="campo" style={{ marginBottom: 0 }}>
                   <label htmlFor="campo-categoria">Categoría</label>
                   <select
@@ -448,7 +447,7 @@ function CampoDocumento({ id, label, descripcion, accept, icono, archivo, onChan
             {label} <span style={{ color: "#DC2626" }}>*</span>
           </label>
           <p style={{ fontSize: "0.74rem", color: "var(--muted)", marginBottom: "8px" }}>{descripcion}</p>
-          <label htmlFor={id} style={estilos.fileLabel}>
+          <label htmlFor={id} className="file-label-touch" style={estilos.fileLabel}>
             {archivo ? (
               <>
                 <span style={{ color: "#059669" }}>✓</span>
