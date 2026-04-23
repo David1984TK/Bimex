@@ -3,61 +3,62 @@ import { useTranslation } from "react-i18next";
 import { obtenerTodosLosProyectos, obtenerAportacion, stroopsAMXNe } from "../stellar/contrato";
 
 // ── Niveles de confianza ──────────────────────────────────────────────────────
+// Thresholds in MXNe (1 MXNe = 10_000_000 stroops)
 const NIVELES = [
   {
     id: "semilla",
     nombre: "Semilla",
     icono: "🌱",
     min: 0,
-    max: 499,
+    max: 999,
     color: "#7C3AED",
     bg: "rgba(124,58,237,0.07)",
     border: "rgba(124,58,237,0.18)",
     recompensas: [
-      { id: "r1", nombre: "Badge Semilla", desc: "Tu primer paso en Bimex", icono: "🏅", umbral: 0,    desbloqueado: true  },
-      { id: "r2", nombre: "Primer aporte", desc: "Contribuiste tu primer MXNe", icono: "💚", umbral: 1,    desbloqueado: false },
+      { id: "r1", nombre: "Badge Semilla", desc: "Tu primer paso en Bimex",        icono: "🏅", umbral: 0,   desbloqueado: true  },
+      { id: "r2", nombre: "Primer aporte", desc: "Contribuiste tu primer MXNe",    icono: "💚", umbral: 1,   desbloqueado: false },
     ],
   },
   {
     id: "brote",
     nombre: "Brote",
     icono: "🌿",
-    min: 500,
-    max: 1999,
+    min: 1_000,
+    max: 9_999,
     color: "#059669",
     bg: "rgba(5,150,105,0.07)",
     border: "rgba(5,150,105,0.18)",
     recompensas: [
-      { id: "r3", nombre: "Inversor Brote",    desc: "Invertiste 500+ MXNe en total",     icono: "🌿", umbral: 500,   desbloqueado: false },
-      { id: "r4", nombre: "🎁 Regalo sorpresa", desc: "Desbloquea al llegar a 1,000 MXNe", icono: "🎁", umbral: 1000,  desbloqueado: false },
+      { id: "r3", nombre: "Inversor Brote",    desc: "Invertiste 1,000+ MXNe en total",    icono: "🌿", umbral: 1_000,  desbloqueado: false },
+      { id: "r4", nombre: "🎁 Regalo sorpresa", desc: "Desbloquea al llegar a 5,000 MXNe", icono: "🎁", umbral: 5_000,  desbloqueado: false },
     ],
   },
   {
     id: "arbol",
     nombre: "Árbol",
     icono: "🌳",
-    min: 2000,
-    max: 9999,
+    min: 10_000,
+    max: 99_999,
     color: "#D97706",
     bg: "rgba(217,119,6,0.07)",
     border: "rgba(217,119,6,0.18)",
     recompensas: [
-      { id: "r5", nombre: "Árbol de impacto", desc: "Invertiste 2,000+ MXNe",              icono: "🌳", umbral: 2000,  desbloqueado: false },
-      { id: "r6", nombre: "🎁 Caja misteriosa", desc: "Acceso exclusivo a proyectos VIP",  icono: "📦", umbral: 5000,  desbloqueado: false },
+      { id: "r5", nombre: "Árbol de impacto",  desc: "Invertiste 10,000+ MXNe",             icono: "🌳", umbral: 10_000, desbloqueado: false },
+      { id: "r6", nombre: "🎁 Caja misteriosa", desc: "Acceso exclusivo a proyectos VIP",   icono: "📦", umbral: 50_000, desbloqueado: false },
     ],
   },
   {
     id: "selva",
     nombre: "Selva",
-    icono: "🏔️",
-    min: 10000,
+    icono: "🌲",
+    min: 100_000,
     max: Infinity,
-    color: "#4F46E5",
-    bg: "rgba(79,70,229,0.07)",
-    border: "rgba(79,70,229,0.18)",
+    color: "#065F46",
+    bg: "rgba(6,95,70,0.07)",
+    border: "rgba(6,95,70,0.18)",
     recompensas: [
-      { id: "r7", nombre: "Guardián Selva",    desc: "Invertiste 10,000+ MXNe",             icono: "🏔️", umbral: 10000, desbloqueado: false },
-      { id: "r8", nombre: "🎁 NFT exclusivo",  desc: "NFT de colección arte mexicano",       icono: "🎨", umbral: 20000, desbloqueado: false },
+      { id: "r7", nombre: "Guardián Selva",   desc: "Invertiste 100,000+ MXNe",       icono: "🌲", umbral: 100_000, desbloqueado: false },
+      { id: "r8", nombre: "🎁 NFT exclusivo", desc: "NFT de colección arte mexicano",  icono: "🎨", umbral: 200_000, desbloqueado: false },
     ],
   },
 ];
@@ -77,17 +78,23 @@ function calcularRecompensas(totalMXNe) {
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
-export default function Recompensas({ direccion, refrescar }) {
-  const { t } = useTranslation();
+// totalInvertido: BigInt en stroops (opcional). Si se pasa, se omite el fetch propio.
+export default function Recompensas({ direccion, refrescar, totalInvertido: totalInvertidoProp }) {
   const [abierto,    setAbierto]    = useState(false);
   const [totalMXNe,  setTotalMXNe]  = useState(0);
-  const [cargando,   setCargando]   = useState(true);
+  const [cargando,   setCargando]   = useState(!totalInvertidoProp);
   const [sorpresa,   setSorpresa]   = useState(null);
   const panelRef = useRef(null);
   const botonRef = useRef(null);
 
-  // Carga el total invertido sumando todas las aportaciones del usuario
+  // Si el padre ya calculó totalInvertido, úsalo directamente (no double-fetch)
   useEffect(() => {
+    if (totalInvertidoProp != null) {
+      setTotalMXNe(Number(BigInt(totalInvertidoProp)) / 10_000_000);
+      setCargando(false);
+      return;
+    }
+    // Fallback: fetch propio cuando no se pasa el prop
     if (!direccion) return;
     (async () => {
       setCargando(true);
@@ -104,7 +111,7 @@ export default function Recompensas({ direccion, refrescar }) {
         setCargando(false);
       }
     })();
-  }, [direccion, refrescar]);
+  }, [direccion, refrescar, totalInvertidoProp]);
 
   // Cierra con Escape o clic fuera
   useEffect(() => {

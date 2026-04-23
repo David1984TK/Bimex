@@ -213,6 +213,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                 />
               </div>
 
+              {/* Categoría + Tiempo */}
               <div className="crear-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
                 <div className="campo" style={{ marginBottom: 0 }}>
                   <label htmlFor="campo-categoria">{t("crear.categoryLabel")}</label>
