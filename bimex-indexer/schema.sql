@@ -17,6 +17,7 @@ create table if not exists aportaciones (
   proyecto_id  integer references proyectos(id),
   contribuidor text,
   monto        numeric,
+  retirado     boolean default false,
   timestamp    timestamptz,
   primary key (proyecto_id, contribuidor)
 );
@@ -33,9 +34,18 @@ create table if not exists eventos (
 );
 
 -- Index for fast lookups
-create index if not exists eventos_tipo_idx      on eventos(tipo);
-create index if not exists eventos_ledger_idx    on eventos(ledger desc);
-create index if not exists aportaciones_proj_idx on aportaciones(proyecto_id);
+create index if not exists eventos_tipo_idx         on eventos(tipo);
+create index if not exists eventos_ledger_idx       on eventos(ledger desc);
+create index if not exists aportaciones_proj_idx    on aportaciones(proyecto_id);
+create index if not exists aportaciones_backer_idx  on aportaciones(contribuidor);
+
+-- Atomic yield increment (avoids read-modify-write race)
+create or replace function incrementar_yield_entregado(p_id integer, p_delta numeric)
+returns void language sql as $$
+  update proyectos
+  set yield_entregado = yield_entregado + p_delta
+  where id = p_id;
+$$;
 
 -- Enable Supabase realtime for live frontend updates
 alter publication supabase_realtime add table eventos;

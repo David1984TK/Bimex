@@ -19,7 +19,6 @@ async function getStartLedger() {
 }
 
 async function processBatch(startLedger) {
-  // limit goes inside pagination per the SDK's GetTransactionsRequest type
   const resp = await rpc.getTransactions({
     startLedger,
     pagination: { limit: 200 },
@@ -38,10 +37,9 @@ async function processBatch(startLedger) {
     console.log(`[${new Date().toISOString()}] ${evento.tipo} ledger=${evento.ledger} tx=${evento.tx_hash}`);
   }
 
-  // Advance to the ledger after the last one we just processed.
-  // latestLedger is the chain tip; we use it as the next poll start
-  // only if we've caught up (no more pages). Otherwise use cursor.
-  return resp.latestLedger;
+  // cursor is the ledger sequence to use as startLedger on the next call.
+  // When we've caught up to the tip, cursor equals latestLedger + 1.
+  return resp.cursor ?? resp.latestLedger + 1;
 }
 
 async function run() {

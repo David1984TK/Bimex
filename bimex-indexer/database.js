@@ -6,6 +6,16 @@ const supabase = createClient(
 );
 
 export async function upsertProyecto(proyecto) {
+  // reclamar_yield sends a delta, not an absolute value — increment in DB
+  if (proyecto.yield_entregado_delta != null) {
+    const { id, yield_entregado_delta } = proyecto;
+    const { error } = await supabase.rpc('incrementar_yield_entregado', {
+      p_id: id,
+      p_delta: yield_entregado_delta,
+    });
+    if (error) throw error;
+    return;
+  }
   const { error } = await supabase
     .from('proyectos')
     .upsert(proyecto, { onConflict: 'id' });
