@@ -127,6 +127,7 @@ export default function App() {
   const [adminPanel,     setAdminPanel]     = useState(false);
   const [autoConectar,   setAutoConectar]   = useState(leerAutoConectarInicial);
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
+  const [totalInvertido, setTotalInvertido] = useState(null);
 
   const esAdmin = direccion === ADMIN_ADDRESS;
 
@@ -208,7 +209,7 @@ export default function App() {
             </button>
           )}
 
-          <Recompensas direccion={direccion} refrescar={refrescar} />
+          <Recompensas direccion={direccion} refrescar={refrescar} totalInvertido={totalInvertido} />
 
           <div className="wallet-chip">
             <span className="wallet-dot" aria-hidden="true" />
@@ -237,6 +238,7 @@ export default function App() {
           <MiCuenta
             direccion={direccion}
             onVerProyecto={p => { setProyectoActivo(p); setVistaActual("proyectos"); }}
+            onTotalInvertido={setTotalInvertido}
           />
         )}
 

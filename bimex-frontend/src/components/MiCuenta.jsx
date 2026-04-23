@@ -319,7 +319,7 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-export default function MiCuenta({ direccion, onVerProyecto }) {
+export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido }) {
   const [tab, setTab] = useState("proyectos");
   const [proyectos, setProyectos] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -364,8 +364,10 @@ export default function MiCuenta({ direccion, onVerProyecto }) {
         );
         if (cancelado) return;
         const positivos = resultados.filter((a) => a > BigInt(0));
+        const total = positivos.reduce((acc, a) => acc + a, BigInt(0));
         setNumApoyados(positivos.length);
-        setTotalInvertido(positivos.reduce((acc, a) => acc + a, BigInt(0)));
+        setTotalInvertido(total);
+        onTotalInvertido?.(total);
       } catch (e) {
         console.error("Error calculando resumen:", e);
         if (!cancelado) {
