@@ -1,86 +1,59 @@
-import { createClient } from "@supabase/supabase-js";
-import { enviarNotificacion } from "./notifications.js";
+import 'dotenv/config';
+import { SorobanRpc } from '@stellar/stellar-sdk';
+import { parseTx } from './eventParser.js';
+import { upsertProyecto, upsertAportacion, insertEvento, getLastIndexedLedger } from './database.js';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
+const RPC_URL         = process.env.STELLAR_RPC_URL;
+const CONTRACT_ID     = process.env.CONTRACT_ID;
+const START_LEDGER    = parseInt(process.env.START_LEDGER ?? '0', 10);
+const POLL_INTERVAL   = parseInt(process.env.POLL_INTERVAL_MS ?? '10000', 10);
 
-const POLL_MS = Number(process.env.POLL_INTERVAL_MS ?? 60_000);
+const rpc = new SorobanRpc.Server(RPC_URL, { allowHttp: false });
 
-// Map contract event types → notification types
-const EVENT_MAP = {
-  proyecto_aprobado:  "proyecto_aprobado",
-  proyecto_rechazado: "proyecto_rechazado",
-  meta_alcanzada:     "meta_alcanzada",
-  yield_disponible:   "yield_disponible",
-  retiro_principal:   "retiro_principal",
-};
+async function getStartLedger() {
+  if (START_LEDGER > 0) return START_LEDGER;
+  const last = await getLastIndexedLedger();
+  if (last) return last + 1;
+  const latest = await rpc.getLatestLedger();
+  return latest.sequence;
+}
 
-async function procesarEventosPendientes() {
-  // Fetch unprocessed events joined with owner email preferences
-  const { data: eventos, error } = await supabase
-    .from("project_events")
-    .select(`
-      id,
-      event_type,
-      project_id,
-      project_name,
-      owner_wallet,
-      payload,
-      notified_at,
-      user_notifications!inner (
-        email,
-        notifications_enabled
-      )
-    `)
-    .is("notified_at", null)
-    .in("event_type", Object.keys(EVENT_MAP))
-    .eq("user_notifications.notifications_enabled", true);
+async function processBatch(startLedger) {
+  const resp = await rpc.getTransactions({
+    startLedger,
+    pagination: { limit: 200 },
+  });
 
-  if (error) {
-    console.error("[indexer] Error fetching events:", error.message);
-    return;
+  for (const tx of resp.transactions ?? []) {
+    if (tx.status !== 'SUCCESS') continue;
+    const parsed = parseTx(tx, CONTRACT_ID);
+    if (!parsed) continue;
+
+    const { evento, proyecto, aportacion } = parsed;
+    await insertEvento(evento).catch(console.error);
+    if (proyecto)   await upsertProyecto(proyecto).catch(console.error);
+    if (aportacion) await upsertAportacion(aportacion).catch(console.error);
+
+    console.log(`[${new Date().toISOString()}] ${evento.tipo} ledger=${evento.ledger} tx=${evento.tx_hash}`);
   }
 
-  if (!eventos?.length) return;
+  // cursor is the ledger sequence to use as startLedger on the next call.
+  // When we've caught up to the tip, cursor equals latestLedger + 1.
+  return resp.cursor ?? resp.latestLedger + 1;
+}
 
-  console.log(`[indexer] Processing ${eventos.length} pending event(s)`);
+async function run() {
+  let cursor = await getStartLedger();
+  console.log(`Bimex indexer starting at ledger ${cursor}`);
 
-  for (const ev of eventos) {
-    const notifType = EVENT_MAP[ev.event_type];
-    const email     = ev.user_notifications?.email;
-
-    if (!email) continue;
-
+  while (true) {
     try {
-      await enviarNotificacion(notifType, email, {
-        nombreProyecto: ev.project_name,
-        idProyecto:     ev.project_id,
-        motivo:         ev.payload?.motivo ?? null,
-        monto:          ev.payload?.monto  ?? null,
-      });
-
-      // Mark as notified
-      await supabase
-        .from("project_events")
-        .update({ notified_at: new Date().toISOString() })
-        .eq("id", ev.id);
-
-      console.log(`[indexer] ✓ Notified ${email} — ${ev.event_type} (project ${ev.project_id})`);
+      cursor = await processBatch(cursor);
     } catch (err) {
-      console.error(`[indexer] ✗ Failed to notify for event ${ev.id}:`, err.message);
+      console.error('Poll error:', err.message);
     }
+    await new Promise(r => setTimeout(r, POLL_INTERVAL));
   }
 }
 
-async function main() {
-  console.log(`[indexer] Starting — polling every ${POLL_MS / 1000}s`);
-  await procesarEventosPendientes();
-  setInterval(procesarEventosPendientes, POLL_MS);
-}
-
-main().catch(err => {
-  console.error("[indexer] Fatal:", err);
-  process.exit(1);
-});
+run();

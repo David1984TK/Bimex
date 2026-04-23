@@ -44,10 +44,10 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
     : proyectosPublicos.filter(p => p.estado === filtro);
 
   return (
-    <div style={estilos.contenedor}>
+    <div className="lista-contenedor" style={estilos.contenedor}>
 
       {/* Header */}
-      <div style={estilos.header}>
+      <div className="lista-header" style={estilos.header}>
         <div>
           <h2 style={estilos.titulo}>Proyectos</h2>
           <p style={{ color: "var(--muted)", fontSize: "0.88rem", marginTop: 4 }}>
@@ -64,7 +64,7 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
 
       {/* Stats strip */}
       {proyectosPublicos.length > 0 && (
-        <div className="stats-strip-scroll" style={estilos.statsStrip}>
+        <div className="stats-strip-scroll lista-stats-strip" style={estilos.statsStrip}>
           <StatStrip icon="📦" label="Total" valor={proyectosPublicos.length} />
           <div style={estilos.statsDivider} />
           <StatStrip icon="🚀" label="En progreso" valor={enProgreso} />
