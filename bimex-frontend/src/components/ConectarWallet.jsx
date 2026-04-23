@@ -86,7 +86,8 @@ export default function ConectarWallet({ onConectado, autoConectar = true }) {
       )}
       {estado === "red_incorrecta" && (
         <p style={{ color: "var(--amber)", fontSize: 13, margin: 0 }}>
-          Cambia Freighter a <strong>Test Net</strong>
+          {/* ← changed from "Test Net" to "Main Net" */}
+          Cambia Freighter a <strong>Main Net</strong>
         </p>
       )}
       {estado === "error" && (
