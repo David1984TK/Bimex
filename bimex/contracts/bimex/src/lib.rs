@@ -580,4 +580,249 @@ mod test {
         assert_eq!(id1, 1);
         assert_eq!(cliente.total_proyectos(), 2);
     }
+
+    // ── Multi-user ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_multiple_contributors_same_project() {
+        let (env, cliente, _admin, dueno, backer1, token_mxne) = crear_env_con_token();
+        let backer2 = Address::generate(&env);
+        let asset = StellarAssetClient::new(&env, &token_mxne);
+        asset.mint(&backer2, &500_000_000i128);
+
+        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Multi backer"), &300_000_000i128, &doc_hash_vacio(&env));
+        cliente.admin_aprobar(&id);
+
+        cliente.contribuir(&backer1, &id, &100_000_000i128);
+        cliente.contribuir(&backer2, &id, &200_000_000i128);
+
+        let p = cliente.obtener_proyecto(&id);
+        assert_eq!(p.total_aportado, 300_000_000i128);
+        assert_eq!(p.estado, EstadoProyecto::Liberado);
+
+        let a1 = cliente.obtener_aportacion(&id, &backer1);
+        let a2 = cliente.obtener_aportacion(&id, &backer2);
+        assert_eq!(a1.cantidad, 100_000_000i128);
+        assert_eq!(a2.cantidad, 200_000_000i128);
+    }
+
+    #[test]
+    fn test_multiple_contributions_same_backer_accumulate() {
+        let (env, cliente, _admin, dueno, backer, _token) = crear_env_con_token();
+
+        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Acumulado"), &500_000_000i128, &doc_hash_vacio(&env));
+        cliente.admin_aprobar(&id);
+
+        cliente.contribuir(&backer, &id, &100_000_000i128);
+        cliente.contribuir(&backer, &id, &150_000_000i128);
+
+        let a = cliente.obtener_aportacion(&id, &backer);
+        assert_eq!(a.cantidad, 250_000_000i128);
+        assert_eq!(cliente.obtener_proyecto(&id).total_aportado, 250_000_000i128);
+    }
+
+    // ── Lifecycle edge cases ──────────────────────────────────────────────────
+
+    #[test]
+    fn test_admin_rechazar_con_motivo() {
+        let (env, cliente, _admin, dueno, _backer, _token) = crear_env_con_token();
+
+        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Proyecto malo"), &10_000_000i128, &doc_hash_vacio(&env));
+        cliente.admin_rechazar(&id, &String::from_str(&env, "Documentacion incompleta"));
+
+        let p = cliente.obtener_proyecto(&id);
+        assert_eq!(p.estado, EstadoProyecto::Rechazado);
+        assert_eq!(p.motivo_rechazo, String::from_str(&env, "Documentacion incompleta"));
+    }
+
+    #[test]
+    fn test_solicitar_continuar_con_fondos_existentes() {
+        let (env, cliente, _admin, dueno, backer, _token) = crear_env_con_token();
+        let nuevo_dueno = Address::generate(&env);
+
+        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Con fondos"), &500_000_000i128, &doc_hash_vacio(&env));
+        cliente.admin_aprobar(&id);
+        cliente.contribuir(&backer, &id, &100_000_000i128);
+        cliente.abandonar_proyecto(&id);
+
+        cliente.solicitar_continuar(&nuevo_dueno, &id);
+
+        let p = cliente.obtener_proyecto(&id);
+        assert_eq!(p.estado, EstadoProyecto::EnProgreso);
+        assert_eq!(p.dueno, nuevo_dueno);
+    }
+
+    #[test]
+    fn test_retirar_principal_proyecto_abandonado() {
+        let (env, cliente, _admin, dueno, backer, _token) = crear_env_con_token();
+
+        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Abandonado"), &500_000_000i128, &doc_hash_vacio(&env));
+        cliente.admin_aprobar(&id);
+        cliente.contribuir(&backer, &id, &100_000_000i128);
+        cliente.abandonar_proyecto(&id);
+
+        let monto = cliente.retirar_principal(&backer, &id);
+        assert_eq!(monto, 100_000_000i128);
+    }
+
+    // ── Boundary conditions ───────────────────────────────────────────────────
+
+    #[test]
+    fn test_yield_cero_sin_tiempo_transcurrido() {
+        let (env, cliente, _admin, dueno, backer, _token) = crear_env_con_token();
+
+        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Sin tiempo"), &500_000_000i128, &doc_hash_vacio(&env));
+        cliente.admin_aprobar(&id);
+        cliente.contribuir(&backer, &id, &100_000_000i128);
+
+        // timestamp = 0, no time elapsed → yield = 0
+        let yield_backer = cliente.calcular_yield(&id, &backer);
+        assert_eq!(yield_backer, 0i128);
+
+        let detalle = cliente.calcular_yield_detallado(&id);
+        assert_eq!(detalle.total, 0i128);
+    }
+
+    #[test]
+    fn test_capital_distribucion_impar() {
+        // Odd amount: 1 unit residue goes to AMM
+        let (env, cliente, _admin, dueno, backer, _token) = crear_env_con_token();
+
+        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Impar"), &500_000_000i128, &doc_hash_vacio(&env));
+        cliente.admin_aprobar(&id);
+        cliente.contribuir(&backer, &id, &101i128); // odd
+
+        let p = cliente.obtener_proyecto(&id);
+        assert_eq!(p.capital_en_cetes, 50i128);
+        assert_eq!(p.capital_en_amm,   51i128); // residue goes to AMM
+    }
+
+    #[test]
+    fn test_retirar_todos_los_fondos_vuelve_a_etapa_inicial() {
+        let (env, cliente, _admin, dueno, backer, _token) = crear_env_con_token();
+
+        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Reset"), &500_000_000i128, &doc_hash_vacio(&env));
+        cliente.admin_aprobar(&id);
+        cliente.contribuir(&backer, &id, &100_000_000i128);
+        assert_eq!(cliente.obtener_proyecto(&id).estado, EstadoProyecto::EnProgreso);
+
+        // Liberar manualmente para poder retirar
+        cliente.abandonar_proyecto(&id);
+        cliente.retirar_principal(&backer, &id);
+
+        let p = cliente.obtener_proyecto(&id);
+        assert_eq!(p.total_aportado, 0i128);
+        assert_eq!(p.capital_en_cetes, 0i128);
+        assert_eq!(p.capital_en_amm, 0i128);
+    }
+
+    // ── Error / invalid state transitions ────────────────────────────────────
+
+    #[test]
+    #[should_panic(expected = "El proyecto no acepta fondos")]
+    fn test_contribuir_proyecto_en_revision_falla() {
+        let (env, cliente, _admin, dueno, backer, _token) = crear_env_con_token();
+
+        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "En revision"), &100_000_000i128, &doc_hash_vacio(&env));
+        // Not approved yet → should panic
+        cliente.contribuir(&backer, &id, &10_000_000i128);
+    }
+
+    #[test]
+    #[should_panic(expected = "El proyecto no acepta fondos")]
+    fn test_contribuir_proyecto_rechazado_falla() {
+        let (env, cliente, _admin, dueno, backer, _token) = crear_env_con_token();
+
+        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Rechazado"), &100_000_000i128, &doc_hash_vacio(&env));
+        cliente.admin_rechazar(&id, &String::from_str(&env, "Fraude"));
+        cliente.contribuir(&backer, &id, &10_000_000i128);
+    }
+
+    #[test]
+    #[should_panic(expected = "El proyecto no acepta fondos")]
+    fn test_contribuir_proyecto_liberado_falla() {
+        let (env, cliente, _admin, dueno, backer, _token) = crear_env_con_token();
+
+        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Liberado"), &100_000_000i128, &doc_hash_vacio(&env));
+        cliente.admin_aprobar(&id);
+        cliente.contribuir(&backer, &id, &100_000_000i128); // reaches meta → Liberado
+        cliente.contribuir(&backer, &id, &10_000_000i128);  // should panic
+    }
+
+    #[test]
+    #[should_panic(expected = "Solo puedes retirar cuando el proyecto este liberado o abandonado")]
+    fn test_retirar_principal_en_progreso_falla() {
+        let (env, cliente, _admin, dueno, backer, _token) = crear_env_con_token();
+
+        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "En progreso"), &500_000_000i128, &doc_hash_vacio(&env));
+        cliente.admin_aprobar(&id);
+        cliente.contribuir(&backer, &id, &100_000_000i128);
+        cliente.retirar_principal(&backer, &id); // should panic
+    }
+
+    #[test]
+    #[should_panic(expected = "Solo se pueden aprobar proyectos en revision")]
+    fn test_admin_aprobar_proyecto_ya_aprobado_falla() {
+        let (env, cliente, _admin, dueno, _backer, _token) = crear_env_con_token();
+
+        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Doble aprobacion"), &100_000_000i128, &doc_hash_vacio(&env));
+        cliente.admin_aprobar(&id);
+        cliente.admin_aprobar(&id); // should panic
+    }
+
+    #[test]
+    #[should_panic(expected = "Solo se pueden rechazar proyectos en revision")]
+    fn test_admin_rechazar_proyecto_aprobado_falla() {
+        let (env, cliente, _admin, dueno, _backer, _token) = crear_env_con_token();
+
+        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Rechazar aprobado"), &100_000_000i128, &doc_hash_vacio(&env));
+        cliente.admin_aprobar(&id);
+        cliente.admin_rechazar(&id, &String::from_str(&env, "Tarde")); // should panic
+    }
+
+    #[test]
+    #[should_panic(expected = "Solo puedes continuar proyectos abandonados")]
+    fn test_solicitar_continuar_proyecto_activo_falla() {
+        let (env, cliente, _admin, dueno, backer, _token) = crear_env_con_token();
+
+        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Activo"), &100_000_000i128, &doc_hash_vacio(&env));
+        cliente.admin_aprobar(&id);
+        cliente.solicitar_continuar(&backer, &id); // should panic
+    }
+
+    #[test]
+    #[should_panic(expected = "Ya inicializado")]
+    fn test_inicializar_dos_veces_falla() {
+        let (env, cliente, admin, _dueno, _backer, token_mxne) = crear_env_con_token();
+        cliente.inicializar(&admin, &token_mxne, &100u32, &100u32); // should panic
+    }
+
+    #[test]
+    #[should_panic(expected = "La meta debe ser mayor a 0")]
+    fn test_crear_proyecto_meta_cero_falla() {
+        let (env, cliente, _admin, dueno, _backer, _token) = crear_env_con_token();
+        cliente.crear_proyecto(&dueno, &String::from_str(&env, "Meta cero"), &0i128, &doc_hash_vacio(&env));
+    }
+
+    #[test]
+    #[should_panic(expected = "Cantidad debe ser mayor a 0")]
+    fn test_contribuir_cantidad_cero_falla() {
+        let (env, cliente, _admin, dueno, backer, _token) = crear_env_con_token();
+
+        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Cero"), &100_000_000i128, &doc_hash_vacio(&env));
+        cliente.admin_aprobar(&id);
+        cliente.contribuir(&backer, &id, &0i128);
+    }
+
+    #[test]
+    #[should_panic(expected = "Aun no hay yield suficiente acumulado")]
+    fn test_reclamar_yield_cero_falla() {
+        let (env, cliente, _admin, dueno, backer, _token) = crear_env_con_token();
+
+        let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Sin yield"), &500_000_000i128, &doc_hash_vacio(&env));
+        cliente.admin_aprobar(&id);
+        cliente.contribuir(&backer, &id, &100_000_000i128);
+        // timestamp = 0 → yield = 0 → should panic
+        cliente.reclamar_yield(&id);
+    }
 }
