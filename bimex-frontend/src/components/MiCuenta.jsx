@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { useTranslation } from "react-i18next";
 import {
   obtenerTodosLosProyectos,
   obtenerAportacion,
@@ -15,12 +15,12 @@ const supabase = createClient(
 // ─── Config de estado ─────────────────────────────────────────────────────────
 
 const ESTADO_CFG = {
-  EtapaInicial: { label: "🌱 Etapa inicial", badgeClass: "badge-muted"  },
-  EnProgreso:   { label: "● En progreso",    badgeClass: "badge-teal"   },
-  Liberado:     { label: "✓ Liberado",       badgeClass: "badge-amber"  },
-  Abandonado:   { label: "⚠️ Abandonado",    badgeClass: "badge-red"    },
-  EnRevision:   { label: "⏳ En revisión",   badgeClass: null, customStyle: { background: "rgba(217,119,6,0.10)", color: "#D97706", border: "1px solid rgba(217,119,6,0.20)" } },
-  Rechazado:    { label: "✗ Rechazado",      badgeClass: "badge-red"    },
+  EtapaInicial: { labelKey: "status.EtapaInicial", badgeClass: "badge-muted"  },
+  EnProgreso:   { labelKey: "status.EnProgreso",   badgeClass: "badge-teal"   },
+  Liberado:     { labelKey: "status.Liberado",     badgeClass: "badge-amber"  },
+  Abandonado:   { labelKey: "status.Abandonado",   badgeClass: "badge-red"    },
+  EnRevision:   { labelKey: "status.EnRevision",   badgeClass: null, customStyle: { background: "rgba(217,119,6,0.10)", color: "#D97706", border: "1px solid rgba(217,119,6,0.20)" } },
+  Rechazado:    { labelKey: "status.Rechazado",    badgeClass: "badge-red"    },
 };
 
 function getBadgeCfg(estado) {
@@ -42,22 +42,22 @@ function puedeRetirar(estado) {
 // ─── Sub-componentes ──────────────────────────────────────────────────────────
 
 function Spinner() {
+  const { t } = useTranslation();
   return (
-    <div style={estilos.loadingWrap} role="status" aria-live="polite" aria-label="Cargando">
+    <div style={estilos.loadingWrap} role="status" aria-live="polite" aria-label={t("cuenta.loading")}>
       <div style={estilos.spinner} aria-hidden="true" />
-      <p style={{ color: "var(--muted)", marginTop: 16, fontSize: "0.9rem" }}>Cargando…</p>
+      <p style={{ color: "var(--muted)", marginTop: 16, fontSize: "0.9rem" }}>{t("cuenta.loading")}</p>
     </div>
   );
 }
 
 function EstadoBadge({ estado }) {
+  const { t } = useTranslation();
   const cfg = getBadgeCfg(estado);
   if (cfg.customStyle) {
-    return (
-      <span className="badge" style={cfg.customStyle}>{cfg.label}</span>
-    );
+    return <span className="badge" style={cfg.customStyle}>{t(cfg.labelKey)}</span>;
   }
-  return <span className={`badge ${cfg.badgeClass}`}>{cfg.label}</span>;
+  return <span className={`badge ${cfg.badgeClass}`}>{t(cfg.labelKey)}</span>;
 }
 
 function StatItem({ label, valor, mono }) {
@@ -88,6 +88,7 @@ function StatItem({ label, valor, mono }) {
 // ─── Pestaña: Mis proyectos ───────────────────────────────────────────────────
 
 function CardMiProyecto({ proyecto, onVerProyecto }) {
+  const { t } = useTranslation();
   const progreso = pct(proyecto.aportado, proyecto.meta);
 
   return (
@@ -101,7 +102,7 @@ function CardMiProyecto({ proyecto, onVerProyecto }) {
       {/* Barra de progreso */}
       <div style={{ marginTop: 14 }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-          <span style={{ fontSize: "0.76rem", color: "var(--muted)" }}>Financiamiento</span>
+          <span style={{ fontSize: "0.76rem", color: "var(--muted)" }}>{t("cuenta.funding")}</span>
           <span style={{
             fontSize: "0.76rem",
             color: "var(--primary)",
@@ -126,11 +127,11 @@ function CardMiProyecto({ proyecto, onVerProyecto }) {
       {/* Stats */}
       <div style={estilos.statsRow}>
         <div>
-          <div style={estilos.statLabel}>Recaudado</div>
+          <div style={estilos.statLabel}>{t("cuenta.raised")}</div>
           <div style={estilos.statValor}>{stroopsAMXNe(proyecto.aportado)}</div>
         </div>
         <div style={{ textAlign: "right" }}>
-          <div style={estilos.statLabel}>Meta</div>
+          <div style={estilos.statLabel}>{t("cuenta.goal")}</div>
           <div style={estilos.statValor}>{stroopsAMXNe(proyecto.meta)}</div>
         </div>
       </div>
@@ -140,15 +141,16 @@ function CardMiProyecto({ proyecto, onVerProyecto }) {
         className="btn btn-secondary"
         style={{ width: "100%", marginTop: 16, justifyContent: "center" }}
         onClick={() => onVerProyecto(proyecto)}
-        aria-label={`Ver detalles de ${proyecto.nombre}`}
+        aria-label={`${t("cuenta.viewDetails")} ${proyecto.nombre}`}
       >
-        Ver detalles →
+        {t("cuenta.viewDetails")}
       </button>
     </article>
   );
 }
 
 function TabMisProyectos({ proyectos, direccion, onVerProyecto }) {
+  const { t } = useTranslation();
   const misProyectos = proyectos.filter((p) => p.dueno === direccion);
 
   if (misProyectos.length === 0) {
@@ -156,10 +158,10 @@ function TabMisProyectos({ proyectos, direccion, onVerProyecto }) {
       <div style={estilos.empty}>
         <span style={{ fontSize: "3rem" }}>🌱</span>
         <p style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--text)", marginTop: 16 }}>
-          Aún no has creado proyectos
+          {t("cuenta.noProjects")}
         </p>
         <p style={{ fontSize: "0.86rem", color: "var(--muted)", marginTop: 6 }}>
-          Cuando crees un proyecto aparecerá aquí.
+          {t("cuenta.noProjectsHint")}
         </p>
       </div>
     );
@@ -177,6 +179,7 @@ function TabMisProyectos({ proyectos, direccion, onVerProyecto }) {
 // ─── Pestaña: Mis contribuciones ──────────────────────────────────────────────
 
 function CardContribucion({ proyecto, aportacion, yieldAcum, onVerProyecto }) {
+  const { t } = useTranslation();
   const puedeRet = puedeRetirar(proyecto.estado);
 
   return (
@@ -191,13 +194,12 @@ function CardContribucion({ proyecto, aportacion, yieldAcum, onVerProyecto }) {
       <div className="contrib-metrics" style={estilos.contribMetrics}>
         {/* Aportación */}
         <div style={estilos.metricBox}>
-          <div style={estilos.metricLabel}>Tu aportación</div>
+          <div style={estilos.metricLabel}>{t("cuenta.myContribution")}</div>
           <div style={estilos.metricValor}>{stroopsAMXNe(aportacion)}</div>
         </div>
 
-        {/* Yield */}
         <div style={estilos.metricBox}>
-          <div style={estilos.metricLabel}>Yield acumulado</div>
+          <div style={estilos.metricLabel}>{t("cuenta.yieldAccum")}</div>
           <div style={{ ...estilos.metricValor, color: "var(--amber)" }}>
             {stroopsAMXNe(yieldAcum)}
           </div>
@@ -210,18 +212,18 @@ function CardContribucion({ proyecto, aportacion, yieldAcum, onVerProyecto }) {
           className="btn btn-secondary"
           style={{ flex: 1, justifyContent: "center" }}
           onClick={() => onVerProyecto(proyecto)}
-          aria-label={`Ver detalles de ${proyecto.nombre}`}
+          aria-label={`${t("cuenta.viewDetailsShort")} ${proyecto.nombre}`}
         >
-          Ver detalles
+          {t("cuenta.viewDetailsShort")}
         </button>
         {puedeRet && (
           <button
             className="btn btn-amber"
             style={{ flex: 1, justifyContent: "center" }}
             onClick={() => onVerProyecto(proyecto)}
-            aria-label={`Retirar fondos de ${proyecto.nombre}`}
+            aria-label={`${t("cuenta.withdraw")} ${proyecto.nombre}`}
           >
-            Retirar
+            {t("cuenta.withdraw")}
           </button>
         )}
       </div>
@@ -230,6 +232,7 @@ function CardContribucion({ proyecto, aportacion, yieldAcum, onVerProyecto }) {
 }
 
 function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
+  const { t } = useTranslation();
   const [contribuciones, setContribuciones] = useState([]);
   const [cargando, setCargando] = useState(true);
 
@@ -274,10 +277,10 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
       <div style={estilos.empty}>
         <span style={{ fontSize: "3rem" }}>💸</span>
         <p style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--text)", marginTop: 16 }}>
-          Aún no has apoyado ningún proyecto
+          {t("cuenta.noContributions")}
         </p>
         <p style={{ fontSize: "0.86rem", color: "var(--muted)", marginTop: 6 }}>
-          Explora los proyectos activos y contribuye para verlos aquí.
+          {t("cuenta.noContributionsHint")}
         </p>
       </div>
     );
@@ -290,7 +293,7 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
         <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>💰</span>
         <div>
           <div style={{ fontSize: "0.74rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em" }}>
-            Total invertido
+            {t("cuenta.totalInvestedLabel")}
           </div>
           <div style={{
             fontFamily: "'DM Mono', monospace",
@@ -303,7 +306,7 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
           </div>
         </div>
         <div style={{ marginLeft: "auto", fontSize: "0.82rem", color: "var(--muted)" }}>
-          en {contribuciones.length} proyecto{contribuciones.length !== 1 ? "s" : ""}
+          {t("cuenta.inProjects", { count: contribuciones.length, plural: contribuciones.length !== 1 ? "s" : "" })}
         </div>
       </div>
 
@@ -473,7 +476,7 @@ export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido })
       {/* Header */}
       <div style={estilos.header}>
         <div>
-          <h2 style={estilos.titulo}>Mi cuenta</h2>
+          <h2 style={estilos.titulo}>{t("cuenta.title")}</h2>
           <p style={{ color: "var(--muted)", fontSize: "0.86rem", marginTop: 4, fontFamily: "'DM Mono', monospace" }}>
             {direccion.slice(0, 8)}…{direccion.slice(-6)}
           </p>
@@ -483,18 +486,18 @@ export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido })
       {/* Summary strip */}
       <div className="cuenta-summary-strip" style={estilos.summaryStrip}>
         <StatItem
-          label="Total invertido"
+          label={t("cuenta.totalInvested")}
           valor={resumenListo ? stroopsAMXNe(totalInvertido) : "—"}
           mono
         />
         <div style={estilos.stripDivider} />
         <StatItem
-          label="Proyectos creados"
+          label={t("cuenta.projectsCreated")}
           valor={cargando ? "—" : numCreados}
         />
         <div style={estilos.stripDivider} />
         <StatItem
-          label="Proyectos apoyados"
+          label={t("cuenta.projectsSupported")}
           valor={resumenListo ? numApoyados : "—"}
         />
       </div>
@@ -515,7 +518,7 @@ export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido })
             ...(tab === "proyectos" ? estilos.tabBtnActivo : estilos.tabBtnInactivo),
           }}
         >
-          Mis proyectos
+          {t("cuenta.myProjects")}
           {!cargando && numCreados > 0 && (
             <span style={{
               ...estilos.tabChip,
@@ -538,7 +541,7 @@ export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido })
             ...(tab === "contribuciones" ? estilos.tabBtnActivo : estilos.tabBtnInactivo),
           }}
         >
-          Mis contribuciones
+          {t("cuenta.myContributions")}
           {resumenListo && numApoyados > 0 && (
             <span style={{
               ...estilos.tabChip,

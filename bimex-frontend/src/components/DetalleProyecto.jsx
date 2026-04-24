@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   contribuir as contribuirContrato,
   retirarPrincipal as retirarPrincipalContrato,
@@ -17,10 +18,10 @@ import {
 
 // ─── Config de estados ────────────────────────────────────────────────────────
 const ESTADO_CONFIG = {
-  EtapaInicial: { label: "Etapa inicial",  clase: "badge-muted",  icono: "🌱" },
-  EnProgreso:   { label: "● En progreso",  clase: "badge-teal",   icono: "🚀" },
-  Abandonado:   { label: "Abandonado",     clase: "badge-red",    icono: "⚠️" },
-  Liberado:     { label: "✓ Liberado",     clase: "badge-amber",  icono: "🏆" },
+  EtapaInicial: { labelKey: "status.EtapaInicial", clase: "badge-muted",  icono: "🌱" },
+  EnProgreso:   { labelKey: "status.EnProgreso",   clase: "badge-teal",   icono: "🚀" },
+  Abandonado:   { labelKey: "status.Abandonado",   clase: "badge-red",    icono: "⚠️" },
+  Liberado:     { labelKey: "status.Liberado",     clase: "badge-amber",  icono: "🏆" },
 };
 
 // Calcula el yield estimado del dueño usando dual-yield (CETES + AMM)
@@ -58,6 +59,7 @@ function estimarYieldDetallado(proyecto) {
 }
 
 export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, onCerrar }) {
+  const { t } = useTranslation();
   const [proyecto, setProyecto] = useState(proyectoInicial);
   const [cantidad, setCantidad] = useState("");
   const [cargando, setCargando] = useState(false);
@@ -143,10 +145,9 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
   }
 
   function mensajeCorto(err) {
-    const msg = err?.message || "Error inesperado.";
-    // Trunca mensajes técnicos largos del contrato
+    const msg = err?.message || t("detalle.errContract");
     if (msg.includes("HostError") || msg.includes("XDR") || msg.length > 120) {
-      return "Error en el contrato. Intenta de nuevo en unos segundos.";
+      return t("detalle.errContract");
     }
     return msg;
   }
@@ -163,9 +164,9 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
   const cantidadValida = cantidad !== "" && !isNaN(cantidadNum) && cantidadNum > 0;
   const superaBalance = cantidadValida && mxneAStroops(cantidadNum) > balanceMXNe;
   const errorCantidad = !cantidadValida && cantidad !== ""
-    ? "Ingresa una cantidad mayor a 0"
+    ? t("detalle.errAmount")
     : superaBalance
-    ? `Saldo insuficiente — tienes ${stroopsAMXNe(balanceMXNe)} disponibles`
+    ? t("detalle.errBalance", { balance: stroopsAMXNe(balanceMXNe) })
     : null;
 
   async function manejarContribuir() {
@@ -173,7 +174,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
     setCargando(true);
     try {
       await contribuirContrato(direccion, proyecto.id, mxneAStroops(Number(cantidad)));
-      mostrarToast(`✅ Contribuiste $${cantidad} MXNe al proyecto`);
+      mostrarToast(t("detalle.toastContributed", { amount: cantidad }));
       setCantidad("");
       setVista("info");
       await refrescar();
@@ -187,7 +188,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
     setCargando(true);
     try {
       await retirarPrincipalContrato(direccion, proyecto.id);
-      mostrarToast(`✅ Retiraste ${stroopsAMXNe(miAportacion)} a tu wallet`);
+      mostrarToast(t("detalle.toastWithdrawn", { amount: stroopsAMXNe(miAportacion) }));
       setMiAportacion(BigInt(0));
       setMiYield(BigInt(0));
       setVista("info");
@@ -200,17 +201,17 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
 
   async function manejarReclamarYield() {
     if (estado !== "Liberado") {
-      mostrarToast("El yield solo se puede reclamar cuando el proyecto está liberado (meta alcanzada).", "error");
+      mostrarToast(t("detalle.errYieldOnly"), "error");
       return;
     }
     if (yieldDuenoEstimado === BigInt(0)) {
-      mostrarToast("Aún no hay yield acumulado. Espera al menos 1 minuto.", "error");
+      mostrarToast(t("detalle.errNoYield"), "error");
       return;
     }
     setCargando(true);
     try {
       await reclamarYieldContrato(direccion, proyecto.id);
-      mostrarToast("✅ Yield reclamado y enviado a tu wallet");
+      mostrarToast(t("detalle.toastYield"));
       setVista("info");
       await refrescar();
     } catch (err) {
@@ -224,7 +225,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
     setCargando(true);
     try {
       await abandonarProyectoContrato(direccion, proyecto.id);
-      mostrarToast("Proyecto marcado como abandonado");
+      mostrarToast(t("detalle.toastAbandoned"));
       await refrescar();
     } catch (err) {
       mostrarToast(mensajeCorto(err), "error");
@@ -236,7 +237,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
     setCargando(true);
     try {
       await solicitarContinuarContrato(direccion, proyecto.id);
-      mostrarToast("¡Ahora eres el nuevo responsable del proyecto!");
+      mostrarToast(t("detalle.toastContinued"));
       await refrescar();
     } catch (err) {
       mostrarToast(mensajeCorto(err), "error");
@@ -270,11 +271,11 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
               <div>
                 <h2 id="modal-titulo" style={{ fontSize: "1.15rem" }}>{proyecto.nombre}</h2>
                 <span className={`badge ${estadoCfg.clase}`} style={{ marginTop: "4px" }}>
-                  {estadoCfg.label}
+                  {t(estadoCfg.labelKey)}
                 </span>
               </div>
             </div>
-            <button className="btn-close" onClick={onCerrar} aria-label="Cerrar detalle del proyecto">×</button>
+            <button className="btn-close" onClick={onCerrar} aria-label={t("detalle.closeAria")}>×</button>
           </div>
 
           {/* Badge de verificación documental */}
@@ -293,7 +294,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
               fontWeight: 600,
             }}>
               <span>🔒</span>
-              <span>Documentos verificados en blockchain</span>
+              <span>{t("detalle.docsVerified")}</span>
               <code style={{ fontFamily: "'DM Mono'", fontSize: "0.67rem", opacity: 0.75, marginLeft: "4px" }}>
                 {Array.from(proyecto.doc_hash).map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 8)}…
               </code>
@@ -305,7 +306,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
             <div style={estilos.bannerAbandonado}>
               <span>⚠️</span>
               <span style={{ fontSize: "0.82rem" }}>
-                Este proyecto fue abandonado. Puedes tomar el control y continuarlo.
+                {t("detalle.abandonedBanner")}
               </span>
             </div>
           )}
@@ -315,7 +316,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
             <div style={estilos.bannerLiberado}>
               <span>🏆</span>
               <span style={{ fontSize: "0.82rem" }}>
-                ¡Meta alcanzada! Lo que metiste, ya lo puedes sacar.
+                {t("detalle.releasedBanner")}
               </span>
             </div>
           )}
@@ -324,7 +325,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
           <div style={{ margin: "20px 0" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
               <span style={{ fontSize: "0.8rem", color: "var(--muted)" }} id="progreso-label">
-                Progreso de financiamiento
+                {t("detalle.progressLabel")}
               </span>
               <span style={{ fontSize: "0.8rem", color: "var(--primary)", fontFamily: "'DM Mono'", fontWeight: 700 }}
                     aria-hidden="true">
@@ -355,7 +356,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
           {esDueno && !esAbandonado && BigInt(proyecto.aportado ?? 0) > BigInt(0) && yieldDetallado && (
             <div style={estilos.yieldDuenoBanner}>
               <div style={{ fontSize: "0.75rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "10px" }}>
-                💰 Yield disponible para reclamar
+                {t("detalle.yieldAvailable")}
               </div>
               <div style={{ fontFamily: "'DM Mono'", fontSize: "1.5rem", color: "var(--amber)", fontWeight: 700, marginBottom: "10px" }}>
                 {stroopsAMXNe(yieldDuenoEstimado)}
@@ -364,25 +365,25 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
               <div className="detalle-yield-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px" }}>
                 <div style={estilos.yieldCapa}>
                   <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    🏦 Capa 1 · CETES
+                    {t("detalle.layer1")}
                   </div>
                   <div style={{ fontFamily: "'DM Mono'", fontSize: "0.85rem", color: "#059669", fontWeight: 700, marginTop: "2px" }}>
                     +{stroopsAMXNe(yieldDetallado.cetes)}
                   </div>
-                  <div style={{ fontSize: "0.66rem", color: "var(--muted)" }}>vía Etherfuse</div>
+                  <div style={{ fontSize: "0.66rem", color: "var(--muted)" }}>{t("detalle.layer1Via")}</div>
                 </div>
                 <div style={estilos.yieldCapa}>
                   <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    🌊 Capa 2 · AMM
+                    {t("detalle.layer2")}
                   </div>
                   <div style={{ fontFamily: "'DM Mono'", fontSize: "0.85rem", color: "#7C3AED", fontWeight: 700, marginTop: "2px" }}>
                     +{stroopsAMXNe(yieldDetallado.amm)}
                   </div>
-                  <div style={{ fontSize: "0.66rem", color: "var(--muted)" }}>vía Stellar AMM</div>
+                  <div style={{ fontSize: "0.66rem", color: "var(--muted)" }}>{t("detalle.layer2Via")}</div>
                 </div>
               </div>
               <div style={{ fontSize: "0.72rem", color: "var(--muted)", textAlign: "center" }}>
-                Capital: {stroopsAMXNe(proyecto.capital_en_cetes ?? 0)} CETES + {stroopsAMXNe(proyecto.capital_en_amm ?? 0)} AMM
+                {t("detalle.capital")}: {stroopsAMXNe(proyecto.capital_en_cetes ?? 0)} CETES + {stroopsAMXNe(proyecto.capital_en_amm ?? 0)} AMM
               </div>
             </div>
           )}
@@ -391,17 +392,17 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
           {miAportacion > BigInt(0) && (
             <div style={estilos.miPosicion}>
               <p style={{ fontSize: "0.78rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "12px" }}>
-                Mi posición
+                {t("detalle.myPosition")}
               </p>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <div>
-                  <div style={{ fontSize: "0.8rem", color: "var(--muted)" }}>Tu capital aportado</div>
+                  <div style={{ fontSize: "0.8rem", color: "var(--muted)" }}>{t("detalle.myCapital")}</div>
                   <div style={{ fontFamily: "'DM Mono'", color: "var(--primary)", fontSize: "1.1rem" }}>
                     {stroopsAMXNe(miAportacion)}
                   </div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: "0.8rem", color: "var(--muted)" }}>Yield acumulado (mi parte)</div>
+                  <div style={{ fontSize: "0.8rem", color: "var(--muted)" }}>{t("detalle.myYield")}</div>
                   <div style={{ fontFamily: "'DM Mono'", color: "var(--amber)", fontSize: "1.1rem" }}>
                     +{stroopsAMXNe(miYield)}
                   </div>
@@ -425,11 +426,10 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
                     onClick={() => setVista("contribuir")}
                     disabled={cargando}
                   >
-                    💰 Contribuir
+                    {t("detalle.contribute")}
                   </button>
                 )}
 
-                {/* Retirar principal — solo cuando Liberado o Abandonado */}
                 {miAportacion > BigInt(0) && (estado === "Liberado" || estado === "Abandonado") && (
                   <button
                     className="btn btn-amber"
@@ -437,32 +437,29 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
                     onClick={() => setVista("retirar")}
                     disabled={cargando}
                   >
-                    🔓 Retirar principal
+                    {t("detalle.withdraw")}
                   </button>
                 )}
 
-                {/* Principal bloqueado — aviso mientras está activo */}
                 {miAportacion > BigInt(0) && (estado === "EtapaInicial" || estado === "EnProgreso") && (
                   <div style={{ flex: 1, minWidth: "140px", background: "var(--primary-dim)", border: "1.5px solid rgba(124,58,237,0.16)", borderRadius: "var(--radius-sm)", padding: "10px 14px", fontSize: "0.78rem", color: "var(--primary)", textAlign: "center", lineHeight: 1.4 }}>
-                    🔒 Principal bloqueado<br/>
-                    <span style={{ color: "var(--muted)", fontSize: "0.72rem" }}>Disponible al liberar el proyecto</span>
+                    {t("detalle.locked")}<br/>
+                    <span style={{ color: "var(--muted)", fontSize: "0.72rem" }}>{t("detalle.lockedHint")}</span>
                   </div>
                 )}
 
-                {/* Reclamar yield — dueño con fondos */}
                 {esDueno && !esAbandonado && BigInt(proyecto.aportado ?? 0) > BigInt(0) && (
                   <button
                     className="btn btn-amber"
                     style={{ flex: 1, minWidth: "140px", justifyContent: "center" }}
                     onClick={manejarReclamarYield}
                     disabled={cargando || yieldDuenoEstimado === BigInt(0)}
-                    title={yieldDuenoEstimado === BigInt(0) ? "Espera al menos 1 minuto" : ""}
+                    title={yieldDuenoEstimado === BigInt(0) ? t("detalle.waitYield") : ""}
                   >
-                    {cargando ? "Procesando…" : "🏦 Reclamar yield"}
+                    {cargando ? t("detalle.processing") : t("detalle.claimYield")}
                   </button>
                 )}
 
-                {/* Solicitar continuar — cualquiera en proyectos abandonados */}
                 {esAbandonado && !esDueno && (
                   <button
                     className="btn btn-primary"
@@ -470,12 +467,11 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
                     onClick={manejarSolicitarContinuar}
                     disabled={cargando}
                   >
-                    {cargando ? "Procesando…" : "🤝 Tomar control"}
+                    {cargando ? t("detalle.processing") : t("detalle.takeControl")}
                   </button>
                 )}
               </div>
 
-              {/* Abandonar — botón separado abajo, menos prominente */}
               {esDueno && aceptaFondos && !confirmarAbandonar && (
                 <button
                   className="btn btn-ghost"
@@ -483,19 +479,18 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
                   onClick={() => setConfirmarAbandonar(true)}
                   disabled={cargando}
                 >
-                  Abandonar proyecto
+                  {t("detalle.abandon")}
                 </button>
               )}
 
-              {/* Confirmación de abandono */}
               {confirmarAbandonar && (
                 <div style={estilos.confirmarAbandonar}>
                   <p style={{ fontSize: "0.85rem", color: "#B91C1C", fontWeight: 600, marginBottom: "12px" }}>
-                    ⚠️ ¿Seguro que quieres abandonar este proyecto? Esta acción permite que cualquiera tome el control.
+                    {t("detalle.abandonConfirm")}
                   </p>
                   <div style={{ display: "flex", gap: "8px" }}>
                     <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setConfirmarAbandonar(false)}>
-                      Cancelar
+                      {t("detalle.cancel")}
                     </button>
                     <button
                       className="btn"
@@ -503,7 +498,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
                       onClick={manejarAbandonar}
                       disabled={cargando}
                     >
-                      {cargando ? "Procesando…" : "Sí, abandonar"}
+                      {cargando ? t("detalle.processing") : t("detalle.confirmAbandon")}
                     </button>
                   </div>
                 </div>
@@ -515,14 +510,14 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
           {vista === "contribuir" && (
             <div style={{ marginTop: "20px" }}>
               <div className="campo">
-                <label>Cantidad a aportar (MXNe)</label>
+                <label>{t("detalle.contributeLabel")}</label>
                 <input
                   className="input"
                   type="number"
                   value={cantidad}
                   onChange={handleCantidadChange}
                   onKeyDown={(e) => { if (["e","E","+","-"].includes(e.key)) e.preventDefault(); }}
-                  placeholder="Ej. 100"
+                  placeholder={t("detalle.contributePlaceholder")}
                   min="1"
                   step="1"
                   autoFocus
@@ -535,7 +530,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
                 )}
                 {cantidadValida && !superaBalance && (
                   <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "6px" }}>
-                    Disponible: {stroopsAMXNe(balanceMXNe)} MXNe
+                    {t("detalle.available")}: {stroopsAMXNe(balanceMXNe)} MXNe
                   </p>
                 )}
               </div>
@@ -543,20 +538,19 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
               <div style={estilos.infoBanner}>
                 <span>🛡️</span>
                 <span style={{ fontSize: "0.78rem", color: "var(--muted)" }}>
-                  <strong style={{ color: "var(--text)" }}>${cantidad || "X"} MXNe</strong> entran al contrato,
-                  no a nuestras manos. Lo que metes, lo sacas cuando el proyecto termina. El yield es el extra que va al creador.
+                  <strong style={{ color: "var(--text)" }}>${cantidad || "X"} MXNe</strong> {t("detalle.safetyMsg")}
                 </span>
               </div>
 
               <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
-                <button className="btn btn-ghost" onClick={() => setVista("info")} style={{ flex: 1 }}>← Atrás</button>
+                <button className="btn btn-ghost" onClick={() => setVista("info")} style={{ flex: 1 }}>{t("detalle.back")}</button>
                 <button
                   className="btn btn-primary"
                   onClick={manejarContribuir}
                   disabled={cargando || !cantidadValida || !!errorCantidad}
                   style={{ flex: 2, justifyContent: "center" }}
                 >
-                  {cargando ? "Procesando…" : "Confirmar aporte"}
+                  {cargando ? t("detalle.processing") : t("detalle.confirmContribute")}
                 </button>
               </div>
             </div>
@@ -566,24 +560,24 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
           {vista === "retirar" && (
             <div style={{ marginTop: "20px" }}>
               <div style={estilos.retiroCard}>
-                <div style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: "4px" }}>Recibirás en tu wallet</div>
+                <div style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: "4px" }}>{t("detalle.youWillReceive")}</div>
                 <div style={{ fontFamily: "'DM Mono'", fontSize: "1.8rem", color: "var(--primary)", fontWeight: 700 }}>
                   {stroopsAMXNe(miAportacion)}
                 </div>
                 <div style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "4px" }}>
-                  Exacto lo que metiste — ni un peso de menos
+                  {t("detalle.exactAmount")}
                 </div>
               </div>
 
               <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
-                <button className="btn btn-ghost" onClick={() => setVista("info")} style={{ flex: 1 }}>← Atrás</button>
+                <button className="btn btn-ghost" onClick={() => setVista("info")} style={{ flex: 1 }}>{t("detalle.back")}</button>
                 <button
                   className="btn btn-amber"
                   onClick={manejarRetirar}
                   disabled={cargando}
                   style={{ flex: 2, justifyContent: "center" }}
                 >
-                  {cargando ? "Procesando…" : "Confirmar retiro"}
+                  {cargando ? t("detalle.processing") : t("detalle.confirmWithdraw")}
                 </button>
               </div>
             </div>
