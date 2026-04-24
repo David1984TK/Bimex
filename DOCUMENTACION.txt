@@ -874,12 +874,58 @@ https://stellar.expert/explorer/testnet/contract/
 CDFFTEQLNIG2RAUONFXSQX2YS2UTQTCBEUAPK6S42XFNIOQEYPBJVH5T
 
 ================================================================================
+10. DESPLIEGUE EN MAINNET (Issue #6)
+================================================================================
+
+ESTADO: Pendiente de ejecución (script listo)
+
+PREREQUISITOS:
+  - Stellar CLI instalado: cargo install --locked stellar-cli --features opt
+  - Cuenta admin con fondos en Mainnet (XLM para fees)
+  - URL de RPC Mainnet con API key (ej. Validation Cloud, QuickNode)
+  - Contract ID del token MXNe en Mainnet
+
+SCRIPT DE DESPLIEGUE:
+  Archivo: bimex/deploy-mainnet.sh
+  Uso:
+    export ADMIN_SECRET=S...
+    export MAINNET_RPC_URL=https://mainnet.stellar.validationcloud.io/v1/<API_KEY>
+    export TOKEN_MXNE=C...
+    export YIELD_CETES_BPS=945    # 9.45% APY
+    export YIELD_AMM_BPS=400      # 4.00% APY
+    bash bimex/deploy-mainnet.sh
+
+PARÁMETROS DE PRODUCCIÓN:
+  - yield_cetes_bps : 945   (9.45% APY — CETES via Etherfuse Stablebonds)
+  - yield_amm_bps   : 400   (4.00% APY — AMM Stellar)
+  - Total APY       : ~13.45%
+
+CONTRACT ID MAINNET:
+  REEMPLAZAR_CON_CONTRACT_ID_TRAS_DESPLIEGUE
+  (Actualizar también en bimex-frontend/.env.production → VITE_CONTRACT_ID)
+
+VERIFICACIÓN POST-DESPLIEGUE:
+  1. Explorer: https://stellar.expert/explorer/public/contract/<CONTRACT_ID>
+  2. total_proyectos debe retornar 0
+  3. Frontend en modo mainnet: VITE_NETWORK=mainnet en .env.production
+
+ARCHIVOS MODIFICADOS PARA MAINNET:
+  - bimex/deploy-mainnet.sh              # Script de despliegue completo
+  - bimex-frontend/.env.production       # Variables de entorno Mainnet
+  - bimex-frontend/.env.testnet          # Variables de entorno Testnet
+  - bimex-frontend/src/stellar/contrato.js  # Switching mainnet/testnet via VITE_NETWORK
+
+CONTRATO TESTNET (referencia):
+  CAEYEIIH4MHXDVEBAPNGV2LJ7DAO4JSVBIN3E3I6TBK56AMRWERNRM3B
+  https://stellar.expert/explorer/testnet/contract/CAEYEIIH4MHXDVEBAPNGV2LJ7DAO4JSVBIN3E3I6TBK56AMRWERNRM3B
+
+================================================================================
 FIN DE DOCUMENTACIÓN
 ================================================================================
 
-Versión: 1.0
-Fecha: 2026-03-25
+Versión: 1.1
+Fecha: 2026-04-23
 Actualizado por: AI Assistant
-Estado: Completo
+Estado: Completo — Mainnet deployment script ready
 
 Para preguntas adicionales o actualizaciones, contacta al equipo de desarrollo.

@@ -1,21 +1,22 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { obtenerTodosLosProyectos, stroopsAMXNe } from "../stellar/contrato";
 
-const FILTROS = [
-  { key: "Todos",       label: "Todos"           },
-  { key: "EtapaInicial",label: "🌱 Etapa inicial" },
-  { key: "EnProgreso",  label: "🚀 En progreso"   },
-  { key: "Liberado",    label: "🏆 Liberado"      },
-  { key: "Abandonado",  label: "⚠️ Abandonado"    },
-];
-
-// Estados que NO se muestran en la lista pública
-const ESTADOS_OCULTOS = new Set(["EnRevision", "Rechazado"]);
-
 export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
+  const { t } = useTranslation();
   const [proyectos, setProyectos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [filtro, setFiltro] = useState("Todos");
+
+  // Estados que NO se muestran en la lista pública
+  const ESTADOS_OCULTOS = new Set(["EnRevision", "Rechazado"]);
+  const FILTROS = [
+    { key: "Todos",        label: t("filters.all")        },
+    { key: "EtapaInicial", label: t("filters.initial")    },
+    { key: "EnProgreso",   label: t("filters.inProgress") },
+    { key: "Liberado",     label: t("filters.released")   },
+    { key: "Abandonado",   label: t("filters.abandoned")  },
+  ];
 
   async function cargar() {
     setCargando(true);
@@ -44,34 +45,34 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
     : proyectosPublicos.filter(p => p.estado === filtro);
 
   return (
-    <div style={estilos.contenedor}>
+    <div className="lista-contenedor" style={estilos.contenedor}>
 
       {/* Header */}
-      <div style={estilos.header}>
+      <div className="lista-header" style={estilos.header}>
         <div>
-          <h2 style={estilos.titulo}>Proyectos</h2>
+          <h2 style={estilos.titulo}>{t("lista.title")}</h2>
           <p style={{ color: "var(--muted)", fontSize: "0.88rem", marginTop: 4 }}>
-            Apoya proyectos de impacto real. Tu capital siempre es recuperable.
+            {t("lista.subtitle")}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-ghost" onClick={cargar}
             style={{ padding: "10px 14px", fontSize: "1rem" }}
-            title="Recargar">↺</button>
-          <button className="btn btn-primary" onClick={onCrear}>+ Crear proyecto</button>
+            title={t("lista.reload")}>↺</button>
+          <button className="btn btn-primary" onClick={onCrear}>{t("lista.create")}</button>
         </div>
       </div>
 
       {/* Stats strip */}
       {proyectosPublicos.length > 0 && (
-        <div className="stats-strip-scroll" style={estilos.statsStrip}>
+        <div className="stats-strip-scroll lista-stats-strip" style={estilos.statsStrip}>
           <StatStrip icon="📦" label="Total" valor={proyectosPublicos.length} />
           <div style={estilos.statsDivider} />
-          <StatStrip icon="🚀" label="En progreso" valor={enProgreso} />
+          <StatStrip icon="🚀" label={t("lista.statProgress")} valor={enProgreso} />
           <div style={estilos.statsDivider} />
-          <StatStrip icon="🏆" label="Liberados" valor={liberados} />
+          <StatStrip icon="🏆" label={t("lista.statReleased")} valor={liberados} />
           <div style={estilos.statsDivider} />
-          <StatStrip icon="💰" label="Total bloqueado" valor={stroopsAMXNe(totalBloqueado)} mono />
+          <StatStrip icon="💰" label={t("lista.statLocked")} valor={stroopsAMXNe(totalBloqueado)} mono />
         </div>
       )}
 
@@ -79,9 +80,8 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
       <div style={estilos.banner}>
         <span style={{ fontSize: "1.2rem", flexShrink: 0 }}>💡</span>
         <p style={{ fontSize: "0.86rem", color: "var(--muted)", lineHeight: 1.6 }}>
-          <strong style={{ color: "var(--text2)" }}>¿Cómo funciona?</strong>{" "}
-          Tu MXNe entra al contrato — no a nuestra cuenta, al código. El yield financia el proyecto
-          y tu capital lo recuperas íntegro al finalizar el proyecto.
+          <strong style={{ color: "var(--text2)" }}>{t("lista.howTitle")}</strong>{" "}
+          {t("lista.howDesc")}
         </p>
       </div>
 
@@ -121,35 +121,35 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
 
       {/* Grid */}
       {cargando ? (
-        <div style={estilos.loading} role="status" aria-live="polite" aria-label="Cargando proyectos">
+        <div style={estilos.loading} role="status" aria-live="polite" aria-label={t("lista.loading")}>
           <div style={estilos.spinner} aria-hidden="true" />
-          <p style={{ color: "var(--muted)", marginTop: 16, fontSize: "0.9rem" }}>Cargando proyectos…</p>
+          <p style={{ color: "var(--muted)", marginTop: 16, fontSize: "0.9rem" }}>{t("lista.loading")}</p>
         </div>
       ) : proyectos.length === 0 ? (
         <div style={estilos.empty}>
           <span style={{ fontSize: "3rem" }}>🌱</span>
           <p style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text)", marginTop: 16 }}>
-            Aún no hay proyectos
+            {t("lista.empty")}
           </p>
           <p style={{ fontSize: "0.88rem", color: "var(--muted)", marginTop: 6 }}>
-            ¡Sé el primero en crear uno!
+            {t("lista.emptyHint")}
           </p>
           <button className="btn btn-primary" onClick={onCrear} style={{ marginTop: 20 }}>
-            + Crear proyecto
+            {t("lista.create")}
           </button>
         </div>
       ) : proyectosFiltrados.length === 0 ? (
         <div style={estilos.empty}>
           <span style={{ fontSize: "2.5rem" }}>🔍</span>
           <p style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text)", marginTop: 16 }}>
-            Sin proyectos en este estado
+            {t("lista.noResults")}
           </p>
           <button className="btn btn-ghost" onClick={() => setFiltro("Todos")} style={{ marginTop: 16 }}>
-            Ver todos
+            {t("lista.viewAll")}
           </button>
         </div>
       ) : (
-        <div className="grid-proyectos" style={estilos.grid} role="list" aria-label="Lista de proyectos">
+        <div className="grid-proyectos" style={estilos.grid} role="list" aria-label={t("lista.ariaList")}>
           {proyectosFiltrados.map((p) => (
             <CardProyecto key={p.id} proyecto={p} onClick={() => onSeleccionar(p)} />
           ))}
@@ -175,19 +175,21 @@ function StatStrip({ icon, label, valor, mono }) {
 
 // ── Config de estado ─────────────────────────────────────────────────────────
 const ESTADO_CFG = {
-  EtapaInicial: { label: "🌱 Etapa inicial", badge: "badge-muted",  emoji: "🌱", btnLabel: "Ver y contribuir →", btnClass: "btn-secondary"  },
-  EnProgreso:   { label: "● En progreso",    badge: "badge-teal",   emoji: "🚀", btnLabel: "Ver y contribuir →", btnClass: "btn-secondary"  },
-  Liberado:     { label: "✓ Liberado",       badge: "badge-amber",  emoji: "🏆", btnLabel: "Ver detalles →",     btnClass: "btn-secondary"  },
-  Abandonado:   { label: "⚠️ Abandonado",    badge: "badge-red",    emoji: "⚠️", btnLabel: "Tomar control →",    btnClass: "btn-ghost"      },
+  EtapaInicial: { badge: "badge-muted",  emoji: "🌱", btnLabelKey: "card.contributeBtn", btnClass: "btn-secondary" },
+  EnProgreso:   { badge: "badge-teal",   emoji: "🚀", btnLabelKey: "card.contributeBtn", btnClass: "btn-secondary" },
+  Liberado:     { badge: "badge-amber",  emoji: "🏆", btnLabelKey: "card.detailBtn",     btnClass: "btn-secondary" },
+  Abandonado:   { badge: "badge-red",    emoji: "⚠️", btnLabelKey: "card.takeControlBtn",btnClass: "btn-ghost"     },
 };
 
 // ── Card ─────────────────────────────────────────────────────────────────────
 function CardProyecto({ proyecto, onClick }) {
+  const { t } = useTranslation();
   const meta     = Number(proyecto.meta);
   const aportado = Number(proyecto.aportado);
   const pct      = meta > 0 ? Math.min((aportado / meta) * 100, 100) : 0;
   const estado   = proyecto.estado ?? "EtapaInicial";
   const cfg      = ESTADO_CFG[estado] ?? ESTADO_CFG.EtapaInicial;
+  const btnLabel = t(cfg.btnLabelKey);
 
   return (
     <article
@@ -195,19 +197,19 @@ function CardProyecto({ proyecto, onClick }) {
       role="listitem"
       style={{ ...estilos.card, opacity: estado === "Abandonado" ? 0.78 : 1 }}
       onClick={onClick}
-      aria-label={`Proyecto: ${proyecto.nombre}, estado: ${cfg.label}, financiado al ${pct.toFixed(0)}%`}
+      aria-label={`${proyecto.nombre}, ${t(`status.${estado}`)}, ${pct.toFixed(0)}%`}
     >
       {/* Top row */}
       <div style={estilos.cardTop}>
         <span style={estilos.emoji}>{cfg.emoji}</span>
         <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
-          <span className={`badge ${cfg.badge}`}>{cfg.label}</span>
+          <span className={`badge ${cfg.badge}`}>{t(`status.${estado}`)}</span>
           {proyecto.doc_hash && (
             <span
               style={{ background: "rgba(5,150,105,0.10)", border: "1px solid rgba(5,150,105,0.28)", color: "#059669", fontSize: "0.66rem", fontWeight: 700, padding: "2px 8px", borderRadius: "99px" }}
-              title="Documentos verificados en blockchain"
+              title={t("lista.verifiedTitle")}
             >
-              ✓ Verificado
+              {t("lista.verified")}
             </span>
           )}
         </div>
@@ -223,7 +225,7 @@ function CardProyecto({ proyecto, onClick }) {
       <div style={{ marginTop: 18 }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
           <span style={{ fontSize: "0.78rem", color: "var(--muted)" }} id={`prog-label-${proyecto.id}`}>
-            Financiamiento
+            {t("lista.funding")}
           </span>
           <span style={{ fontSize: "0.78rem", color: "var(--primary)", fontFamily: "'DM Mono'", fontWeight: 700 }}
                 aria-hidden="true">
@@ -237,7 +239,7 @@ function CardProyecto({ proyecto, onClick }) {
           aria-valuemin={0}
           aria-valuemax={100}
           aria-labelledby={`prog-label-${proyecto.id}`}
-          aria-valuetext={`${pct.toFixed(0)}% del objetivo`}
+          aria-valuetext={`${pct.toFixed(0)}%`}
         >
           <div className="progress-fill" style={{ width: `${pct}%` }} />
         </div>
@@ -245,8 +247,8 @@ function CardProyecto({ proyecto, onClick }) {
 
       {/* Stats */}
       <div style={estilos.statsRow}>
-        <StatItem label="Bloqueado" valor={stroopsAMXNe(proyecto.aportado)} color="var(--text2)" />
-        <StatItem label="Meta"      valor={stroopsAMXNe(proyecto.meta)}     color="var(--muted)" />
+        <StatItem label={t("lista.locked")} valor={stroopsAMXNe(proyecto.aportado)} color="var(--text2)" />
+        <StatItem label={t("lista.goal")}   valor={stroopsAMXNe(proyecto.meta)}     color="var(--muted)" />
       </div>
 
       {/* CTA */}
@@ -254,9 +256,9 @@ function CardProyecto({ proyecto, onClick }) {
         className={`btn ${cfg.btnClass}`}
         style={{ width: "100%", marginTop: 16, justifyContent: "center" }}
         onClick={(e) => { e.stopPropagation(); onClick(); }}
-        aria-label={`${cfg.btnLabel} ${proyecto.nombre}`}
+        aria-label={`${btnLabel} ${proyecto.nombre}`}
       >
-        {cfg.btnLabel}
+        {btnLabel}
       </button>
     </article>
   );
