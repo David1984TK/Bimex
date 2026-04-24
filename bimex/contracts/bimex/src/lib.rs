@@ -77,6 +77,15 @@ pub enum Clave {
 }
 
 // ============================================================
+//  CONSTANTES DE TASAS
+// ============================================================
+
+// Tasas reales de producción en puntos base (bps).
+// 10 000 bps = 100 % anual. Fórmula: capital × bps × minutos / 10_000 / 525_600
+const DEFAULT_CETES_BPS: u32 = 945;  // 9.45 % anual (CETES referencia)
+const DEFAULT_AMM_BPS:   u32 = 400;  // 4.00 % anual (liquidez AMM)
+
+// ============================================================
 //  HELPERS
 // ============================================================
 
@@ -211,8 +220,8 @@ impl BimexContrato {
             .storage().persistent().get(&Clave::Aportacion(id_proyecto, backer))
             .expect("Este backer no tiene aportacion en este proyecto");
 
-        let cetes_bps = env.storage().instance().get::<_, u32>(&Clave::YieldCetesBps).unwrap_or(25000) as i128;
-        let amm_bps   = env.storage().instance().get::<_, u32>(&Clave::YieldAmmBps).unwrap_or(10000) as i128;
+        let cetes_bps = env.storage().instance().get::<_, u32>(&Clave::YieldCetesBps).unwrap_or(DEFAULT_CETES_BPS) as i128;
+        let amm_bps   = env.storage().instance().get::<_, u32>(&Clave::YieldAmmBps).unwrap_or(DEFAULT_AMM_BPS) as i128;
 
         let segundos = env.ledger().timestamp().saturating_sub(aportacion.timestamp);
         let minutos  = (segundos / 60) as i128;
@@ -229,8 +238,8 @@ impl BimexContrato {
             .storage().persistent().get(&Clave::Proyecto(id_proyecto))
             .expect("Proyecto no existe");
 
-        let cetes_bps = env.storage().instance().get::<_, u32>(&Clave::YieldCetesBps).unwrap_or(25000) as i128;
-        let amm_bps   = env.storage().instance().get::<_, u32>(&Clave::YieldAmmBps).unwrap_or(10000) as i128;
+        let cetes_bps = env.storage().instance().get::<_, u32>(&Clave::YieldCetesBps).unwrap_or(DEFAULT_CETES_BPS) as i128;
+        let amm_bps   = env.storage().instance().get::<_, u32>(&Clave::YieldAmmBps).unwrap_or(DEFAULT_AMM_BPS) as i128;
 
         let segundos = env.ledger().timestamp().saturating_sub(proyecto.timestamp_inicio);
         let minutos  = (segundos / 60) as i128;
@@ -269,8 +278,8 @@ impl BimexContrato {
         );
         assert!(proyecto.total_aportado > 0, "No hay fondos en el proyecto");
 
-        let cetes_bps = env.storage().instance().get::<_, u32>(&Clave::YieldCetesBps).unwrap_or(25000) as i128;
-        let amm_bps   = env.storage().instance().get::<_, u32>(&Clave::YieldAmmBps).unwrap_or(10000) as i128;
+        let cetes_bps = env.storage().instance().get::<_, u32>(&Clave::YieldCetesBps).unwrap_or(DEFAULT_CETES_BPS) as i128;
+        let amm_bps   = env.storage().instance().get::<_, u32>(&Clave::YieldAmmBps).unwrap_or(DEFAULT_AMM_BPS) as i128;
 
         let ahora    = env.ledger().timestamp();
         let segundos = ahora.saturating_sub(proyecto.timestamp_inicio);
