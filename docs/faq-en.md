@@ -1,0 +1,57 @@
+# Frequently Asked Questions — Bimex
+
+## For contributors
+
+**1. Can I lose my money?**
+
+No. Your principal is always recoverable. The smart contract on Stellar ensures nobody can move your capital without your authorization. Only the yield generated goes to the project.
+
+**2. What happens if the project fails or is abandoned?**
+
+If the project owner marks it as Abandoned, you can withdraw your full principal immediately. There is no penalty or loss.
+
+**3. How much yield does my contribution generate?**
+
+Approximately **13.45% APY** (9.45% from CETES + 4% from AMM). Example: 1,000 MXNe locked for 12 months generates ~134.5 MXNe in yield for the project. You get your 1,000 MXNe back in full.
+
+**4. When can I withdraw my principal?**
+
+You can withdraw your principal when the project is in **Liberado** (goal reached) or **Abandonado** state. Withdrawal is not available while the project is in EnProgreso, to ensure the project receives the promised yield.
+
+**5. Do I need blockchain knowledge to use Bimex?**
+
+No. You only need to install [Freighter](https://www.freighter.app) (a browser extension), have some MXNe, and follow the steps in the app. It's as simple as any payments app.
+
+**6. What is MXNe and how do I get it?**
+
+MXNe is a stablecoin worth approximately 1 Mexican peso. You can buy it directly via bank transfer (SPEI) at [Etherfuse](https://etherfuse.com) or trade for it on the Stellar DEX at [StellarTerm](https://stellarterm.com).
+
+**7. Are my funds safe if Bimex shuts down?**
+
+Yes. The contract lives on the Stellar blockchain, not on Bimex servers. Even if the frontend disappears, you can interact directly with the contract using Stellar CLI to withdraw your principal.
+
+---
+
+## For project creators
+
+**8. What types of projects does Bimex accept?**
+
+Social impact projects: education, health, environment, community entrepreneurship, culture. Projects with private profit motives are not accepted.
+
+**9. How long does project review take?**
+
+The Bimex team reviews projects within **2–5 business days**. You will receive a notification with the approval or the reason for rejection.
+
+**10. When and how do I receive the yield?**
+
+You can claim accumulated yield at any time while your project is active (EnProgreso or Liberado state). Go to your project detail and click "Reclamar yield". MXNe arrives in your wallet immediately.
+
+---
+
+## Resources
+
+- [Contributor guide](guia-contribuidor.md)
+- [Project creator guide](guia-creador-proyecto.md)
+- [FAQ en español](faq-es.md)
+- [Technical documentation](../DOCUMENTACION.txt)
+- [Stellar Community](https://stellar.org/community)
