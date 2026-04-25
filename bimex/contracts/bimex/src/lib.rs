@@ -2,7 +2,7 @@
 
 use soroban_sdk::{
     contract, contractimpl, contracttype,
-    token, Address, Env, String, BytesN,
+    token, Address, Env, String,
 };
 
 // ============================================================
@@ -134,7 +134,7 @@ impl BimexContrato {
         dueno: Address,
         nombre: String,
         meta: i128,
-        doc_hash: BytesN<32>,
+        doc_cid: String,
     ) -> u32 {
         dueno.require_auth();
         assert!(meta > 0, "La meta debe ser mayor a 0");
@@ -153,7 +153,7 @@ impl BimexContrato {
             yield_cetes_acumulado: 0,
             capital_en_amm: 0,
             yield_amm_acumulado: 0,
-            doc_hash,
+            doc_cid,
             motivo_rechazo: String::from_str(&env, ""),
         };
 

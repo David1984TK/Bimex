@@ -8,7 +8,6 @@ import {
   Keypair,
   nativeToScVal,
   scValToNative,
-  xdr,
 } from "@stellar/stellar-sdk";
 import { signTransaction } from "@stellar/freighter-api";
 
@@ -200,15 +199,6 @@ export async function obtenerProyecto(id) {
     nativeToScVal(id, { type: "u32" }),
   ]);
 
-  // doc_hash viene como Buffer/Uint8Array desde scValToNative para BytesN<32>
-  let docHash = null;
-  if (raw.doc_hash) {
-    const bytes = raw.doc_hash instanceof Uint8Array ? raw.doc_hash : new Uint8Array(Object.values(raw.doc_hash));
-    // Si todos son cero es un hash vacío (proyecto demo sin docs)
-    const esTodosCero = bytes.every(b => b === 0);
-    docHash = esTodosCero ? null : bytes;
-  }
-
   return {
     id: Number(id),
     dueno: raw.dueno?.toString() ?? "",
@@ -223,8 +213,8 @@ export async function obtenerProyecto(id) {
     capital_en_amm: BigInt(raw.capital_en_amm ?? 0),
     yield_cetes_acumulado: BigInt(raw.yield_cetes_acumulado ?? 0),
     yield_amm_acumulado: BigInt(raw.yield_amm_acumulado ?? 0),
-    // Verificación documental
-    doc_hash: docHash,  // Uint8Array(32) si tiene documentos, null si no
+    // Verificación documental — CID de IPFS (string) o null si vacío
+    doc_hash: raw.doc_cid?.toString() || null,
     // Admin
     motivo_rechazo: raw.motivo_rechazo?.toString() ?? "",
   };
@@ -296,15 +286,12 @@ export async function obtenerTodosLosProyectos() {
 
 // ─── Funciones de ESCRITURA ───────────────────────────────────────────────────
 
-export async function crearProyecto(direccion, nombre, metaMXNe, docHashBytes) {
-  // docHashBytes debe ser Uint8Array(32) generado por hashearDocumentos()
-  const docHashScVal = xdr.ScVal.scvBytes(Buffer.from(docHashBytes));
-
+export async function crearProyecto(direccion, nombre, metaMXNe, docCid) {
   const tx = await construirTx(direccion, "crear_proyecto", [
     dirAScVal(direccion),
     nativeToScVal(nombre, { type: "string" }),
     nativeToScVal(metaMXNe, { type: "i128" }),
-    docHashScVal,
+    nativeToScVal(docCid, { type: "string" }),
   ]);
   return firmarYEnviar(tx, direccion);
 }
