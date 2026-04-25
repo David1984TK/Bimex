@@ -34,7 +34,7 @@ pub struct Proyecto {
     pub yield_cetes_acumulado: i128,
     pub capital_en_amm: i128,
     pub yield_amm_acumulado: i128,
-    pub doc_hash: BytesN<32>,
+    pub doc_cid: String,
     pub motivo_rechazo: String,
 }
 
