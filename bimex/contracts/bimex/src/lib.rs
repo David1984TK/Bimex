@@ -9,6 +9,15 @@ use soroban_sdk::{
 //  TIPOS DE DATOS
 // ============================================================
 
+/// Estado del ciclo de vida de un proyecto.
+///
+/// Transiciones válidas:
+///   EnRevision → EtapaInicial (admin_aprobar)
+///   EnRevision → Rechazado    (admin_rechazar)
+///   EtapaInicial → EnProgreso (primer contribuir)
+///   EnProgreso → Liberado     (total_aportado >= meta)
+///   EtapaInicial | EnProgreso | Liberado → Abandonado (abandonar_proyecto)
+///   Abandonado → EtapaInicial | EnProgreso (solicitar_continuar)
 #[contracttype]
 #[derive(Clone, PartialEq, Debug)]
 pub enum EstadoProyecto {
@@ -16,10 +25,15 @@ pub enum EstadoProyecto {
     EtapaInicial,  // aprobado, sin backers todavía
     EnProgreso,    // al menos un backer
     Abandonado,    // dueño lo marcó como abandonado
-    Liberado,      // meta alcanzada
+    Liberado,      // meta alcanzada; yield reclamable por el dueño
     Rechazado,     // rechazado por el admin
 }
 
+/// Datos completos de un proyecto de crowdfunding.
+///
+/// El capital se divide 50/50 entre CETES y AMM al momento de cada contribución.
+/// `timestamp_inicio` se resetea cada vez que el dueño reclama yield, y también
+/// cuando un nuevo dueño toma el proyecto vía `solicitar_continuar`.
 #[contracttype]
 #[derive(Clone)]
 pub struct Proyecto {
@@ -38,6 +52,10 @@ pub struct Proyecto {
     pub motivo_rechazo: String,
 }
 
+/// Aportación de un backer a un proyecto.
+///
+/// `timestamp` registra el momento de la primera contribución y NO se resetea
+/// en top-ups posteriores, preservando el período de acumulación de yield.
 #[contracttype]
 #[derive(Clone)]
 pub struct Aportacion {
@@ -90,8 +108,12 @@ const DEFAULT_AMM_BPS:   u32 = 400;  // 4.00 % anual (liquidez AMM)
 // ============================================================
 
 /// Overflow-safe yield calculation.
-/// Uses i128 max ~1.7e38; with capital up to ~1e18 stroops and bps up to 10_000_000,
-/// we divide early to stay within bounds.
+///
+/// Formula: yield = capital * bps / 10_000 * minutos / MINUTOS_ANO
+///
+/// Division is performed before multiplication to keep intermediate i128 values
+/// within bounds for capital up to ~1e18 stroops and bps up to 10_000_000.
+/// The remainder term preserves precision lost in the integer division.
 fn calcular_yield_seguro(capital: i128, bps: i128, minutos: i128) -> i128 {
     const MINUTOS_ANO: i128 = 525_600;
     // Divide before multiply to prevent overflow: (capital / MINUTOS_ANO) * bps * minutos / 10_000
@@ -110,6 +132,18 @@ pub struct BimexContrato;
 #[contractimpl]
 impl BimexContrato {
 
+    /// Inicializa el contrato. Solo puede llamarse una vez.
+    ///
+    /// Parámetros de producción:
+    ///   yield_cetes_bps = 945  (9.45% APY — CETES / Etherfuse Stablebonds)
+    ///   yield_amm_bps   = 400  (4.00% APY — AMM de Stellar)
+    ///
+    /// Ejemplo (Testnet):
+    ///   stellar contract invoke --id <CONTRACT_ID> --source <ADMIN> \
+    ///     --network testnet -- inicializar \
+    ///     --admin <ADMIN_ADDRESS> \
+    ///     --token_mxne <MXNE_SAC_ADDRESS> \
+    ///     --yield_cetes_bps 945 --yield_amm_bps 400
     pub fn inicializar(
         env: Env,
         admin: Address,
@@ -129,6 +163,11 @@ impl BimexContrato {
         env.storage().instance().set(&Clave::ContadorProyectos, &0u32);
     }
 
+    /// Crea un nuevo proyecto en estado EnRevision.
+    ///
+    /// `meta` se expresa en stroops (1 MXNe = 10_000_000 stroops).
+    /// `doc_hash` es el SHA-256 de 32 bytes del documento del proyecto.
+    /// Retorna el ID asignado al proyecto.
     pub fn crear_proyecto(
         env: Env,
         dueno: Address,
@@ -162,6 +201,13 @@ impl BimexContrato {
         id
     }
 
+    /// Bloquea `cantidad` stroops de MXNe del backer en el contrato.
+    ///
+    /// - Solo acepta proyectos en EtapaInicial o EnProgreso.
+    /// - La contribución se limita al capital restante para evitar overfunding.
+    /// - El capital se divide 50/50 entre CETES y AMM.
+    /// - Si total_aportado >= meta, el proyecto pasa a estado Liberado.
+    /// - Top-ups preservan el timestamp original del backer.
     pub fn contribuir(env: Env, backer: Address, id_proyecto: u32, cantidad: i128) {
         // AUTH FIRST
         backer.require_auth();
@@ -215,6 +261,8 @@ impl BimexContrato {
         token.transfer(&backer, &env.current_contract_address(), &cantidad);
     }
 
+    /// Calcula el yield pendiente de un backer específico en stroops.
+    /// No modifica el estado del contrato.
     pub fn calcular_yield(env: Env, id_proyecto: u32, backer: Address) -> i128 {
         let aportacion: Aportacion = env
             .storage().persistent().get(&Clave::Aportacion(id_proyecto, backer))
@@ -233,6 +281,7 @@ impl BimexContrato {
         yield_cetes + yield_amm
     }
 
+    /// Retorna el yield total del proyecto desglosado por fuente (CETES y AMM).
     pub fn calcular_yield_detallado(env: Env, id_proyecto: u32) -> YieldDetallado {
         let proyecto: Proyecto = env
             .storage().persistent().get(&Clave::Proyecto(id_proyecto))
@@ -250,6 +299,7 @@ impl BimexContrato {
         YieldDetallado { cetes: yield_cetes, amm: yield_amm, total: yield_cetes + yield_amm }
     }
 
+    /// Retorna la distribución actual del capital entre CETES y AMM.
     pub fn estado_capital(env: Env, id_proyecto: u32) -> CapitalEstado {
         let proyecto: Proyecto = env
             .storage().persistent().get(&Clave::Proyecto(id_proyecto))
@@ -262,6 +312,12 @@ impl BimexContrato {
         }
     }
 
+    /// Transfiere el yield acumulado al dueño del proyecto.
+    ///
+    /// Solo el dueño puede llamar esta función (require_auth).
+    /// Solo válido en estado EnProgreso o Liberado.
+    /// Resetea `timestamp_inicio` al momento actual para el próximo período.
+    /// Retorna el monto de yield transferido en stroops.
     pub fn reclamar_yield(env: Env, id_proyecto: u32) -> i128 {
         let mut proyecto: Proyecto = env
             .storage().persistent().get(&Clave::Proyecto(id_proyecto))
@@ -306,6 +362,11 @@ impl BimexContrato {
         yield_monto
     }
 
+    /// Devuelve el principal íntegro al backer.
+    ///
+    /// Solo válido en estado Liberado o Abandonado.
+    /// Elimina la Aportacion del storage y reduce total_aportado.
+    /// Retorna el monto retirado en stroops.
     pub fn retirar_principal(env: Env, backer: Address, id_proyecto: u32) -> i128 {
         // AUTH FIRST
         backer.require_auth();
@@ -351,6 +412,9 @@ impl BimexContrato {
         monto
     }
 
+    /// Marca el proyecto como Abandonado. Solo el dueño puede llamarlo.
+    /// Válido en EtapaInicial, EnProgreso o Liberado.
+    /// Tras esto, los backers pueden retirar su principal.
     pub fn abandonar_proyecto(env: Env, id_proyecto: u32) {
         let mut proyecto: Proyecto = env
             .storage().persistent().get(&Clave::Proyecto(id_proyecto))
@@ -371,6 +435,11 @@ impl BimexContrato {
         env.storage().persistent().set(&Clave::Proyecto(id_proyecto), &proyecto);
     }
 
+    /// Permite a un nuevo dueño retomar un proyecto Abandonado.
+    ///
+    /// Transfiere la propiedad a `nuevo_dueno` y reactiva el proyecto.
+    /// Resetea `timestamp_inicio` para que el nuevo dueño no herede
+    /// yield acumulado del período anterior.
     pub fn solicitar_continuar(env: Env, nuevo_dueno: Address, id_proyecto: u32) {
         // AUTH FIRST
         nuevo_dueno.require_auth();
@@ -396,6 +465,8 @@ impl BimexContrato {
         env.storage().persistent().set(&Clave::Proyecto(id_proyecto), &proyecto);
     }
 
+    /// Aprueba un proyecto en revisión. Solo el admin puede llamarlo.
+    /// Mueve el estado EnRevision → EtapaInicial.
     pub fn admin_aprobar(env: Env, id_proyecto: u32) {
         // AUTH FIRST
         let admin: Address = env.storage().instance().get(&Clave::Admin).expect("No inicializado");
@@ -414,6 +485,8 @@ impl BimexContrato {
         env.storage().persistent().set(&Clave::Proyecto(id_proyecto), &proyecto);
     }
 
+    /// Rechaza un proyecto en revisión. Solo el admin puede llamarlo.
+    /// Mueve el estado EnRevision → Rechazado y guarda el motivo.
     pub fn admin_rechazar(env: Env, id_proyecto: u32, motivo: String) {
         // AUTH FIRST
         let admin: Address = env.storage().instance().get(&Clave::Admin).expect("No inicializado");
