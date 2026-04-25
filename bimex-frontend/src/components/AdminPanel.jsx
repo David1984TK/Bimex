@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   obtenerTodosLosProyectos,
   aprobarProyecto,
@@ -28,7 +29,7 @@ function docHashHex(docHash) {
 function mensajeCorto(err) {
   const msg = err?.message || "Error inesperado.";
   if (msg.includes("HostError") || msg.includes("XDR") || msg.length > 120) {
-    return "Error en el contrato. Intenta de nuevo en unos segundos.";
+    return "Contract error. Please try again.";
   }
   return msg;
 }
@@ -36,6 +37,7 @@ function mensajeCorto(err) {
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
+  const { t } = useTranslation();
   const [proyectos, setProyectos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [toast, setToast] = useState(null);
@@ -52,7 +54,7 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
       const todos = await obtenerTodosLosProyectos();
       setProyectos(todos.filter((p) => p.estado === "EnRevision"));
     } catch (err) {
-      mostrarToast("No se pudieron cargar los proyectos: " + mensajeCorto(err), "error");
+      mostrarToast(t("admin.errLoad", { msg: mensajeCorto(err) }), "error");
     }
     setCargando(false);
   }
@@ -110,7 +112,7 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
   async function manejarAprobar(idProyecto) {
     try {
       await aprobarProyecto(direccion, idProyecto);
-      mostrarToast(`✅ Proyecto #${idProyecto} aprobado`);
+      mostrarToast(t("admin.toastApproved", { id: idProyecto }));
       await cargarPendientes();
     } catch (err) {
       mostrarToast(mensajeCorto(err), "error");
@@ -152,7 +154,7 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
 
     try {
       await rechazarProyecto(direccion, idProyecto, estado.motivo);
-      mostrarToast(`❌ Proyecto #${idProyecto} rechazado`);
+      mostrarToast(t("admin.toastRejected", { id: idProyecto }));
       cancelarRechazo(idProyecto);
       await cargarPendientes();
     } catch (err) {
@@ -196,17 +198,17 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
                   id="admin-panel-titulo"
                   style={{ fontSize: "1.15rem", color: "#fff", margin: 0 }}
                 >
-                  Panel de Administrador
+                  {t("admin.title")}
                 </h2>
                 <span style={estilos.badgePendientes}>
-                  {cargando ? "Cargando…" : `${proyectos.length} proyectos pendientes de revisión`}
+                  {cargando ? t("admin.loading") : t("admin.pending", { count: proyectos.length })}
                 </span>
               </div>
             </div>
             <button
               className="btn-close"
               onClick={onCerrar}
-              aria-label="Cerrar panel de administrador"
+              aria-label={t("admin.closeAria")}
               style={{ color: "#fff", opacity: 0.8 }}
             >
               ×
@@ -221,7 +223,7 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
               <div style={estilos.centrado}>
                 <span style={estilos.spinner} aria-label="Cargando proyectos" />
                 <span style={{ color: "var(--muted)", fontSize: "0.88rem", marginLeft: "10px" }}>
-                  Cargando proyectos…
+                  {t("admin.loading")}
                 </span>
               </div>
             )}
@@ -231,10 +233,10 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
               <div style={estilos.estadoVacio}>
                 <span style={{ fontSize: "2rem" }}>✓</span>
                 <p style={{ margin: "8px 0 0", fontSize: "0.95rem", fontWeight: 600, color: "var(--text)" }}>
-                  Todo al día ✓
+                  {t("admin.allClear")}
                 </p>
                 <p style={{ margin: "4px 0 0", fontSize: "0.82rem", color: "var(--muted)" }}>
-                  No hay proyectos pendientes de revisión en este momento.
+                  {t("admin.allClearHint")}
                 </p>
               </div>
             )}
@@ -256,7 +258,7 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
                             <span style={{ fontWeight: 700, fontSize: "0.97rem", color: "var(--text)" }}>
                               {proyecto.nombre}
                             </span>
-                            <span style={estilos.badgeRevision}>En revisión</span>
+                            <span style={estilos.badgeRevision}>{t("admin.inReview")}</span>
                           </div>
                           <div style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "4px", fontFamily: "'DM Mono'" }}>
                             Meta: <span style={{ color: "var(--primary)", fontWeight: 600 }}>
@@ -268,16 +270,16 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
                       </div>
 
                       {/* Meta info */}
-                      <div style={estilos.metaGrid}>
+                      <div className="admin-meta-grid" style={estilos.metaGrid}>
                         <div>
-                          <div style={estilos.metaLabel}>Dueño</div>
+                          <div style={estilos.metaLabel}>{t("admin.owner")}</div>
                           <code style={estilos.metaValor}>
                             {acortarDireccion(proyecto.dueno)}
                           </code>
                         </div>
                         {fingerprint && (
                           <div>
-                            <div style={estilos.metaLabel}>Huella documental</div>
+                            <div style={estilos.metaLabel}>{t("admin.docHash")}</div>
                             <div style={estilos.fingerprintBadge}>
                               <span>🔒</span>
                               <code style={{ fontFamily: "'DM Mono'", fontSize: "0.72rem" }}>
@@ -295,14 +297,14 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
                             htmlFor={`motivo-${proyecto.id}`}
                             style={{ fontSize: "0.82rem", color: "#B91C1C", fontWeight: 600, marginBottom: "6px", display: "block" }}
                           >
-                            Motivo del rechazo
+                            {t("admin.rejectReason")}
                           </label>
                           <textarea
                             id={`motivo-${proyecto.id}`}
                             className="input"
                             rows={3}
                             style={{ width: "100%", resize: "vertical", fontFamily: "inherit", fontSize: "0.85rem", boxSizing: "border-box" }}
-                            placeholder="Describe el motivo para que el creador pueda corregirlo…"
+                            placeholder={t("admin.rejectPlaceholder")}
                             value={estadoRechazo.motivo}
                             onChange={(e) => actualizarMotivo(proyecto.id, e.target.value)}
                             autoFocus
@@ -315,7 +317,7 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
                               onClick={() => cancelarRechazo(proyecto.id)}
                               disabled={estadoRechazo.enviando}
                             >
-                              Cancelar
+                              {t("admin.cancel")}
                             </button>
                             <button
                               className="btn"
@@ -323,26 +325,26 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
                               onClick={() => confirmarRechazo(proyecto.id)}
                               disabled={estadoRechazo.enviando || !estadoRechazo.motivo.trim()}
                             >
-                              {estadoRechazo.enviando ? "Procesando…" : "Confirmar rechazo"}
+                              {estadoRechazo.enviando ? t("admin.processing") : t("admin.confirmReject")}
                             </button>
                           </div>
                         </div>
                       ) : (
                         /* Botones de acción */
-                        <div style={{ display: "flex", gap: "8px", marginTop: "14px", flexWrap: "wrap" }}>
+                        <div className="admin-acciones" style={{ display: "flex", gap: "8px", marginTop: "14px", flexWrap: "wrap" }}>
                           <button
                             className="btn btn-primary"
                             style={{ flex: 1, minWidth: "120px", justifyContent: "center" }}
                             onClick={() => manejarAprobar(proyecto.id)}
                           >
-                            ✅ Aprobar
+                            {t("admin.approve")}
                           </button>
                           <button
                             className="btn btn-ghost"
                             style={{ flex: 1, minWidth: "120px", justifyContent: "center", color: "#DC2626", borderColor: "rgba(220,38,38,0.30)" }}
                             onClick={() => abrirRechazo(proyecto.id)}
                           >
-                            ❌ Rechazar
+                            {t("admin.reject")}
                           </button>
                         </div>
                       )}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   obtenerTodosLosProyectos,
   obtenerAportacion,
@@ -6,15 +7,20 @@ import {
   stroopsAMXNe,
 } from "../stellar/contrato";
 
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
+
 // ─── Config de estado ─────────────────────────────────────────────────────────
 
 const ESTADO_CFG = {
-  EtapaInicial: { label: "🌱 Etapa inicial", badgeClass: "badge-muted"  },
-  EnProgreso:   { label: "● En progreso",    badgeClass: "badge-teal"   },
-  Liberado:     { label: "✓ Liberado",       badgeClass: "badge-amber"  },
-  Abandonado:   { label: "⚠️ Abandonado",    badgeClass: "badge-red"    },
-  EnRevision:   { label: "⏳ En revisión",   badgeClass: null, customStyle: { background: "rgba(217,119,6,0.10)", color: "#D97706", border: "1px solid rgba(217,119,6,0.20)" } },
-  Rechazado:    { label: "✗ Rechazado",      badgeClass: "badge-red"    },
+  EtapaInicial: { labelKey: "status.EtapaInicial", badgeClass: "badge-muted"  },
+  EnProgreso:   { labelKey: "status.EnProgreso",   badgeClass: "badge-teal"   },
+  Liberado:     { labelKey: "status.Liberado",     badgeClass: "badge-amber"  },
+  Abandonado:   { labelKey: "status.Abandonado",   badgeClass: "badge-red"    },
+  EnRevision:   { labelKey: "status.EnRevision",   badgeClass: null, customStyle: { background: "rgba(217,119,6,0.10)", color: "#D97706", border: "1px solid rgba(217,119,6,0.20)" } },
+  Rechazado:    { labelKey: "status.Rechazado",    badgeClass: "badge-red"    },
 };
 
 function getBadgeCfg(estado) {
@@ -36,22 +42,22 @@ function puedeRetirar(estado) {
 // ─── Sub-componentes ──────────────────────────────────────────────────────────
 
 function Spinner() {
+  const { t } = useTranslation();
   return (
-    <div style={estilos.loadingWrap} role="status" aria-live="polite" aria-label="Cargando">
+    <div style={estilos.loadingWrap} role="status" aria-live="polite" aria-label={t("cuenta.loading")}>
       <div style={estilos.spinner} aria-hidden="true" />
-      <p style={{ color: "var(--muted)", marginTop: 16, fontSize: "0.9rem" }}>Cargando…</p>
+      <p style={{ color: "var(--muted)", marginTop: 16, fontSize: "0.9rem" }}>{t("cuenta.loading")}</p>
     </div>
   );
 }
 
 function EstadoBadge({ estado }) {
+  const { t } = useTranslation();
   const cfg = getBadgeCfg(estado);
   if (cfg.customStyle) {
-    return (
-      <span className="badge" style={cfg.customStyle}>{cfg.label}</span>
-    );
+    return <span className="badge" style={cfg.customStyle}>{t(cfg.labelKey)}</span>;
   }
-  return <span className={`badge ${cfg.badgeClass}`}>{cfg.label}</span>;
+  return <span className={`badge ${cfg.badgeClass}`}>{t(cfg.labelKey)}</span>;
 }
 
 function StatItem({ label, valor, mono }) {
@@ -82,6 +88,7 @@ function StatItem({ label, valor, mono }) {
 // ─── Pestaña: Mis proyectos ───────────────────────────────────────────────────
 
 function CardMiProyecto({ proyecto, onVerProyecto }) {
+  const { t } = useTranslation();
   const progreso = pct(proyecto.aportado, proyecto.meta);
 
   return (
@@ -95,7 +102,7 @@ function CardMiProyecto({ proyecto, onVerProyecto }) {
       {/* Barra de progreso */}
       <div style={{ marginTop: 14 }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-          <span style={{ fontSize: "0.76rem", color: "var(--muted)" }}>Financiamiento</span>
+          <span style={{ fontSize: "0.76rem", color: "var(--muted)" }}>{t("cuenta.funding")}</span>
           <span style={{
             fontSize: "0.76rem",
             color: "var(--primary)",
@@ -120,11 +127,11 @@ function CardMiProyecto({ proyecto, onVerProyecto }) {
       {/* Stats */}
       <div style={estilos.statsRow}>
         <div>
-          <div style={estilos.statLabel}>Recaudado</div>
+          <div style={estilos.statLabel}>{t("cuenta.raised")}</div>
           <div style={estilos.statValor}>{stroopsAMXNe(proyecto.aportado)}</div>
         </div>
         <div style={{ textAlign: "right" }}>
-          <div style={estilos.statLabel}>Meta</div>
+          <div style={estilos.statLabel}>{t("cuenta.goal")}</div>
           <div style={estilos.statValor}>{stroopsAMXNe(proyecto.meta)}</div>
         </div>
       </div>
@@ -134,15 +141,16 @@ function CardMiProyecto({ proyecto, onVerProyecto }) {
         className="btn btn-secondary"
         style={{ width: "100%", marginTop: 16, justifyContent: "center" }}
         onClick={() => onVerProyecto(proyecto)}
-        aria-label={`Ver detalles de ${proyecto.nombre}`}
+        aria-label={`${t("cuenta.viewDetails")} ${proyecto.nombre}`}
       >
-        Ver detalles →
+        {t("cuenta.viewDetails")}
       </button>
     </article>
   );
 }
 
 function TabMisProyectos({ proyectos, direccion, onVerProyecto }) {
+  const { t } = useTranslation();
   const misProyectos = proyectos.filter((p) => p.dueno === direccion);
 
   if (misProyectos.length === 0) {
@@ -150,17 +158,17 @@ function TabMisProyectos({ proyectos, direccion, onVerProyecto }) {
       <div style={estilos.empty}>
         <span style={{ fontSize: "3rem" }}>🌱</span>
         <p style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--text)", marginTop: 16 }}>
-          Aún no has creado proyectos
+          {t("cuenta.noProjects")}
         </p>
         <p style={{ fontSize: "0.86rem", color: "var(--muted)", marginTop: 6 }}>
-          Cuando crees un proyecto aparecerá aquí.
+          {t("cuenta.noProjectsHint")}
         </p>
       </div>
     );
   }
 
   return (
-    <div style={estilos.grid} role="list" aria-label="Mis proyectos">
+    <div className="cuenta-grid" style={estilos.grid} role="list" aria-label="Mis proyectos">
       {misProyectos.map((p) => (
         <CardMiProyecto key={p.id} proyecto={p} onVerProyecto={onVerProyecto} />
       ))}
@@ -171,6 +179,7 @@ function TabMisProyectos({ proyectos, direccion, onVerProyecto }) {
 // ─── Pestaña: Mis contribuciones ──────────────────────────────────────────────
 
 function CardContribucion({ proyecto, aportacion, yieldAcum, onVerProyecto }) {
+  const { t } = useTranslation();
   const puedeRet = puedeRetirar(proyecto.estado);
 
   return (
@@ -182,16 +191,15 @@ function CardContribucion({ proyecto, aportacion, yieldAcum, onVerProyecto }) {
       </div>
 
       {/* Métricas */}
-      <div style={estilos.contribMetrics}>
+      <div className="contrib-metrics" style={estilos.contribMetrics}>
         {/* Aportación */}
         <div style={estilos.metricBox}>
-          <div style={estilos.metricLabel}>Tu aportación</div>
+          <div style={estilos.metricLabel}>{t("cuenta.myContribution")}</div>
           <div style={estilos.metricValor}>{stroopsAMXNe(aportacion)}</div>
         </div>
 
-        {/* Yield */}
         <div style={estilos.metricBox}>
-          <div style={estilos.metricLabel}>Yield acumulado</div>
+          <div style={estilos.metricLabel}>{t("cuenta.yieldAccum")}</div>
           <div style={{ ...estilos.metricValor, color: "var(--amber)" }}>
             {stroopsAMXNe(yieldAcum)}
           </div>
@@ -204,18 +212,18 @@ function CardContribucion({ proyecto, aportacion, yieldAcum, onVerProyecto }) {
           className="btn btn-secondary"
           style={{ flex: 1, justifyContent: "center" }}
           onClick={() => onVerProyecto(proyecto)}
-          aria-label={`Ver detalles de ${proyecto.nombre}`}
+          aria-label={`${t("cuenta.viewDetailsShort")} ${proyecto.nombre}`}
         >
-          Ver detalles
+          {t("cuenta.viewDetailsShort")}
         </button>
         {puedeRet && (
           <button
             className="btn btn-amber"
             style={{ flex: 1, justifyContent: "center" }}
             onClick={() => onVerProyecto(proyecto)}
-            aria-label={`Retirar fondos de ${proyecto.nombre}`}
+            aria-label={`${t("cuenta.withdraw")} ${proyecto.nombre}`}
           >
-            Retirar
+            {t("cuenta.withdraw")}
           </button>
         )}
       </div>
@@ -224,6 +232,7 @@ function CardContribucion({ proyecto, aportacion, yieldAcum, onVerProyecto }) {
 }
 
 function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
+  const { t } = useTranslation();
   const [contribuciones, setContribuciones] = useState([]);
   const [cargando, setCargando] = useState(true);
 
@@ -268,10 +277,10 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
       <div style={estilos.empty}>
         <span style={{ fontSize: "3rem" }}>💸</span>
         <p style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--text)", marginTop: 16 }}>
-          Aún no has apoyado ningún proyecto
+          {t("cuenta.noContributions")}
         </p>
         <p style={{ fontSize: "0.86rem", color: "var(--muted)", marginTop: 6 }}>
-          Explora los proyectos activos y contribuye para verlos aquí.
+          {t("cuenta.noContributionsHint")}
         </p>
       </div>
     );
@@ -284,7 +293,7 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
         <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>💰</span>
         <div>
           <div style={{ fontSize: "0.74rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em" }}>
-            Total invertido
+            {t("cuenta.totalInvestedLabel")}
           </div>
           <div style={{
             fontFamily: "'DM Mono', monospace",
@@ -297,12 +306,12 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
           </div>
         </div>
         <div style={{ marginLeft: "auto", fontSize: "0.82rem", color: "var(--muted)" }}>
-          en {contribuciones.length} proyecto{contribuciones.length !== 1 ? "s" : ""}
+          {t("cuenta.inProjects", { count: contribuciones.length, plural: contribuciones.length !== 1 ? "s" : "" })}
         </div>
       </div>
 
       {/* Grid de contribuciones */}
-      <div style={estilos.grid} role="list" aria-label="Mis contribuciones">
+      <div className="cuenta-grid" style={estilos.grid} role="list" aria-label="Mis contribuciones">
         {contribuciones.map(({ proyecto, aportacion, yieldAcum }) => (
           <CardContribucion
             key={proyecto.id}
@@ -317,9 +326,87 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
   );
 }
 
+// ─── Notificaciones ───────────────────────────────────────────────────────────
+
+function NotificacionesPanel({ direccion }) {
+  const [email,    setEmail]    = useState("");
+  const [enabled,  setEnabled]  = useState(true);
+  const [estado,   setEstado]   = useState("idle"); // idle | saving | ok | error
+  const [cargado,  setCargado]  = useState(false);
+
+  useEffect(() => {
+    if (!direccion) return;
+    supabase
+      .from("user_notifications")
+      .select("email, notifications_enabled")
+      .eq("wallet_address", direccion)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) { setEmail(data.email); setEnabled(data.notifications_enabled); }
+        setCargado(true);
+      });
+  }, [direccion]);
+
+  async function guardar(e) {
+    e.preventDefault();
+    if (!email) return;
+    setEstado("saving");
+    const { error } = await supabase
+      .from("user_notifications")
+      .upsert({ wallet_address: direccion, email, notifications_enabled: enabled }, { onConflict: "wallet_address" });
+    setEstado(error ? "error" : "ok");
+    setTimeout(() => setEstado("idle"), 3000);
+  }
+
+  if (!cargado) return null;
+
+  return (
+    <div style={{ background: "#faf8ff", border: "1.5px solid rgba(124,58,237,0.12)", borderRadius: "var(--radius)", padding: "20px 24px", marginBottom: 28 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <div>
+          <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: "0.95rem", color: "var(--text)" }}>🔔 Notificaciones por email</div>
+          <div style={{ fontSize: "0.76rem", color: "var(--muted)", marginTop: 2 }}>Recibe alertas cuando tu proyecto sea aprobado, financiado o tenga yield disponible.</div>
+        </div>
+        {/* Toggle */}
+        <button
+          role="switch"
+          aria-checked={enabled}
+          onClick={() => setEnabled(v => !v)}
+          style={{ width: 44, height: 24, borderRadius: 99, border: "none", cursor: "pointer", background: enabled ? "#7C3AED" : "#D1D5DB", position: "relative", flexShrink: 0, transition: "background 0.2s" }}
+          aria-label={enabled ? "Desactivar notificaciones" : "Activar notificaciones"}
+        >
+          <span style={{ position: "absolute", top: 3, left: enabled ? 22 : 3, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
+        </button>
+      </div>
+
+      {enabled && (
+        <form onSubmit={guardar} style={{ display: "flex", gap: 8 }}>
+          <input
+            type="email"
+            required
+            placeholder="tu@email.com"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            style={{ flex: 1, padding: "9px 14px", borderRadius: 8, border: "1.5px solid rgba(124,58,237,0.20)", fontFamily: "inherit", fontSize: "0.88rem", outline: "none", color: "var(--text)" }}
+            aria-label="Email para notificaciones"
+          />
+          <button
+            type="submit"
+            disabled={estado === "saving"}
+            className="btn btn-primary"
+            style={{ whiteSpace: "nowrap", padding: "9px 18px" }}
+          >
+            {estado === "saving" ? "…" : estado === "ok" ? "✓ Guardado" : estado === "error" ? "✗ Error" : "Guardar"}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-export default function MiCuenta({ direccion, onVerProyecto }) {
+export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido }) {
   const [tab, setTab] = useState("proyectos");
   const [proyectos, setProyectos] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -364,8 +451,10 @@ export default function MiCuenta({ direccion, onVerProyecto }) {
         );
         if (cancelado) return;
         const positivos = resultados.filter((a) => a > BigInt(0));
+        const total = positivos.reduce((acc, a) => acc + a, BigInt(0));
         setNumApoyados(positivos.length);
-        setTotalInvertido(positivos.reduce((acc, a) => acc + a, BigInt(0)));
+        setTotalInvertido(total);
+        onTotalInvertido?.(total);
       } catch (e) {
         console.error("Error calculando resumen:", e);
         if (!cancelado) {
@@ -382,12 +471,12 @@ export default function MiCuenta({ direccion, onVerProyecto }) {
   const resumenListo = numApoyados !== null && totalInvertido !== null;
 
   return (
-    <div style={estilos.contenedor}>
+    <div className="cuenta-contenedor" style={estilos.contenedor}>
 
       {/* Header */}
       <div style={estilos.header}>
         <div>
-          <h2 style={estilos.titulo}>Mi cuenta</h2>
+          <h2 style={estilos.titulo}>{t("cuenta.title")}</h2>
           <p style={{ color: "var(--muted)", fontSize: "0.86rem", marginTop: 4, fontFamily: "'DM Mono', monospace" }}>
             {direccion.slice(0, 8)}…{direccion.slice(-6)}
           </p>
@@ -395,26 +484,29 @@ export default function MiCuenta({ direccion, onVerProyecto }) {
       </div>
 
       {/* Summary strip */}
-      <div style={estilos.summaryStrip}>
+      <div className="cuenta-summary-strip" style={estilos.summaryStrip}>
         <StatItem
-          label="Total invertido"
+          label={t("cuenta.totalInvested")}
           valor={resumenListo ? stroopsAMXNe(totalInvertido) : "—"}
           mono
         />
         <div style={estilos.stripDivider} />
         <StatItem
-          label="Proyectos creados"
+          label={t("cuenta.projectsCreated")}
           valor={cargando ? "—" : numCreados}
         />
         <div style={estilos.stripDivider} />
         <StatItem
-          label="Proyectos apoyados"
+          label={t("cuenta.projectsSupported")}
           valor={resumenListo ? numApoyados : "—"}
         />
       </div>
 
+      {/* Notificaciones */}
+      <NotificacionesPanel direccion={direccion} />
+
       {/* Tabs */}
-      <div style={estilos.tabsRow} role="tablist" aria-label="Secciones de mi cuenta">
+      <div className="cuenta-tabs-row" style={estilos.tabsRow} role="tablist" aria-label="Secciones de mi cuenta">
         <button
           role="tab"
           aria-selected={tab === "proyectos"}
@@ -426,7 +518,7 @@ export default function MiCuenta({ direccion, onVerProyecto }) {
             ...(tab === "proyectos" ? estilos.tabBtnActivo : estilos.tabBtnInactivo),
           }}
         >
-          Mis proyectos
+          {t("cuenta.myProjects")}
           {!cargando && numCreados > 0 && (
             <span style={{
               ...estilos.tabChip,
@@ -449,7 +541,7 @@ export default function MiCuenta({ direccion, onVerProyecto }) {
             ...(tab === "contribuciones" ? estilos.tabBtnActivo : estilos.tabBtnInactivo),
           }}
         >
-          Mis contribuciones
+          {t("cuenta.myContributions")}
           {resumenListo && numApoyados > 0 && (
             <span style={{
               ...estilos.tabChip,

@@ -19,6 +19,10 @@ set -euo pipefail
 : "${YIELD_CETES_BPS:=945}"
 : "${YIELD_AMM_BPS:=400}"
 
+# Official MXNe Mainnet Soroban contract (issuer: brale.xyz / Etherfuse)
+# Verify at: https://stellar.expert/explorer/public/contract/CAPW7JXJ6H6SGJ5MVM25356FAYOVT3ICZUIZRT4KGZHLUNMTWNMUI3RM
+: "${TOKEN_MXNE:=CAPW7JXJ6H6SGJ5MVM25356FAYOVT3ICZUIZRT4KGZHLUNMTWNMUI3RM}"
+
 NETWORK_PASSPHRASE="Public Global Stellar Network ; September 2015"
 WASM_PATH="target/wasm32v1-none/release/bimex.wasm"
 

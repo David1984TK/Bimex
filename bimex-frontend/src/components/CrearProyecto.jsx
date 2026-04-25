@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   crearProyecto as crearProyectoContrato,
   mxneAStroops,
@@ -17,7 +18,16 @@ const emojis    = ["🌱", "🤝", "📚", "☀️", "🏥", "🎨", "🏗️", 
 const categorias = ["Comunidad", "Finanzas", "Educación", "Energía", "Salud", "Arte", "Infraestructura"];
 
 export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
+  const { t } = useTranslation();
   const [paso, setPaso] = useState(1);
+
+  const PASOS = [
+    { n: 1, label: t("crear.step1") },
+    { n: 2, label: t("crear.step2") },
+    { n: 3, label: t("crear.step3") },
+  ];
+
+  const categorias = Object.keys(t("crear.categories", { returnObjects: true }));
 
   // ── Paso 1: datos del proyecto
   const [forma, setForma] = useState({
@@ -32,10 +42,8 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
   // ── Paso 2: documentos
   const [docs, setDocs] = useState({ ine: null, plan: null, presupuesto: null });
 
-  // ── Paso 3: resultado IPFS (o fallback SHA-256)
-  const [docHashBytes, setDocHashBytes] = useState(null);
-  const [ipfsCids, setIpfsCids] = useState(null); // { ine, plan, presupuesto, usedFallback }
-  const [uploadProgreso, setUploadProgreso] = useState(""); // status message
+  // ── Paso 3: CID del documento (IPFS o hex del hash como fallback)
+  const [docCid, setDocCid] = useState(null);
 
   const [cargando,   setCargando]   = useState(false);
   const [hasheando,  setHasheando]  = useState(false);
@@ -49,76 +57,54 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
     setDocs(d => ({ ...d, [campo]: archivo ?? null }));
   }
 
-  // ── Validación paso 1
   function avanzarAPaso2() {
     setError("");
-    if (!forma.nombre.trim()) { setError("El nombre del proyecto es obligatorio."); return; }
-    if (!forma.meta || Number(forma.meta) <= 0) { setError("La meta debe ser mayor a 0."); return; }
+    if (!forma.nombre.trim()) { setError(t("crear.errName")); return; }
+    if (!forma.meta || Number(forma.meta) <= 0) { setError(t("crear.errGoal")); return; }
     if (forma.tiempoMeses && (Number(forma.tiempoMeses) < 1 || Number(forma.tiempoMeses) > 120)) {
-      setError("El tiempo estimado debe estar entre 1 y 120 meses."); return;
+      setError(t("crear.errTime")); return;
     }
     setPaso(2);
   }
 
-  // ── Subir documentos a IPFS (con fallback SHA-256) y avanzar a paso 3
   async function avanzarAPaso3() {
     setError("");
     if (!docs.ine || !docs.plan || !docs.presupuesto) {
-      setError("Debes subir los tres documentos antes de continuar.");
+      setError(t("crear.errDocs"));
       return;
     }
     setHasheando(true);
     try {
-      setUploadProgreso("Subiendo INE a IPFS…");
-      const r1 = await subirConFallback(docs.ine);
-      setUploadProgreso("Subiendo plan del proyecto a IPFS…");
-      const r2 = await subirConFallback(docs.plan);
-      setUploadProgreso("Subiendo presupuesto a IPFS…");
-      const r3 = await subirConFallback(docs.presupuesto);
-      setUploadProgreso("");
-
-      const usedFallback = r1.usedFallback || r2.usedFallback || r3.usedFallback;
-      setIpfsCids({ ine: r1, plan: r2, presupuesto: r3, usedFallback });
-
-      // Build the 32-byte on-chain hash from CIDs (or fallback hashes)
-      const encode = (str) => new TextEncoder().encode(str).slice(0, 32).reduce((a, b, i) => { a[i] = b; return a; }, new Uint8Array(32));
-      const h1 = r1.cid ? encode(r1.cid) : Uint8Array.from(r1.fallbackHash.match(/.{2}/g).map(b => parseInt(b, 16)));
-      const h2 = r2.cid ? encode(r2.cid) : Uint8Array.from(r2.fallbackHash.match(/.{2}/g).map(b => parseInt(b, 16)));
-      const h3 = r3.cid ? encode(r3.cid) : Uint8Array.from(r3.fallbackHash.match(/.{2}/g).map(b => parseInt(b, 16)));
-
-      const combinado = new Uint8Array(96);
-      combinado.set(h1, 0); combinado.set(h2, 32); combinado.set(h3, 64);
-      const digest = await crypto.subtle.digest("SHA-256", combinado);
-      setDocHashBytes(new Uint8Array(digest));
+      const hash = await hashearDocumentos(docs.ine, docs.plan, docs.presupuesto);
+      // Convert hash bytes to hex string as the document CID.
+      // Replace with a real IPFS upload when the pinning service is integrated.
+      const cid = Array.from(hash).map(b => b.toString(16).padStart(2, "0")).join("");
+      setDocCid(cid);
       setPaso(3);
     } catch {
-      setError("Error al procesar los documentos. Intenta de nuevo.");
-      setUploadProgreso("");
+      setError(t("crear.errHash"));
     }
     setHasheando(false);
   }
 
-  // ── Envío final
   async function manejarSubmit(e) {
     e.preventDefault();
-    if (paso !== 3 || !docHashBytes) return;
+    if (paso !== 3 || !docCid) return;
     setCargando(true);
     setError("");
     try {
       const metaStroops = mxneAStroops(Number(forma.meta));
-      await crearProyectoContrato(direccion, forma.nombre, metaStroops, docHashBytes);
+      await crearProyectoContrato(direccion, forma.nombre, metaStroops, docCid);
       onCreado();
     } catch (err) {
       console.error("Error al crear proyecto:", err);
-      setError(err?.message || "Error al crear el proyecto. Intenta de nuevo.");
+      setError(err?.message || t("crear.errCreate"));
     }
     setCargando(false);
   }
 
-  // Hex del hash para mostrar al usuario
-  const hexHash = docHashBytes
-    ? Array.from(docHashBytes).map(b => b.toString(16).padStart(2, "0")).join("")
-    : "";
+  // Hex del CID para mostrar al usuario
+  const hexHash = docCid ?? "";
 
   // Yield estimado con tasas reales: ~9.45% CETES + ~4% AMM = ~13.45% APY
   const APY_CETES = 0.0945;
@@ -126,6 +112,9 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
   const APY_TOTAL = APY_CETES + APY_AMM;
   const yieldEstimado = forma.meta && forma.tiempoMeses
     ? (Number(forma.meta) * APY_TOTAL * (Number(forma.tiempoMeses) / 12)).toLocaleString("es-MX", { maximumFractionDigits: 0 })
+    : null;
+  const yieldNote = yieldEstimado
+    ? t("crear.yieldNote", { months: forma.tiempoMeses, plural: Number(forma.tiempoMeses) !== 1 ? "s" : "" })
     : null;
 
   return (
@@ -140,8 +129,8 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
       >
         {/* Header */}
         <div className="modal-header">
-          <h2 id="crear-titulo">Registrar proyecto</h2>
-          <button className="btn-close" onClick={onCerrar} aria-label="Cerrar formulario de creación">×</button>
+          <h2 id="crear-titulo">{t("crear.title")}</h2>
+          <button className="btn-close" onClick={onCerrar} aria-label={t("crear.closeAria")}>×</button>
         </div>
 
         {/* Indicador de pasos */}
@@ -159,8 +148,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                 fontSize: "0.74rem",
                 color: paso === p.n ? "var(--primary)" : "var(--muted)",
                 fontWeight: paso === p.n ? 700 : 400,
-                display: window.innerWidth < 400 ? "none" : "inline",
-              }}>
+              }} className="paso-label">
                 {p.label}
               </span>
               {i < PASOS.length - 1 && (
@@ -179,7 +167,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
             <>
               {/* Emoji */}
               <div className="campo">
-                <label>Ícono del proyecto</label>
+                <label>{t("crear.iconLabel")}</label>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                   {emojis.map(em => (
                     <button
@@ -201,37 +189,36 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
 
               {/* Nombre */}
               <div className="campo">
-                <label htmlFor="campo-nombre">Nombre del proyecto</label>
+                <label htmlFor="campo-nombre">{t("crear.nameLabel")}</label>
                 <input
                   id="campo-nombre"
                   className="input"
                   name="nombre"
                   value={forma.nombre}
                   onChange={manejarCambio}
-                  placeholder="Ej. Huerto comunitario CDMX"
+                  placeholder={t("crear.namePlaceholder")}
                   maxLength={60}
                 />
               </div>
 
-              {/* Descripción */}
               <div className="campo">
-                <label htmlFor="campo-descripcion">Descripción breve</label>
+                <label htmlFor="campo-descripcion">{t("crear.descLabel")}</label>
                 <textarea
                   id="campo-descripcion"
                   className="input"
                   name="descripcion"
                   value={forma.descripcion}
                   onChange={manejarCambio}
-                  placeholder="¿Qué hace tu proyecto y para quién?"
+                  placeholder={t("crear.descPlaceholder")}
                   rows={3}
                   style={{ resize: "none" }}
                 />
               </div>
 
               {/* Categoría + Tiempo */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+              <div className="crear-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
                 <div className="campo" style={{ marginBottom: 0 }}>
-                  <label htmlFor="campo-categoria">Categoría</label>
+                  <label htmlFor="campo-categoria">{t("crear.categoryLabel")}</label>
                   <select
                     id="campo-categoria"
                     className="input"
@@ -240,11 +227,11 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                     onChange={manejarCambio}
                     style={{ cursor: "pointer", background: "#fff" }}
                   >
-                    {categorias.map(c => <option key={c} value={c}>{c}</option>)}
+                    {categorias.map(c => <option key={c} value={c}>{t(`crear.categories.${c}`)}</option>)}
                   </select>
                 </div>
                 <div className="campo" style={{ marginBottom: 0 }}>
-                  <label htmlFor="campo-tiempo">Tiempo estimado (meses)</label>
+                  <label htmlFor="campo-tiempo">{t("crear.timeLabel")}</label>
                   <input
                     id="campo-tiempo"
                     className="input"
@@ -252,16 +239,15 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                     type="number"
                     value={forma.tiempoMeses}
                     onChange={manejarCambio}
-                    placeholder="Ej. 6"
+                    placeholder={t("crear.timePlaceholder")}
                     min="1"
                     max="120"
                   />
                 </div>
               </div>
 
-              {/* Meta */}
               <div className="campo" style={{ marginTop: "18px" }}>
-                <label htmlFor="campo-meta">Meta de financiamiento (MXNe)</label>
+                <label htmlFor="campo-meta">{t("crear.goalLabel")}</label>
                 <input
                   id="campo-meta"
                   className="input"
@@ -269,25 +255,22 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                   type="number"
                   value={forma.meta}
                   onChange={manejarCambio}
-                  placeholder="Ej. 10000"
+                  placeholder={t("crear.goalPlaceholder")}
                   min="1"
                 />
               </div>
 
-              {/* Yield estimado */}
               {yieldEstimado && (
                 <div style={estilos.yieldResumen}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: "0.78rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                      Yield estimado al finalizar
+                      {t("crear.yieldLabel")}
                     </span>
                     <span style={{ fontFamily: "'DM Mono'", color: "var(--amber)", fontWeight: 700, fontSize: "1rem" }}>
                       ≈ ${yieldEstimado} MXNe
                     </span>
                   </div>
-                  <p style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: "4px" }}>
-                    ~9.45% CETES + ~4% AMM · con la meta al 100% durante {forma.tiempoMeses} mes{Number(forma.tiempoMeses) !== 1 ? "es" : ""}
-                  </p>
+                  <p style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: "4px" }}>{yieldNote}</p>
                 </div>
               )}
 
@@ -295,10 +278,10 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
 
               <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
                 <button type="button" className="btn btn-ghost" onClick={onCerrar} style={{ flex: 1 }}>
-                  Cancelar
+                  {t("crear.cancel")}
                 </button>
                 <button type="button" className="btn btn-primary" onClick={avanzarAPaso2} style={{ flex: 2, justifyContent: "center" }}>
-                  Siguiente: Documentos →
+                  {t("crear.nextDocs")}
                 </button>
               </div>
             </>
@@ -313,53 +296,54 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                 <span style={{ fontSize: "1.3rem" }}>🔒</span>
                 <div>
                   <p style={{ fontSize: "0.82rem", color: "var(--text2)", fontWeight: 700, marginBottom: "4px" }}>
-                    Documentos almacenados en IPFS para verificación pública
+                    {t("crear.docsPrivacyTitle")}
                   </p>
                   <p style={{ fontSize: "0.78rem", color: "var(--muted)", lineHeight: 1.5 }}>
-                    Tus documentos se suben a IPFS (Pinata) y el CID queda en la blockchain.
-                    Cualquier backer puede verificar la autenticidad. Si IPFS no está disponible,
-                    se usa SHA-256 como respaldo automático.
+                    {t("crear.docsPrivacyDesc")}
                   </p>
                 </div>
               </div>
 
-              {/* INE */}
               <CampoDocumento
                 id="doc-ine"
-                label="INE / Identificación oficial"
-                descripcion="Del responsable del proyecto (imagen o PDF)"
+                label={t("crear.docIneLabel")}
+                descripcion={t("crear.docIneDesc")}
                 accept=".pdf,image/jpeg,image/png,image/webp"
                 icono="🪪"
                 archivo={docs.ine}
                 onChange={f => setDoc("ine", f)}
+                selectLabel={t("crear.selectFile")}
+                maxSizeLabel={t("crear.maxSize")}
               />
 
-              {/* Plan del proyecto */}
               <CampoDocumento
                 id="doc-plan"
-                label="Plan del proyecto"
-                descripcion="Descripción detallada, objetivos y cronograma (PDF)"
+                label={t("crear.docPlanLabel")}
+                descripcion={t("crear.docPlanDesc")}
                 accept=".pdf"
                 icono="📋"
                 archivo={docs.plan}
                 onChange={f => setDoc("plan", f)}
+                selectLabel={t("crear.selectFile")}
+                maxSizeLabel={t("crear.maxSize")}
               />
 
-              {/* Presupuesto */}
               <CampoDocumento
                 id="doc-presupuesto"
-                label="Presupuesto detallado"
-                descripcion="Desglose de gastos y justificación del monto (PDF)"
+                label={t("crear.docBudgetLabel")}
+                descripcion={t("crear.docBudgetDesc")}
                 accept=".pdf"
                 icono="💼"
                 archivo={docs.presupuesto}
                 onChange={f => setDoc("presupuesto", f)}
+                selectLabel={t("crear.selectFile")}
+                maxSizeLabel={t("crear.maxSize")}
               />
 
               <div style={estilos.docsTip}>
                 <span>💡</span>
                 <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
-                  Puedes subir borradores — lo importante es que el proyecto sea real y trazable.
+                  {t("crear.docsTip")}
                 </span>
               </div>
 
@@ -367,7 +351,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
 
               <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
                 <button type="button" className="btn btn-ghost" onClick={() => { setPaso(1); setError(""); }} style={{ flex: 1 }}>
-                  ← Atrás
+                  {t("crear.back")}
                 </button>
                 <button
                   type="button"
@@ -376,7 +360,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                   disabled={hasheando}
                   style={{ flex: 2, justifyContent: "center" }}
                 >
-                  {hasheando ? (uploadProgreso || "Subiendo documentos…") : "Subir documentos →"}
+                  {hasheando ? t("crear.processing") : t("crear.generateHash")}
                 </button>
               </div>
             </>
@@ -385,7 +369,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
           {/* ══════════════════════════════════════════════
               PASO 3: Confirmar y crear
           ══════════════════════════════════════════════ */}
-          {paso === 3 && docHashBytes && (
+          {paso === 3 && docCid && (
             <>
               {/* Resumen del proyecto */}
               <div style={estilos.resumenCard}>
@@ -408,55 +392,25 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
 
                 {/* IPFS / Fallback panel */}
                 <div style={estilos.hashPanel}>
-                  {ipfsCids?.usedFallback ? (
-                    <>
-                      <p style={{ fontSize: "0.7rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>
-                        🔐 Huella digital SHA-256 (IPFS no disponible)
-                      </p>
-                      <code style={{ fontFamily: "'DM Mono'", fontSize: "0.72rem", color: "var(--primary)", wordBreak: "break-all", lineHeight: 1.6 }}>
-                        {hexHash.slice(0, 32)}<br />{hexHash.slice(32)}
-                      </code>
-                    </>
-                  ) : (
-                    <>
-                      <p style={{ fontSize: "0.7rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "8px" }}>
-                        📦 Documentos en IPFS (verificables públicamente)
-                      </p>
-                      {[
-                        { label: "🪪 INE", r: ipfsCids?.ine },
-                        { label: "📋 Plan", r: ipfsCids?.plan },
-                        { label: "💼 Presupuesto", r: ipfsCids?.presupuesto },
-                      ].map(({ label, r }) => r?.cid && (
-                        <div key={label} style={{ marginBottom: "6px" }}>
-                          <span style={{ fontSize: "0.72rem", color: "var(--muted)", marginRight: "6px" }}>{label}:</span>
-                          <a
-                            href={`https://ipfs.io/ipfs/${r.cid}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{ fontFamily: "'DM Mono'", fontSize: "0.7rem", color: "var(--primary)", wordBreak: "break-all" }}
-                          >
-                            {r.cid}
-                          </a>
-                        </div>
-                      ))}
-                    </>
-                  )}
+                  <p style={{ fontSize: "0.7rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>
+                    {t("crear.hashTitle")}
+                  </p>
+                  <code style={{ fontFamily: "'DM Mono'", fontSize: "0.72rem", color: "var(--primary)", wordBreak: "break-all", lineHeight: 1.6 }}>
+                    {hexHash.slice(0, 32)}<br />{hexHash.slice(32)}
+                  </code>
                   <p style={{ fontSize: "0.68rem", color: "var(--muted)", marginTop: "8px" }}>
-                    {ipfsCids?.usedFallback
-                      ? "La huella se almacenará en la blockchain de Stellar."
-                      : "Los CIDs se almacenarán en la blockchain. Cualquiera puede verificar los documentos."}
+                    {t("crear.hashNote")}
                   </p>
                 </div>
               </div>
 
-              {/* Info yield */}
               <div style={estilos.infoBanner}>
                 <span>ℹ️</span>
                 <div style={{ fontSize: "0.8rem", color: "var(--muted)", lineHeight: 1.6 }}>
                   <p style={{ marginBottom: "8px" }}>
-                    Tus backers aportan capital, no lo donan — eso genera mayor confianza.
-                    <strong style={{ color: "var(--primary)" }}> Tú recibes el yield</strong>,
-                    ellos sacan lo que metieron cuando el proyecto termina.
+                    {t("crear.yieldInfoTitle")}
+                    <strong style={{ color: "var(--primary)" }}>{t("crear.yieldInfoYou")}</strong>
+                    {t("crear.yieldInfoThey")}
                   </p>
                   <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                     <span style={estilos.badgeVerde}>🏦 9% CETES · Etherfuse</span>
@@ -470,7 +424,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
 
               <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
                 <button type="button" className="btn btn-ghost" onClick={() => { setPaso(2); setError(""); }} style={{ flex: 1 }}>
-                  ← Atrás
+                  {t("crear.back")}
                 </button>
                 <button
                   type="submit"
@@ -478,7 +432,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                   disabled={cargando}
                   style={{ flex: 2, justifyContent: "center" }}
                 >
-                  {cargando ? "Enviando…" : "📬 Mandar a revisión"}
+                  {cargando ? t("crear.submitting") : t("crear.submit")}
                 </button>
               </div>
             </>
@@ -491,7 +445,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
 }
 
 // ── Componente: Campo de documento ───────────────────────────────────────────
-function CampoDocumento({ id, label, descripcion, accept, icono, archivo, onChange }) {
+function CampoDocumento({ id, label, descripcion, accept, icono, archivo, onChange, selectLabel, maxSizeLabel }) {
   return (
     <div style={estilos.campoDoc}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
@@ -501,7 +455,7 @@ function CampoDocumento({ id, label, descripcion, accept, icono, archivo, onChan
             {label} <span style={{ color: "#DC2626" }}>*</span>
           </label>
           <p style={{ fontSize: "0.74rem", color: "var(--muted)", marginBottom: "8px" }}>{descripcion}</p>
-          <label htmlFor={id} style={estilos.fileLabel}>
+          <label htmlFor={id} className="file-label-touch" style={estilos.fileLabel}>
             {archivo ? (
               <>
                 <span style={{ color: "#059669" }}>✓</span>
@@ -515,8 +469,8 @@ function CampoDocumento({ id, label, descripcion, accept, icono, archivo, onChan
             ) : (
               <>
                 <span style={{ fontSize: "1rem" }}>📎</span>
-                <span style={{ fontSize: "0.8rem", color: "var(--primary)", fontWeight: 600 }}>Seleccionar archivo</span>
-                <span style={{ fontSize: "0.72rem", color: "var(--muted)" }}>(máx. 10 MB)</span>
+                <span style={{ fontSize: "0.8rem", color: "var(--primary)", fontWeight: 600 }}>{selectLabel}</span>
+                <span style={{ fontSize: "0.72rem", color: "var(--muted)" }}>{maxSizeLabel}</span>
               </>
             )}
           </label>
