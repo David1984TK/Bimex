@@ -7,6 +7,11 @@ import {
   stroopsAMXNe,
 } from "../stellar/contrato";
 
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
+
 // ─── Config de estado ─────────────────────────────────────────────────────────
 
 const ESTADO_CFG = {
@@ -321,6 +326,84 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
   );
 }
 
+// ─── Notificaciones ───────────────────────────────────────────────────────────
+
+function NotificacionesPanel({ direccion }) {
+  const [email,    setEmail]    = useState("");
+  const [enabled,  setEnabled]  = useState(true);
+  const [estado,   setEstado]   = useState("idle"); // idle | saving | ok | error
+  const [cargado,  setCargado]  = useState(false);
+
+  useEffect(() => {
+    if (!direccion) return;
+    supabase
+      .from("user_notifications")
+      .select("email, notifications_enabled")
+      .eq("wallet_address", direccion)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) { setEmail(data.email); setEnabled(data.notifications_enabled); }
+        setCargado(true);
+      });
+  }, [direccion]);
+
+  async function guardar(e) {
+    e.preventDefault();
+    if (!email) return;
+    setEstado("saving");
+    const { error } = await supabase
+      .from("user_notifications")
+      .upsert({ wallet_address: direccion, email, notifications_enabled: enabled }, { onConflict: "wallet_address" });
+    setEstado(error ? "error" : "ok");
+    setTimeout(() => setEstado("idle"), 3000);
+  }
+
+  if (!cargado) return null;
+
+  return (
+    <div style={{ background: "#faf8ff", border: "1.5px solid rgba(124,58,237,0.12)", borderRadius: "var(--radius)", padding: "20px 24px", marginBottom: 28 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <div>
+          <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: "0.95rem", color: "var(--text)" }}>🔔 Notificaciones por email</div>
+          <div style={{ fontSize: "0.76rem", color: "var(--muted)", marginTop: 2 }}>Recibe alertas cuando tu proyecto sea aprobado, financiado o tenga yield disponible.</div>
+        </div>
+        {/* Toggle */}
+        <button
+          role="switch"
+          aria-checked={enabled}
+          onClick={() => setEnabled(v => !v)}
+          style={{ width: 44, height: 24, borderRadius: 99, border: "none", cursor: "pointer", background: enabled ? "#7C3AED" : "#D1D5DB", position: "relative", flexShrink: 0, transition: "background 0.2s" }}
+          aria-label={enabled ? "Desactivar notificaciones" : "Activar notificaciones"}
+        >
+          <span style={{ position: "absolute", top: 3, left: enabled ? 22 : 3, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
+        </button>
+      </div>
+
+      {enabled && (
+        <form onSubmit={guardar} style={{ display: "flex", gap: 8 }}>
+          <input
+            type="email"
+            required
+            placeholder="tu@email.com"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            style={{ flex: 1, padding: "9px 14px", borderRadius: 8, border: "1.5px solid rgba(124,58,237,0.20)", fontFamily: "inherit", fontSize: "0.88rem", outline: "none", color: "var(--text)" }}
+            aria-label="Email para notificaciones"
+          />
+          <button
+            type="submit"
+            disabled={estado === "saving"}
+            className="btn btn-primary"
+            style={{ whiteSpace: "nowrap", padding: "9px 18px" }}
+          >
+            {estado === "saving" ? "…" : estado === "ok" ? "✓ Guardado" : estado === "error" ? "✗ Error" : "Guardar"}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido }) {
@@ -418,6 +501,9 @@ export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido })
           valor={resumenListo ? numApoyados : "—"}
         />
       </div>
+
+      {/* Notificaciones */}
+      <NotificacionesPanel direccion={direccion} />
 
       {/* Tabs */}
       <div className="cuenta-tabs-row" style={estilos.tabsRow} role="tablist" aria-label="Secciones de mi cuenta">
