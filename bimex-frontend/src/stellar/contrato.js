@@ -363,13 +363,18 @@ export async function reclamarYield(direccion, idProyecto) {
   return firmarYEnviar(tx, direccion);
 }
 
-// ─── Faucet — solo testnet ────────────────────────────────────────────────────
+// ─── Faucet — TESTNET ONLY — do not call on Mainnet ──────────────────────────
 
 /**
  * Mintea 100 MXNe de prueba a la dirección indicada.
  * Firma con la clave de faucet (solo testnet, clave en .env.local).
+ * WARNING: This function must NOT be exposed in the production UI.
  */
 export async function mintearMXNePrueba(direccionDestino) {
+  if (CONFIG.NETWORK_PASSPHRASE !== Networks.TESTNET) {
+    throw new Error("mintearMXNePrueba solo está disponible en Testnet.");
+  }
+
   const secretFaucet = import.meta.env.VITE_FAUCET_SECRET;
   if (!secretFaucet) throw new Error("Faucet no configurado (VITE_FAUCET_SECRET)");
 
