@@ -29,7 +29,7 @@ fn setup() -> (Env, BimexContratoClient<'static>, Address, Address, Address) {
     let cliente     = BimexContratoClient::new(&env, &contrato_id);
     asset.mint(&contrato_id, &100_000_000_000i128);
 
-    cliente.inicializar(&admin, &token_mxne, &5_000_000u32, &2_000_000u32);
+    cliente.inicializar(&admin, &token_mxne, &945u32, &400u32);
     (env, cliente, admin, dueno, backer)
 }
 
@@ -58,7 +58,7 @@ fn test_flujo_completo() {
     let cliente     = BimexContratoClient::new(&env, &contrato_id);
     asset.mint(&contrato_id, &100_000_000_000i128);
 
-    cliente.inicializar(&admin, &token_mxne, &5_000_000u32, &2_000_000u32);
+    cliente.inicializar(&admin, &token_mxne, &945u32, &400u32);
 
     let id = cliente.crear_proyecto(
         &dueno,
@@ -337,4 +337,81 @@ fn test_vul09_no_retirar_en_progreso() {
     assert_eq!(cliente.obtener_proyecto(&id).estado, EstadoProyecto::EnProgreso);
     // Must not allow withdrawal while project is still in progress
     cliente.retirar_principal(&backer, &id);
+}
+
+// ============================================================
+//  TASAS REALES DE PRODUCCIÓN
+// ============================================================
+
+/// Verifica que las tasas de producción (CETES 945 bps, AMM 400 bps) producen
+/// el yield correcto a un año.  Con un proyecto de 1 000 MXNe (capital dividido
+/// 50 / 50 entre CETES y AMM):
+///   - 500 MXNe × 9.45 % ≈ 47.25 MXNe en CETES
+///   - 500 MXNe × 4.00 % ≈ 20.00 MXNe en AMM
+/// Se tolera un margen de ±2 MXNe por truncamiento en aritmética entera.
+#[test]
+fn test_yield_tasas_reales_produccion() {
+    let (env, cliente, _admin, dueno, backer) = setup();
+
+    // 1 000 MXNe meta (1 000 000 000 stroops con 6 decimales)
+    let meta: i128 = 1_000_000_000;
+    let id = cliente.crear_proyecto(
+        &dueno,
+        &String::from_str(&env, "Produccion tasas reales"),
+        &meta,
+        &doc_hash_vacio(&env),
+    );
+    cliente.admin_aprobar(&id);
+    cliente.contribuir(&backer, &id, &meta);
+
+    assert_eq!(cliente.obtener_proyecto(&id).estado, EstadoProyecto::Liberado);
+
+    // Avanzar exactamente un año (525 600 minutos = 525 600 × 60 segundos)
+    const SEGUNDOS_ANO: u64 = 525_600 * 60;
+    env.ledger().with_mut(|l| l.timestamp = SEGUNDOS_ANO);
+
+    let detalle = cliente.calcular_yield_detallado(&id);
+
+    // 500 MXNe a 9.45 % ≈ 47.25 MXNe → aceptamos [45, 49] MXNe
+    assert!(
+        detalle.cetes >= 45_000_000 && detalle.cetes <= 49_000_000,
+        "CETES yield anual fuera de rango esperado (~47.25 MXNe): {} stroops",
+        detalle.cetes
+    );
+
+    // 500 MXNe a 4.00 % ≈ 20.00 MXNe → aceptamos [18, 22] MXNe
+    assert!(
+        detalle.amm >= 18_000_000 && detalle.amm <= 22_000_000,
+        "AMM yield anual fuera de rango esperado (~20.00 MXNe): {} stroops",
+        detalle.amm
+    );
+
+    // El total debe ser la suma exacta de ambas partes
+    assert_eq!(detalle.total, detalle.cetes + detalle.amm);
+}
+
+/// Confirma que el yield a 1 año NO alcanza las magnitudes de las antiguas tasas demo
+/// (CETES 25 000 bps ≈ 2 500 MXNe, AMM 10 000 bps ≈ 1 000 MXNe sobre 500 MXNe).
+#[test]
+fn test_yield_no_es_demo_exagerado() {
+    let (env, cliente, _admin, dueno, backer) = setup();
+
+    let meta: i128 = 1_000_000_000;
+    let id = cliente.crear_proyecto(
+        &dueno,
+        &String::from_str(&env, "Anti-demo check"),
+        &meta,
+        &doc_hash_vacio(&env),
+    );
+    cliente.admin_aprobar(&id);
+    cliente.contribuir(&backer, &id, &meta);
+
+    const SEGUNDOS_ANO: u64 = 525_600 * 60;
+    env.ledger().with_mut(|l| l.timestamp = SEGUNDOS_ANO);
+
+    let detalle = cliente.calcular_yield_detallado(&id);
+
+    // Con 25 000 bps, 500 MXNe produciría ~1 250 MXNe — muy por encima del límite sano
+    assert!(detalle.cetes < 100_000_000, "CETES yield parece estar usando tasa demo: {} stroops", detalle.cetes);
+    assert!(detalle.amm   < 100_000_000, "AMM yield parece estar usando tasa demo: {} stroops", detalle.amm);
 }
