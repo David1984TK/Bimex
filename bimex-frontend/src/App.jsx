@@ -304,8 +304,8 @@ function Landing({ autoConectar, onConectado }) {
           <span style={st.navbarLogo}>Bimex</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={st.testnetBadgeDark}>⚡ Testnet</span>
-          <ConectarWallet autoConectar={autoConectar} onConectado={onConectado} />
+          <span className="navbar-hide-tablet" style={st.testnetBadgeDark}>⚡ Testnet</span>
+          <ConectarWallet autoConectar={autoConectar} onConectado={onConectado} inNavbar />
         </div>
       </nav>
 
@@ -465,7 +465,7 @@ function Landing({ autoConectar, onConectado }) {
 const st = {
   navbar: {
     display: "flex", alignItems: "center", justifyContent: "space-between",
-    padding: "0 48px", height: 64,
+    padding: "0 clamp(14px, 4vw, 48px)", height: 64,
     background: "linear-gradient(135deg, #1E0A3C 0%, #2D1B69 100%)",
     position: "fixed", top: 0, left: 0, right: 0, zIndex: 50,
     boxShadow: "0 2px 20px rgba(28,22,51,0.22)",

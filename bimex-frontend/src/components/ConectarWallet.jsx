@@ -4,7 +4,7 @@ import {
 } from "@stellar/freighter-api";
 import { CONFIG } from "../stellar/contrato";
 
-export default function ConectarWallet({ onConectado, autoConectar = true }) {
+export default function ConectarWallet({ onConectado, autoConectar = true, inNavbar = false }) {
   const [estado, setEstado] = useState("inactivo");
   const [direccion, setDireccion] = useState(null);
   const [error, setError] = useState("");
@@ -42,9 +42,9 @@ export default function ConectarWallet({ onConectado, autoConectar = true }) {
   }
 
   if (estado === "conectado") return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--primary-dim)", border: "1.5px solid rgba(124,58,237,0.25)", padding: "10px 18px", borderRadius: 99 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--primary-dim)", border: "1.5px solid rgba(124,58,237,0.25)", padding: inNavbar ? "6px 14px" : "10px 18px", borderRadius: 99 }}>
       <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--primary)", boxShadow: "0 0 6px rgba(124,58,237,0.5)", flexShrink: 0 }} />
-      <span style={{ fontFamily: "DM Mono, monospace", fontSize: 14, color: "var(--primary)" }}>
+      <span style={{ fontFamily: "DM Mono, monospace", fontSize: inNavbar ? 12 : 14, color: "var(--primary)" }}>
         {direccion.slice(0, 4)}…{direccion.slice(-4)}
       </span>
     </div>
@@ -61,21 +61,22 @@ export default function ConectarWallet({ onConectado, autoConectar = true }) {
             : "linear-gradient(135deg, #7C3AED, #6D28D9)",
           color: "#fff",
           border: "none",
-          padding: "14px 40px",
-          borderRadius: 12,
+          padding: inNavbar ? "8px 18px" : "14px 40px",
+          borderRadius: inNavbar ? 99 : 12,
           fontFamily: "Syne, sans-serif",
           fontWeight: 700,
-          fontSize: 16,
+          fontSize: inNavbar ? 13 : 16,
           cursor: estado === "verificando" ? "not-allowed" : "pointer",
           boxShadow: "0 4px 20px rgba(124,58,237,0.35)",
           transition: "all 0.18s",
           letterSpacing: "-0.01em",
+          whiteSpace: "nowrap",
         }}
       >
-        {estado === "verificando" ? "Conectando…" : "Conectar con Freighter"}
+        {estado === "verificando" ? "Conectando…" : inNavbar ? "Conectar" : "Conectar con Freighter"}
       </button>
 
-      {estado === "sin_extension" && (
+      {!inNavbar && estado === "sin_extension" && (
         <p style={{ color: "var(--amber)", fontSize: 13, margin: 0, textAlign: "center" }}>
           Freighter no está instalado.{" "}
           <a href="https://freighter.app" target="_blank" rel="noreferrer"
@@ -84,13 +85,13 @@ export default function ConectarWallet({ onConectado, autoConectar = true }) {
           </a>
         </p>
       )}
-      {estado === "red_incorrecta" && (
+      {!inNavbar && estado === "red_incorrecta" && (
         <p style={{ color: "var(--amber)", fontSize: 13, margin: 0 }}>
           {/* ← changed from "Test Net" to "Main Net" */}
           Cambia Freighter a <strong>Main Net</strong>
         </p>
       )}
-      {estado === "error" && (
+      {!inNavbar && estado === "error" && (
         <p style={{ color: "var(--error)", fontSize: 13, margin: 0 }}>{error}</p>
       )}
     </div>
