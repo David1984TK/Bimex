@@ -20,6 +20,17 @@ Contributor locks MXNe
         └─ Project completes → contributor withdraws 100% of principal
 ```
 
+## 🚀 Pilot Project
+
+We're launching our first real-world project on Mainnet! Check out the complete guide:
+
+- [Pilot Project Guide](docs/guia-proyecto-piloto.md) - Complete onboarding process
+- [Executive Checklist](docs/checklist-ejecutivo-piloto.md) - Step-by-step checklist
+- [Marketing Plan](docs/plan-marketing-piloto.md) - Communication strategy
+- [Scripts](scripts/README.md) - Helper scripts for deployment
+
+**Status**: Ready to launch | **Timeline**: 9 weeks | **Budget**: $15,000 MXN
+
 ## Quick start
 
 ```bash
@@ -43,6 +54,7 @@ stellar contract build
 | [Contributor guide](docs/guia-contribuidor.md) | How to back a project as a user |
 | [Project creator guide](docs/guia-creador-proyecto.md) | How to launch a project on Bimex |
 | [Technical integration guide](docs/guia-tecnica-integracion.md) | ABI, CLI examples, JS SDK integration |
+| [Pilot project guide](docs/guia-proyecto-piloto.md) | First real-world project on Mainnet |
 | [FAQ (español)](docs/faq-es.md) | Preguntas frecuentes |
 | [FAQ (English)](docs/faq-en.md) | Frequently asked questions |
 
