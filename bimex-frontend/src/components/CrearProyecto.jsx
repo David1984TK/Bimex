@@ -6,6 +6,7 @@ import {
   hashearDocumentos,
   CONFIG,
 } from "../stellar/contrato";
+import { subirConFallback } from "../utils/ipfs";
 
 const PASOS = [
   { n: 1, label: "Datos del proyecto" },
@@ -389,7 +390,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                   <DocChip nombre={docs.presupuesto?.name} icono="💼" label="Presupuesto" />
                 </div>
 
-                {/* Hash fingerprint */}
+                {/* IPFS / Fallback panel */}
                 <div style={estilos.hashPanel}>
                   <p style={{ fontSize: "0.7rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>
                     {t("crear.hashTitle")}
