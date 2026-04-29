@@ -6,6 +6,7 @@ import {
   hashearDocumentos,
   CONFIG,
 } from "../stellar/contrato";
+import { subirConFallback } from "../utils/ipfs";
 
 const PASOS = [
   { n: 1, label: "Datos del proyecto" },
@@ -43,6 +44,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
 
   // ── Paso 3: CID del documento (IPFS o hex del hash como fallback)
   const [docCid, setDocCid] = useState(null);
+  const [ipfsCids, setIpfsCids] = useState(null); // { ine, plan, presupuesto } cuando IPFS ok
 
   const [cargando,   setCargando]   = useState(false);
   const [hasheando,  setHasheando]  = useState(false);
@@ -74,11 +76,23 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
     }
     setHasheando(true);
     try {
-      const hash = await hashearDocumentos(docs.ine, docs.plan, docs.presupuesto);
-      // Convert hash bytes to hex string as the document CID.
-      // Replace with a real IPFS upload when the pinning service is integrated.
-      const cid = Array.from(hash).map(b => b.toString(16).padStart(2, "0")).join("");
-      setDocCid(cid);
+      const [resIne, resPlan, resPres] = await Promise.all([
+        subirConFallback(docs.ine),
+        subirConFallback(docs.plan),
+        subirConFallback(docs.presupuesto),
+      ]);
+
+      const allIPFS = !resIne.usedFallback && !resPlan.usedFallback && !resPres.usedFallback;
+
+      if (allIPFS) {
+        setIpfsCids({ ine: resIne.cid, plan: resPlan.cid, presupuesto: resPres.cid });
+        setDocCid(`${resIne.cid}|${resPlan.cid}|${resPres.cid}`);
+      } else {
+        setIpfsCids(null);
+        const hash = await hashearDocumentos(docs.ine, docs.plan, docs.presupuesto);
+        const cid = Array.from(hash).map(b => b.toString(16).padStart(2, "0")).join("");
+        setDocCid(cid);
+      }
       setPaso(3);
     } catch {
       setError(t("crear.errHash"));
@@ -389,16 +403,30 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                   <DocChip nombre={docs.presupuesto?.name} icono="💼" label="Presupuesto" />
                 </div>
 
-                {/* Hash fingerprint */}
+                {/* IPFS / Fallback panel */}
                 <div style={estilos.hashPanel}>
                   <p style={{ fontSize: "0.7rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>
-                    {t("crear.hashTitle")}
+                    {ipfsCids ? "📌 Documentos en IPFS" : t("crear.hashTitle")}
                   </p>
-                  <code style={{ fontFamily: "'DM Mono'", fontSize: "0.72rem", color: "var(--primary)", wordBreak: "break-all", lineHeight: 1.6 }}>
-                    {hexHash.slice(0, 32)}<br />{hexHash.slice(32)}
-                  </code>
+                  {ipfsCids ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {[["🪪 INE", ipfsCids.ine], ["📋 Plan", ipfsCids.plan], ["💼 Presupuesto", ipfsCids.presupuesto]].map(([label, cid]) => (
+                        <div key={cid} style={{ fontSize: "0.72rem" }}>
+                          <span style={{ color: "var(--muted)", marginRight: 6 }}>{label}</span>
+                          <a href={`https://ipfs.io/ipfs/${cid}`} target="_blank" rel="noreferrer"
+                             style={{ fontFamily: "'DM Mono'", color: "var(--primary)", wordBreak: "break-all" }}>
+                            {cid.slice(0, 20)}…
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <code style={{ fontFamily: "'DM Mono'", fontSize: "0.72rem", color: "var(--primary)", wordBreak: "break-all", lineHeight: 1.6 }}>
+                      {hexHash.slice(0, 32)}<br />{hexHash.slice(32)}
+                    </code>
+                  )}
                   <p style={{ fontSize: "0.68rem", color: "var(--muted)", marginTop: "8px" }}>
-                    {t("crear.hashNote")}
+                    {ipfsCids ? "Tus documentos están guardados en IPFS y verificables públicamente." : t("crear.hashNote")}
                   </p>
                 </div>
               </div>
