@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import {
   contribuir as contribuirContrato,
@@ -8,7 +8,6 @@ import {
   solicitarContinuar as solicitarContinuarContrato,
   obtenerAportacion,
   calcularYield,
-  calcularYieldDetallado,
   obtenerProyecto,
   obtenerBalanceMXNe,
   mxneAStroops,
@@ -16,15 +15,13 @@ import {
   CONFIG,
 } from "../stellar/contrato";
 
-// ─── Config de estados ────────────────────────────────────────────────────────
 const ESTADO_CONFIG = {
-  EtapaInicial: { labelKey: "status.EtapaInicial", clase: "badge-muted",  icono: "🌱" },
-  EnProgreso:   { labelKey: "status.EnProgreso",   clase: "badge-teal",   icono: "🚀" },
-  Abandonado:   { labelKey: "status.Abandonado",   clase: "badge-red",    icono: "⚠️" },
-  Liberado:     { labelKey: "status.Liberado",     clase: "badge-amber",  icono: "🏆" },
+  EtapaInicial: { labelKey: "status.EtapaInicial", clase: "badge-muted" },
+  EnProgreso:   { labelKey: "status.EnProgreso",   clase: "badge-teal" },
+  Abandonado:   { labelKey: "status.Abandonado",   clase: "badge-red" },
+  Liberado:     { labelKey: "status.Liberado",     clase: "badge-amber" },
 };
 
-// Calcula el yield estimado del dueño usando dual-yield (CETES + AMM)
 function estimarYieldDueno(proyecto) {
   if (!proyecto?.timestamp_inicio || !proyecto?.aportado) return BigInt(0);
   const ahora = Math.floor(Date.now() / 1000);
@@ -40,52 +37,75 @@ function estimarYieldDueno(proyecto) {
   return yieldCetes + yieldAmm;
 }
 
-// Calcula el desglose de yield
-function estimarYieldDetallado(proyecto) {
-  if (!proyecto?.timestamp_inicio || !proyecto?.aportado) {
-    return { cetes: BigInt(0), amm: BigInt(0), total: BigInt(0) };
-  }
-  const ahora = Math.floor(Date.now() / 1000);
-  const segundos = Math.max(0, ahora - proyecto.timestamp_inicio);
-  const minutos = BigInt(Math.floor(segundos / 60));
-  const cetesCap = BigInt(proyecto.capital_en_cetes ?? 0);
-  const ammCap   = BigInt(proyecto.capital_en_amm   ?? 0);
-  const cetesBps = BigInt(CONFIG.YIELD_CETES_BPS);
-  const ammBps   = BigInt(CONFIG.YIELD_AMM_BPS);
-  const MINUTOS_ANO = BigInt(525_600);
-  const cetes = (cetesCap * cetesBps * minutos) / BigInt(10_000) / MINUTOS_ANO;
-  const amm   = (ammCap   * ammBps   * minutos) / BigInt(10_000) / MINUTOS_ANO;
-  return { cetes, amm, total: cetes + amm };
+function calcProyeccion(cantidadMXNe, meses, modo) {
+  const capital = Number(cantidadMXNe) || 0;
+  const tasaInversor = modo === "inversor" ? 0.05 : 0;
+  const tasaProyecto = modo === "inversor" ? 0.06 : 0.11;
+  const fraccion = meses / 12;
+  return {
+    tuYield:        capital * tasaInversor * fraccion,
+    proyectoRecibe: capital * tasaProyecto * fraccion,
+    totalRetiras:   capital + capital * tasaInversor * fraccion,
+  };
 }
 
-export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, onCerrar }) {
-  const { t } = useTranslation();
-  const [proyecto, setProyecto] = useState(proyectoInicial);
-  const [cantidad, setCantidad] = useState("");
-  const [cargando, setCargando] = useState(false);
-  const [vista, setVista] = useState("info");
-  const [toast, setToast] = useState(null);
-  const [miAportacion, setMiAportacion] = useState(BigInt(0));
-  const [miYield, setMiYield] = useState(BigInt(0));
-  const [confirmarAbandonar, setConfirmarAbandonar] = useState(false);
-  const [balanceMXNe, setBalanceMXNe] = useState(BigInt(0));
-  const modalRef = useRef(null);
-  const botonAbrioRef = useRef(document.activeElement);
+function fmt(n) {
+  return n.toLocaleString("es-MX", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
 
-  const estado = proyecto.estado ?? "EtapaInicial";
+// SVG icons
+const IconArrowLeft = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+    <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
+  </svg>
+);
+const IconFile = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+  </svg>
+);
+const IconShield = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </svg>
+);
+
+export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, onCerrar, onError }) {
+  const { t } = useTranslation();
+  const [proyecto,          setProyecto]          = useState(proyectoInicial);
+  const [cantidad,          setCantidad]          = useState("");
+  const [cargando,          setCargando]          = useState(false);
+  const [modoInversion,     setModoInversion]     = useState("inversor");
+  const [vistaRetirar,      setVistaRetirar]      = useState(false);
+  const [confirmarAbandonar,setConfirmarAbandonar]= useState(false);
+  const [toast,             setToast]             = useState(null);
+  const [miAportacion,      setMiAportacion]      = useState(BigInt(0));
+  const [miYield,           setMiYield]           = useState(BigInt(0));
+  const [balanceMXNe,       setBalanceMXNe]       = useState(BigInt(0));
+
+  const estado    = proyecto.estado ?? "EtapaInicial";
   const estadoCfg = ESTADO_CONFIG[estado] ?? ESTADO_CONFIG.EtapaInicial;
-  const esDueno = direccion === proyecto.dueno;
+  const esDueno      = direccion === proyecto.dueno;
   const esAbandonado = estado === "Abandonado";
   const aceptaFondos = estado === "EtapaInicial" || estado === "EnProgreso";
 
-  const aportado = Number(proyecto.aportado ?? 0);
-  const meta = Number(proyecto.meta ?? 0);
+  const aportado   = Number(proyecto.aportado ?? 0);
+  const meta       = Number(proyecto.meta ?? 0);
   const porcentaje = meta > 0 ? Math.min((aportado / meta) * 100, 100) : 0;
 
-  const yieldDuenoEstimado = esDueno ? estimarYieldDueno(proyecto) : BigInt(0);
-  const yieldDetallado = esDueno ? estimarYieldDetallado(proyecto) : null;
+  const yieldDueno = esDueno ? estimarYieldDueno(proyecto) : BigInt(0);
 
-  // Carga datos del usuario y refresca el proyecto desde la red
+  // Documentos IPFS: "CID1|CID2|CID3" → array
+  const DOC_LABELS = [
+    t("detalle.docINE"),
+    t("detalle.docPlan"),
+    t("detalle.docPresupuesto"),
+  ];
+  const docs = proyecto.doc_hash
+    ? proyecto.doc_hash.split("|").filter(Boolean)
+    : [];
+
   const refrescar = useCallback(async () => {
     if (!direccion || proyecto.id == null) return;
     try {
@@ -104,39 +124,11 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
 
   useEffect(() => { refrescar(); }, [refrescar]);
 
-  // Focus trap + Escape para cerrar
+  // Escape → volver
   useEffect(() => {
-    const modal = modalRef.current;
-    if (!modal) return;
-
-    // Mueve el foco al modal al abrir
-    modal.focus();
-
-    // Cierra con Escape
-    function onKeyDown(e) {
-      if (e.key === "Escape") { onCerrar(); return; }
-      if (e.key !== "Tab") return;
-
-      // Trap: mantén el foco dentro del modal
-      const focusables = modal.querySelectorAll(
-        'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      const primero = focusables[0];
-      const ultimo  = focusables[focusables.length - 1];
-
-      if (e.shiftKey) {
-        if (document.activeElement === primero) { e.preventDefault(); ultimo.focus(); }
-      } else {
-        if (document.activeElement === ultimo)  { e.preventDefault(); primero.focus(); }
-      }
-    }
-
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      // Devuelve el foco al elemento que abrió el modal
-      botonAbrioRef.current?.focus?.();
-    };
+    function onKey(e) { if (e.key === "Escape") onCerrar(); }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
   }, [onCerrar]);
 
   function mostrarToast(msg, tipo = "success") {
@@ -146,28 +138,26 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
 
   function mensajeCorto(err) {
     const msg = err?.message || t("detalle.errContract");
-    if (msg.includes("HostError") || msg.includes("XDR") || msg.length > 120) {
-      return t("detalle.errContract");
-    }
+    if (msg.includes("HostError") || msg.includes("XDR") || msg.length > 120) return t("detalle.errContract");
     return msg;
   }
 
-  // Bug 1 & 2: normaliza el valor del input — bloquea negativos y notación científica
   function handleCantidadChange(e) {
     const raw = e.target.value;
-    // Rechaza notación científica (e/E) y signos
     if (/[eE+\-]/.test(raw)) return;
     setCantidad(raw);
   }
 
-  const cantidadNum = Number(cantidad);
+  const cantidadNum   = Number(cantidad);
   const cantidadValida = cantidad !== "" && !isNaN(cantidadNum) && cantidadNum > 0;
-  const superaBalance = cantidadValida && mxneAStroops(cantidadNum) > balanceMXNe;
-  const errorCantidad = !cantidadValida && cantidad !== ""
+  const superaBalance  = cantidadValida && mxneAStroops(cantidadNum) > balanceMXNe;
+  const errorCantidad  = !cantidadValida && cantidad !== ""
     ? t("detalle.errAmount")
     : superaBalance
     ? t("detalle.errBalance", { balance: stroopsAMXNe(balanceMXNe) })
     : null;
+
+  const proyeccion = calcProyeccion(cantidadNum, 12, modoInversion);
 
   async function manejarContribuir() {
     if (!cantidadValida || superaBalance) return;
@@ -176,10 +166,9 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
       await contribuirContrato(direccion, proyecto.id, mxneAStroops(Number(cantidad)));
       mostrarToast(t("detalle.toastContributed", { amount: cantidad }));
       setCantidad("");
-      setVista("info");
       await refrescar();
     } catch (err) {
-      mostrarToast(mensajeCorto(err), "error");
+      onError?.(err);
     }
     setCargando(false);
   }
@@ -191,31 +180,24 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
       mostrarToast(t("detalle.toastWithdrawn", { amount: stroopsAMXNe(miAportacion) }));
       setMiAportacion(BigInt(0));
       setMiYield(BigInt(0));
-      setVista("info");
+      setVistaRetirar(false);
       await refrescar();
     } catch (err) {
-      mostrarToast(mensajeCorto(err), "error");
+      onError?.(err);
     }
     setCargando(false);
   }
 
   async function manejarReclamarYield() {
-    if (estado !== "Liberado") {
-      mostrarToast(t("detalle.errYieldOnly"), "error");
-      return;
-    }
-    if (yieldDuenoEstimado === BigInt(0)) {
-      mostrarToast(t("detalle.errNoYield"), "error");
-      return;
-    }
+    if (estado !== "Liberado") { mostrarToast(t("detalle.errYieldOnly"), "error"); return; }
+    if (yieldDueno === BigInt(0)) { mostrarToast(t("detalle.errNoYield"), "error"); return; }
     setCargando(true);
     try {
       await reclamarYieldContrato(direccion, proyecto.id);
       mostrarToast(t("detalle.toastYield"));
-      setVista("info");
       await refrescar();
     } catch (err) {
-      mostrarToast(mensajeCorto(err), "error");
+      onError?.(err);
     }
     setCargando(false);
   }
@@ -228,7 +210,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
       mostrarToast(t("detalle.toastAbandoned"));
       await refrescar();
     } catch (err) {
-      mostrarToast(mensajeCorto(err), "error");
+      onError?.(err);
     }
     setCargando(false);
   }
@@ -240,348 +222,377 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
       mostrarToast(t("detalle.toastContinued"));
       await refrescar();
     } catch (err) {
-      mostrarToast(mensajeCorto(err), "error");
+      onError?.(err);
     }
     setCargando(false);
   }
 
   return (
     <>
-      <div
-        className="modal-overlay"
-        onClick={onCerrar}
-        role="presentation"
-        aria-hidden="false"
-      >
-        <div
-          className="modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="modal-titulo"
-          style={{ maxWidth: "520px" }}
-          onClick={(e) => e.stopPropagation()}
-          ref={modalRef}
-          tabIndex={-1}
-        >
+      <div className="detail-page">
 
-          {/* Header */}
-          <div className="modal-header">
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <span style={estilos.emoji}>{estadoCfg.icono}</span>
-              <div>
-                <h2 id="modal-titulo" style={{ fontSize: "1.15rem" }}>{proyecto.nombre}</h2>
-                <span className={`badge ${estadoCfg.clase}`} style={{ marginTop: "4px" }}>
+        {/* Back link */}
+        <button className="back-link" onClick={onCerrar}>
+          <IconArrowLeft />
+          {t("detalle.backToProjects")}
+        </button>
+
+        {/* 2-column grid */}
+        <div className="detail-grid">
+
+          {/* ── LEFT: Project info ── */}
+          <div className="detail-main">
+
+            {/* Header */}
+            <div className="detail-header">
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
+                <span className={`badge ${estadoCfg.clase}`}>
+                  <span className="badge-dot" />
                   {t(estadoCfg.labelKey)}
                 </span>
               </div>
+              <h1>{proyecto.nombre}</h1>
             </div>
-            <button className="btn-close" onClick={onCerrar} aria-label={t("detalle.closeAria")}>×</button>
+
+            {/* Banners de estado */}
+            {esAbandonado && (
+              <div className="detail-banner detail-banner--red">
+                <IconShield />
+                <span>{t("detalle.abandonedBanner")}</span>
+              </div>
+            )}
+            {estado === "Liberado" && (
+              <div className="detail-banner detail-banner--amber">
+                <IconShield />
+                <span>{t("detalle.releasedBanner")}</span>
+              </div>
+            )}
+
+            {/* Info grid */}
+            <div className="detail-section">
+              <h3>{t("detalle.projectInfo")}</h3>
+              <div className="info-grid">
+                <div className="info-cell">
+                  <label>{t("detalle.goal")}</label>
+                  <span>{stroopsAMXNe(proyecto.meta ?? 0)}</span>
+                </div>
+                <div className="info-cell">
+                  <label>{t("detalle.raised")}</label>
+                  <span className="green">{stroopsAMXNe(proyecto.aportado ?? 0)}</span>
+                </div>
+                <div className="info-cell">
+                  <label>{t("detalle.yieldDelivered")}</label>
+                  <span>{stroopsAMXNe(proyecto.yield_entregado ?? 0)}</span>
+                </div>
+                <div className="info-cell">
+                  <label>{t("detalle.owner")}</label>
+                  <span style={{ fontFamily: "monospace", fontSize: "0.82rem" }}>
+                    {proyecto.dueno ? `${proyecto.dueno.slice(0, 6)}…${proyecto.dueno.slice(-4)}` : "—"}
+                  </span>
+                </div>
+                {esDueno && BigInt(proyecto.aportado ?? 0) > BigInt(0) && (
+                  <div className="info-cell" style={{ gridColumn: "1 / -1" }}>
+                    <label>{t("detalle.yieldAvailable")}</label>
+                    <span className="green" style={{ fontFamily: "monospace", fontSize: "1.1rem" }}>
+                      {stroopsAMXNe(yieldDueno)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Distribución del rendimiento */}
+            <div className="detail-section">
+              <h3>{t("detalle.yieldSplit")}</h3>
+              <div className="split-table">
+                <div className="split-row">
+                  <span className="split-name" style={{ color: "var(--green)", fontWeight: 600 }}>{t("detalle.splitProject")}</span>
+                  <div className="split-bar-wrap"><div className="split-bar" style={{ width: "44.6%", background: "var(--green)" }} /></div>
+                  <span className="split-pct" style={{ color: "var(--green)" }}>6.00%</span>
+                </div>
+                <div className="split-row">
+                  <span className="split-name" style={{ color: "var(--navy)", fontWeight: 600 }}>{t("detalle.splitInvestor")}</span>
+                  <div className="split-bar-wrap"><div className="split-bar" style={{ width: "37.2%", background: "var(--navy)" }} /></div>
+                  <span className="split-pct" style={{ color: "var(--navy)" }}>5.00%</span>
+                </div>
+                <div className="split-row" style={{ background: "var(--bg)" }}>
+                  <span className="split-name" style={{ color: "var(--muted)" }}>{t("detalle.splitPlatform")}</span>
+                  <div className="split-bar-wrap"><div className="split-bar" style={{ width: "18.2%", background: "var(--subtle)" }} /></div>
+                  <span className="split-pct" style={{ color: "var(--muted)" }}>2.45%</span>
+                </div>
+                <div style={{ padding: "12px 18px", background: "var(--bg)", borderTop: "2px solid var(--border)", display: "flex", justifyContent: "space-between", fontSize: "0.82rem" }}>
+                  <span style={{ color: "var(--muted)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("detalle.totalYield")}</span>
+                  <strong style={{ color: "var(--text)" }}>13.45% {t("detalle.perYear")}</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Documentos IPFS */}
+            {docs.length > 0 && (
+              <div className="detail-section">
+                <h3>{t("detalle.verifiedDocs")}</h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {docs.map((cid, i) => (
+                    <div key={cid} className="doc-row">
+                      <span style={{ color: "var(--muted)" }}><IconFile /></span>
+                      <span style={{ fontSize: "0.85rem", flex: 1 }}>{DOC_LABELS[i] ?? `Documento ${i + 1}`}</span>
+                      <span style={{ fontSize: "0.75rem", color: "var(--muted)", fontFamily: "monospace" }}>
+                        IPFS: {cid.slice(0, 8)}…
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Acciones del dueño (izquierda, secundarias) */}
+            {esDueno && aceptaFondos && (
+              <div className="detail-section">
+                {!confirmarAbandonar ? (
+                  <button
+                    className="btn btn-ghost"
+                    style={{ fontSize: "0.82rem", color: "var(--muted)" }}
+                    onClick={() => setConfirmarAbandonar(true)}
+                    disabled={cargando}
+                  >
+                    {t("detalle.abandon")}
+                  </button>
+                ) : (
+                  <div className="confirm-box confirm-box--red">
+                    <p style={{ fontSize: "0.85rem", color: "#B91C1C", fontWeight: 600, marginBottom: 12 }}>
+                      {t("detalle.abandonConfirm")}
+                    </p>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setConfirmarAbandonar(false)}>
+                        {t("detalle.cancel")}
+                      </button>
+                      <button
+                        className="btn"
+                        style={{ flex: 1, justifyContent: "center", background: "#DC2626", color: "#fff" }}
+                        onClick={manejarAbandonar}
+                        disabled={cargando}
+                      >
+                        {cargando ? t("detalle.processing") : t("detalle.confirmAbandon")}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Badge de verificación documental */}
-          {proyecto.doc_hash && (
-            <div style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              background: "rgba(5,150,105,0.07)",
-              border: "1px solid rgba(5,150,105,0.20)",
-              borderRadius: "var(--radius-sm)",
-              padding: "7px 12px",
-              marginTop: "10px",
-              fontSize: "0.76rem",
-              color: "#059669",
-              fontWeight: 600,
-            }}>
-              <span>🔒</span>
-              <span>{t("detalle.docsVerified")}</span>
-              <code style={{ fontFamily: "'DM Mono'", fontSize: "0.67rem", opacity: 0.75, marginLeft: "4px" }}>
-                {Array.from(proyecto.doc_hash).map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 8)}…
-              </code>
-            </div>
-          )}
-
-          {/* Banner abandonado */}
-          {esAbandonado && (
-            <div style={estilos.bannerAbandonado}>
-              <span>⚠️</span>
-              <span style={{ fontSize: "0.82rem" }}>
-                {t("detalle.abandonedBanner")}
-              </span>
-            </div>
-          )}
-
-          {/* Banner liberado */}
-          {estado === "Liberado" && (
-            <div style={estilos.bannerLiberado}>
-              <span>🏆</span>
-              <span style={{ fontSize: "0.82rem" }}>
-                {t("detalle.releasedBanner")}
-              </span>
-            </div>
-          )}
-
-          {/* Barra de progreso */}
-          <div style={{ margin: "20px 0" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-              <span style={{ fontSize: "0.8rem", color: "var(--muted)" }} id="progreso-label">
-                {t("detalle.progressLabel")}
-              </span>
-              <span style={{ fontSize: "0.8rem", color: "var(--primary)", fontFamily: "'DM Mono'", fontWeight: 700 }}
-                    aria-hidden="true">
-                {porcentaje.toFixed(0)}%
-              </span>
-            </div>
-            <div
-              className="progress-track"
-              role="progressbar"
-              aria-valuenow={Math.round(porcentaje)}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-labelledby="progreso-label"
-              aria-valuetext={`${porcentaje.toFixed(0)}% del objetivo alcanzado`}
-            >
-              <div className="progress-fill" style={{ width: `${porcentaje}%` }} />
-            </div>
-          </div>
-
-          {/* Stats */}
-          <div className="detalle-stats-grid" style={estilos.statsGrid}>
-            <StatBox label="Total bloqueado" valor={stroopsAMXNe(proyecto.aportado ?? 0)} color="var(--text)" />
-            <StatBox label="Meta"            valor={stroopsAMXNe(proyecto.meta ?? 0)}     color="var(--muted)" />
-            <StatBox label="Yield entregado" valor={stroopsAMXNe(proyecto.yield_entregado ?? 0)} color="var(--amber)" />
-          </div>
-
-          {/* Yield detallado del dueño — Capa 1 CETES + Capa 2 AMM */}
-          {esDueno && !esAbandonado && BigInt(proyecto.aportado ?? 0) > BigInt(0) && yieldDetallado && (
-            <div style={estilos.yieldDuenoBanner}>
-              <div style={{ fontSize: "0.75rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "10px" }}>
-                {t("detalle.yieldAvailable")}
+          {/* ── RIGHT: Invest panel ── */}
+          <div>
+            <div className="invest-panel">
+              <div className="invest-panel-head">
+                <p>{t("detalle.investIn")}</p>
+                <h3>{proyecto.nombre}</h3>
               </div>
-              <div style={{ fontFamily: "'DM Mono'", fontSize: "1.5rem", color: "var(--amber)", fontWeight: 700, marginBottom: "10px" }}>
-                {stroopsAMXNe(yieldDuenoEstimado)}
-              </div>
-              {/* Desglose por capa */}
-              <div className="detalle-yield-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px" }}>
-                <div style={estilos.yieldCapa}>
-                  <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    {t("detalle.layer1")}
-                  </div>
-                  <div style={{ fontFamily: "'DM Mono'", fontSize: "0.85rem", color: "#059669", fontWeight: 700, marginTop: "2px" }}>
-                    +{stroopsAMXNe(yieldDetallado.cetes)}
-                  </div>
-                  <div style={{ fontSize: "0.66rem", color: "var(--muted)" }}>{t("detalle.layer1Via")}</div>
-                </div>
-                <div style={estilos.yieldCapa}>
-                  <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    {t("detalle.layer2")}
-                  </div>
-                  <div style={{ fontFamily: "'DM Mono'", fontSize: "0.85rem", color: "#7C3AED", fontWeight: 700, marginTop: "2px" }}>
-                    +{stroopsAMXNe(yieldDetallado.amm)}
-                  </div>
-                  <div style={{ fontSize: "0.66rem", color: "var(--muted)" }}>{t("detalle.layer2Via")}</div>
-                </div>
-              </div>
-              <div style={{ fontSize: "0.72rem", color: "var(--muted)", textAlign: "center" }}>
-                {t("detalle.capital")}: {stroopsAMXNe(proyecto.capital_en_cetes ?? 0)} CETES + {stroopsAMXNe(proyecto.capital_en_amm ?? 0)} AMM
-              </div>
-            </div>
-          )}
 
-          {/* Mi posición (backer) */}
-          {miAportacion > BigInt(0) && (
-            <div style={estilos.miPosicion}>
-              <p style={{ fontSize: "0.78rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "12px" }}>
-                {t("detalle.myPosition")}
-              </p>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <div>
-                  <div style={{ fontSize: "0.8rem", color: "var(--muted)" }}>{t("detalle.myCapital")}</div>
-                  <div style={{ fontFamily: "'DM Mono'", color: "var(--primary)", fontSize: "1.1rem" }}>
-                    {stroopsAMXNe(miAportacion)}
+              <div className="invest-body">
+
+                {/* Barra de progreso */}
+                <div className="progress-section">
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem" }}>
+                    <span style={{ color: "var(--muted)" }}>{t("detalle.raised")}</span>
+                    <span>
+                      <strong style={{ color: "var(--text)" }}>{stroopsAMXNe(proyecto.aportado ?? 0)}</strong>
+                      {" / "}
+                      {stroopsAMXNe(proyecto.meta ?? 0)}
+                    </span>
+                  </div>
+                  <div className="progress-section__bar">
+                    <div className="progress-section__fill" style={{ width: `${porcentaje}%` }} />
+                  </div>
+                  <div className="progress-meta">
+                    <span>{porcentaje.toFixed(0)}% {t("detalle.completed")}</span>
                   </div>
                 </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: "0.8rem", color: "var(--muted)" }}>{t("detalle.myYield")}</div>
-                  <div style={{ fontFamily: "'DM Mono'", color: "var(--amber)", fontSize: "1.1rem" }}>
-                    +{stroopsAMXNe(miYield)}
+
+                {/* Mi posición (si ya contribuí) */}
+                {miAportacion > BigInt(0) && (
+                  <div className="my-position">
+                    <div style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", marginBottom: 10 }}>
+                      {t("detalle.myPosition")}
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <div>
+                        <div style={{ fontSize: "0.78rem", color: "var(--muted)" }}>{t("detalle.myCapital")}</div>
+                        <div style={{ fontFamily: "monospace", fontWeight: 700, color: "var(--navy)", fontSize: "1rem" }}>
+                          {stroopsAMXNe(miAportacion)}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: "0.78rem", color: "var(--muted)" }}>{t("detalle.myYield")}</div>
+                        <div style={{ fontFamily: "monospace", fontWeight: 700, color: "var(--green)", fontSize: "1rem" }}>
+                          +{stroopsAMXNe(miYield)}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </div>
-          )}
+                )}
 
-          {/* ── Botones principales (vista info) ── */}
-          {vista === "info" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "20px" }}>
-
-              {/* Fila principal de acciones */}
-              <div className="detalle-acciones" style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-
-                {/* Contribuir */}
+                {/* Forma de contribuir */}
                 {aceptaFondos && (
-                  <button
-                    className="btn btn-primary"
-                    style={{ flex: 1, minWidth: "140px", justifyContent: "center" }}
-                    onClick={() => setVista("contribuir")}
-                    disabled={cargando}
-                  >
-                    {t("detalle.contribute")}
-                  </button>
+                  <>
+                    <div style={{ fontSize: "0.78rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", marginBottom: 8 }}>
+                      {t("detalle.mode")}
+                    </div>
+                    <div className="mode-selector">
+                      <button
+                        className={`mode-btn${modoInversion === "inversor" ? " active" : ""}`}
+                        onClick={() => setModoInversion("inversor")}
+                      >
+                        <h4>{t("detalle.modeInversor")}</h4>
+                        <p>{t("detalle.modeInversorDesc")}</p>
+                      </button>
+                      <button
+                        className={`mode-btn${modoInversion === "mecenas" ? " active" : ""}`}
+                        onClick={() => setModoInversion("mecenas")}
+                      >
+                        <h4>{t("detalle.modeMecenas")}</h4>
+                        <p>{t("detalle.modeMecenasDesc")}</p>
+                      </button>
+                    </div>
+
+                    <div className="input-group">
+                      <label>{t("detalle.contributeLabel")}</label>
+                      <div className={`input-wrap${errorCantidad ? " input-wrap--error" : ""}`}>
+                        <span className="input-prefix">MXNe</span>
+                        <input
+                          type="number"
+                          value={cantidad}
+                          onChange={handleCantidadChange}
+                          onKeyDown={(e) => { if (["e","E","+","-"].includes(e.key)) e.preventDefault(); }}
+                          placeholder={t("detalle.contributePlaceholder")}
+                          min="1"
+                          step="1"
+                        />
+                      </div>
+                      {errorCantidad && (
+                        <p style={{ fontSize: "0.78rem", color: "var(--error)", marginTop: 6, fontWeight: 600 }}>
+                          {errorCantidad}
+                        </p>
+                      )}
+                      {cantidadValida && !superaBalance && (
+                        <p style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: 5 }}>
+                          {t("detalle.available")}: {stroopsAMXNe(balanceMXNe)}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Calculadora */}
+                    <div className="calc-result">
+                      <div className="calc-row">
+                        <span>{t("detalle.calcCapital")}</span>
+                        <strong>${fmt(cantidadNum || 0)} MXN</strong>
+                      </div>
+                      <div className="calc-row">
+                        <span>{t("detalle.calcYield", { pct: modoInversion === "inversor" ? "5%" : "0%" })}</span>
+                        <strong style={{ color: "var(--navy)" }}>
+                          ${fmt(proyeccion.tuYield)} MXN
+                        </strong>
+                      </div>
+                      <div className="calc-row">
+                        <span>{t("detalle.calcProject")}</span>
+                        <strong style={{ color: "var(--green)" }}>
+                          ${fmt(proyeccion.proyectoRecibe)} MXN
+                        </strong>
+                      </div>
+                      <div className="calc-row total" style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
+                        <span>{t("detalle.calcTotal")}</span>
+                        <strong>${fmt(proyeccion.totalRetiras)} MXN</strong>
+                      </div>
+                    </div>
+
+                    <button
+                      className="invest-btn"
+                      onClick={manejarContribuir}
+                      disabled={cargando || !cantidadValida || !!errorCantidad}
+                    >
+                      {cargando ? t("detalle.processing") : t("detalle.confirmContribute")}
+                    </button>
+                    <div className="invest-note">
+                      {t("detalle.safetyMsg")}
+                    </div>
+                  </>
                 )}
 
-                {miAportacion > BigInt(0) && (estado === "Liberado" || estado === "Abandonado") && (
-                  <button
-                    className="btn btn-amber"
-                    style={{ flex: 1, minWidth: "140px", justifyContent: "center" }}
-                    onClick={() => setVista("retirar")}
-                    disabled={cargando}
-                  >
-                    {t("detalle.withdraw")}
-                  </button>
-                )}
-
+                {/* Capital bloqueado (no se puede retirar aún) */}
                 {miAportacion > BigInt(0) && (estado === "EtapaInicial" || estado === "EnProgreso") && (
-                  <div style={{ flex: 1, minWidth: "140px", background: "var(--primary-dim)", border: "1.5px solid rgba(124,58,237,0.16)", borderRadius: "var(--radius-sm)", padding: "10px 14px", fontSize: "0.78rem", color: "var(--primary)", textAlign: "center", lineHeight: 1.4 }}>
-                    {t("detalle.locked")}<br/>
-                    <span style={{ color: "var(--muted)", fontSize: "0.72rem" }}>{t("detalle.lockedHint")}</span>
+                  <div className="locked-notice">
+                    <IconShield />
+                    <span>{t("detalle.locked")}</span>
                   </div>
                 )}
 
+                {/* Retirar capital */}
+                {miAportacion > BigInt(0) && (estado === "Liberado" || estado === "Abandonado") && (
+                  <>
+                    {!vistaRetirar ? (
+                      <button
+                        className="btn btn-amber"
+                        style={{ width: "100%", justifyContent: "center", marginTop: aceptaFondos ? 0 : 4 }}
+                        onClick={() => setVistaRetirar(true)}
+                        disabled={cargando}
+                      >
+                        {t("detalle.withdraw")}
+                      </button>
+                    ) : (
+                      <div className="withdraw-confirm">
+                        <div style={{ textAlign: "center", marginBottom: 14 }}>
+                          <div style={{ fontSize: "0.78rem", color: "var(--muted)", marginBottom: 4 }}>{t("detalle.youWillReceive")}</div>
+                          <div style={{ fontFamily: "monospace", fontSize: "1.5rem", fontWeight: 700, color: "var(--navy)" }}>
+                            {stroopsAMXNe(miAportacion)}
+                          </div>
+                          <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: 4 }}>{t("detalle.exactAmount")}</div>
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setVistaRetirar(false)}>
+                            {t("detalle.cancel")}
+                          </button>
+                          <button
+                            className="btn btn-amber"
+                            style={{ flex: 2, justifyContent: "center" }}
+                            onClick={manejarRetirar}
+                            disabled={cargando}
+                          >
+                            {cargando ? t("detalle.processing") : t("detalle.confirmWithdraw")}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Reclamar yield (dueño) */}
                 {esDueno && !esAbandonado && BigInt(proyecto.aportado ?? 0) > BigInt(0) && (
                   <button
-                    className="btn btn-amber"
-                    style={{ flex: 1, minWidth: "140px", justifyContent: "center" }}
+                    className="btn btn-secondary"
+                    style={{ width: "100%", justifyContent: "center", marginTop: 8 }}
                     onClick={manejarReclamarYield}
-                    disabled={cargando || yieldDuenoEstimado === BigInt(0)}
-                    title={yieldDuenoEstimado === BigInt(0) ? t("detalle.waitYield") : ""}
+                    disabled={cargando || yieldDueno === BigInt(0)}
+                    title={yieldDueno === BigInt(0) ? t("detalle.waitYield") : ""}
                   >
                     {cargando ? t("detalle.processing") : t("detalle.claimYield")}
                   </button>
                 )}
 
+                {/* Tomar control (proyecto abandonado, no eres dueño) */}
                 {esAbandonado && !esDueno && (
                   <button
-                    className="btn btn-primary"
-                    style={{ flex: 1, minWidth: "180px", justifyContent: "center" }}
+                    className="invest-btn"
+                    style={{ marginTop: 8 }}
                     onClick={manejarSolicitarContinuar}
                     disabled={cargando}
                   >
                     {cargando ? t("detalle.processing") : t("detalle.takeControl")}
                   </button>
                 )}
-              </div>
 
-              {esDueno && aceptaFondos && !confirmarAbandonar && (
-                <button
-                  className="btn btn-ghost"
-                  style={{ justifyContent: "center", color: "var(--muted)", fontSize: "0.8rem" }}
-                  onClick={() => setConfirmarAbandonar(true)}
-                  disabled={cargando}
-                >
-                  {t("detalle.abandon")}
-                </button>
-              )}
-
-              {confirmarAbandonar && (
-                <div style={estilos.confirmarAbandonar}>
-                  <p style={{ fontSize: "0.85rem", color: "#B91C1C", fontWeight: 600, marginBottom: "12px" }}>
-                    {t("detalle.abandonConfirm")}
-                  </p>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setConfirmarAbandonar(false)}>
-                      {t("detalle.cancel")}
-                    </button>
-                    <button
-                      className="btn"
-                      style={{ flex: 1, justifyContent: "center", background: "#DC2626", color: "#fff" }}
-                      onClick={manejarAbandonar}
-                      disabled={cargando}
-                    >
-                      {cargando ? t("detalle.processing") : t("detalle.confirmAbandon")}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── Vista: Contribuir ── */}
-          {vista === "contribuir" && (
-            <div style={{ marginTop: "20px" }}>
-              <div className="campo">
-                <label>{t("detalle.contributeLabel")}</label>
-                <input
-                  className="input"
-                  type="number"
-                  value={cantidad}
-                  onChange={handleCantidadChange}
-                  onKeyDown={(e) => { if (["e","E","+","-"].includes(e.key)) e.preventDefault(); }}
-                  placeholder={t("detalle.contributePlaceholder")}
-                  min="1"
-                  step="1"
-                  autoFocus
-                  style={{ borderColor: errorCantidad ? "var(--error)" : undefined }}
-                />
-                {errorCantidad && (
-                  <p style={{ fontSize: "0.78rem", color: "var(--error)", marginTop: "6px", fontWeight: 600 }}>
-                    ⚠ {errorCantidad}
-                  </p>
-                )}
-                {cantidadValida && !superaBalance && (
-                  <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "6px" }}>
-                    {t("detalle.available")}: {stroopsAMXNe(balanceMXNe)} MXNe
-                  </p>
-                )}
-              </div>
-
-              <div style={estilos.infoBanner}>
-                <span>🛡️</span>
-                <span style={{ fontSize: "0.78rem", color: "var(--muted)" }}>
-                  <strong style={{ color: "var(--text)" }}>${cantidad || "X"} MXNe</strong> {t("detalle.safetyMsg")}
-                </span>
-              </div>
-
-              <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
-                <button className="btn btn-ghost" onClick={() => setVista("info")} style={{ flex: 1 }}>{t("detalle.back")}</button>
-                <button
-                  className="btn btn-primary"
-                  onClick={manejarContribuir}
-                  disabled={cargando || !cantidadValida || !!errorCantidad}
-                  style={{ flex: 2, justifyContent: "center" }}
-                >
-                  {cargando ? t("detalle.processing") : t("detalle.confirmContribute")}
-                </button>
               </div>
             </div>
-          )}
-
-          {/* ── Vista: Retirar ── */}
-          {vista === "retirar" && (
-            <div style={{ marginTop: "20px" }}>
-              <div style={estilos.retiroCard}>
-                <div style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: "4px" }}>{t("detalle.youWillReceive")}</div>
-                <div style={{ fontFamily: "'DM Mono'", fontSize: "1.8rem", color: "var(--primary)", fontWeight: 700 }}>
-                  {stroopsAMXNe(miAportacion)}
-                </div>
-                <div style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "4px" }}>
-                  {t("detalle.exactAmount")}
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
-                <button className="btn btn-ghost" onClick={() => setVista("info")} style={{ flex: 1 }}>{t("detalle.back")}</button>
-                <button
-                  className="btn btn-amber"
-                  onClick={manejarRetirar}
-                  disabled={cargando}
-                  style={{ flex: 2, justifyContent: "center" }}
-                >
-                  {cargando ? t("detalle.processing") : t("detalle.confirmWithdraw")}
-                </button>
-              </div>
-            </div>
-          )}
+          </div>
 
         </div>
       </div>
@@ -599,106 +610,3 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
     </>
   );
 }
-
-function StatBox({ label, valor, color }) {
-  return (
-    <div style={estilos.statBox}>
-      <div style={{ fontSize: "0.72rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>
-        {label}
-      </div>
-      <div style={{ fontFamily: "'DM Mono'", fontSize: "1rem", color, marginTop: "4px" }}>
-        {valor}
-      </div>
-    </div>
-  );
-}
-
-const estilos = {
-  emoji: {
-    fontSize: "2rem",
-    background: "var(--primary-dim)",
-    borderRadius: "10px",
-    padding: "8px 10px",
-    lineHeight: 1,
-  },
-  bannerAbandonado: {
-    display: "flex",
-    gap: "10px",
-    alignItems: "flex-start",
-    background: "rgba(220,38,38,0.05)",
-    border: "1px solid rgba(220,38,38,0.18)",
-    borderRadius: "var(--radius-sm)",
-    padding: "12px",
-    marginTop: "12px",
-    color: "#B91C1C",
-    fontSize: "0.82rem",
-  },
-  bannerLiberado: {
-    display: "flex",
-    gap: "10px",
-    alignItems: "flex-start",
-    background: "rgba(217,119,6,0.06)",
-    border: "1px solid rgba(217,119,6,0.22)",
-    borderRadius: "var(--radius-sm)",
-    padding: "12px",
-    marginTop: "12px",
-    color: "#B45309",
-    fontSize: "0.82rem",
-  },
-  statsGrid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr 1fr",
-    gap: "12px",
-  },
-  statBox: {
-    background: "var(--bg)",
-    border: "1.5px solid var(--border-soft)",
-    borderRadius: "var(--radius-sm)",
-    padding: "12px",
-    textAlign: "center",
-  },
-  yieldDuenoBanner: {
-    background: "rgba(217,119,6,0.06)",
-    border: "1.5px solid rgba(217,119,6,0.20)",
-    borderRadius: "var(--radius-sm)",
-    padding: "14px 16px",
-    marginTop: "14px",
-    textAlign: "center",
-  },
-  yieldCapa: {
-    background: "#fff",
-    border: "1px solid rgba(0,0,0,0.07)",
-    borderRadius: "var(--radius-sm)",
-    padding: "8px 10px",
-    textAlign: "center",
-  },
-  miPosicion: {
-    background: "var(--primary-dim)",
-    border: "1.5px solid rgba(124,58,237,0.16)",
-    borderRadius: "var(--radius-sm)",
-    padding: "16px",
-    marginTop: "16px",
-  },
-  infoBanner: {
-    display: "flex",
-    gap: "8px",
-    alignItems: "flex-start",
-    background: "var(--bg)",
-    border: "1.5px solid var(--border-soft)",
-    borderRadius: "var(--radius-sm)",
-    padding: "12px",
-  },
-  retiroCard: {
-    background: "var(--primary-dim)",
-    border: "1.5px solid rgba(124,58,237,0.18)",
-    borderRadius: "var(--radius)",
-    padding: "24px",
-    textAlign: "center",
-  },
-  confirmarAbandonar: {
-    background: "rgba(220,38,38,0.04)",
-    border: "1.5px solid rgba(220,38,38,0.20)",
-    borderRadius: "var(--radius-sm)",
-    padding: "14px",
-  },
-};

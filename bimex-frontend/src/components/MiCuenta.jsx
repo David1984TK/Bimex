@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { createClient } from "@supabase/supabase-js";
 import {
   obtenerTodosLosProyectos,
   obtenerAportacion,
@@ -7,10 +8,9 @@ import {
   stroopsAMXNe,
 } from "../stellar/contrato";
 
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+const supabase = import.meta.env.VITE_SUPABASE_URL
+  ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY)
+  : null;
 
 // ─── Config de estado ─────────────────────────────────────────────────────────
 
@@ -19,7 +19,7 @@ const ESTADO_CFG = {
   EnProgreso:   { labelKey: "status.EnProgreso",   badgeClass: "badge-teal"   },
   Liberado:     { labelKey: "status.Liberado",     badgeClass: "badge-amber"  },
   Abandonado:   { labelKey: "status.Abandonado",   badgeClass: "badge-red"    },
-  EnRevision:   { labelKey: "status.EnRevision",   badgeClass: null, customStyle: { background: "rgba(217,119,6,0.10)", color: "#D97706", border: "1px solid rgba(217,119,6,0.20)" } },
+  EnRevision:   { labelKey: "status.EnRevision",   badgeClass: null, customStyle: { background: "var(--amber-dim)", color: "var(--amber)", border: "1px solid rgba(217,119,6,0.20)" } },
   Rechazado:    { labelKey: "status.Rechazado",    badgeClass: "badge-red"    },
 };
 
@@ -37,6 +37,71 @@ function pct(aportado, meta) {
 
 function puedeRetirar(estado) {
   return estado === "Liberado" || estado === "Abandonado";
+}
+
+// ─── SVG Icons ────────────────────────────────────────────────────────────────
+
+function IconCapital() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10"/>
+      <path d="M12 6v2m0 8v2M9.5 9.5a2.5 2.5 0 0 1 5 0c0 1.5-1.5 2-2.5 2.5S9.5 13 9.5 14.5a2.5 2.5 0 0 0 5 0"/>
+    </svg>
+  );
+}
+
+function IconRendimiento() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
+      <polyline points="16 7 22 7 22 13"/>
+    </svg>
+  );
+}
+
+function IconProyectos() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2" y="7" width="20" height="14" rx="2"/>
+      <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+    </svg>
+  );
+}
+
+function IconFile() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+    </svg>
+  );
+}
+
+function IconSeedling() {
+  return (
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--border2)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M7 20c0-5.5 5.5-9 9-9"/>
+      <path d="M2 9c0-3.3 2.7-6 6-6 3.3 0 6 2.7 6 6 0 4.4-3 6-6 6-2 0-4-.5-6-2"/>
+    </svg>
+  );
+}
+
+function IconInbox() {
+  return (
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--border2)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/>
+      <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+    </svg>
+  );
+}
+
+function IconBell() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+    </svg>
+  );
 }
 
 // ─── Sub-componentes ──────────────────────────────────────────────────────────
@@ -60,27 +125,14 @@ function EstadoBadge({ estado }) {
   return <span className={`badge ${cfg.badgeClass}`}>{t(cfg.labelKey)}</span>;
 }
 
-function StatItem({ label, valor, mono }) {
+// ─── Metric Cards (top summary) ───────────────────────────────────────────────
+
+function MetricCard({ icon, label, value, accent }) {
   return (
-    <div style={{ textAlign: "center" }}>
-      <div style={{
-        fontSize: "0.68rem",
-        color: "var(--muted)",
-        textTransform: "uppercase",
-        letterSpacing: "0.07em",
-        fontWeight: 700,
-        marginBottom: 4,
-      }}>
-        {label}
-      </div>
-      <div style={{
-        fontFamily: mono ? "'DM Mono', monospace" : "'Syne', sans-serif",
-        fontWeight: 700,
-        fontSize: "0.95rem",
-        color: "var(--text2)",
-      }}>
-        {valor}
-      </div>
+    <div style={{ ...estilos.metricCard, borderTopColor: accent ?? "var(--navy)" }}>
+      <div style={estilos.metricIcon}>{icon}</div>
+      <div style={estilos.metricLabel}>{label}</div>
+      <div style={{ ...estilos.metricValue, color: accent ?? "var(--navy)" }}>{value}</div>
     </div>
   );
 }
@@ -93,22 +145,15 @@ function CardMiProyecto({ proyecto, onVerProyecto }) {
 
   return (
     <article className="card" style={estilos.card}>
-      {/* Header card */}
       <div style={estilos.cardTop}>
         <h3 style={estilos.cardTitulo}>{proyecto.nombre}</h3>
         <EstadoBadge estado={proyecto.estado} />
       </div>
 
-      {/* Barra de progreso */}
       <div style={{ marginTop: 14 }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
           <span style={{ fontSize: "0.76rem", color: "var(--muted)" }}>{t("cuenta.funding")}</span>
-          <span style={{
-            fontSize: "0.76rem",
-            color: "var(--primary)",
-            fontFamily: "'DM Mono', monospace",
-            fontWeight: 700,
-          }}>
+          <span style={{ fontSize: "0.76rem", color: "var(--navy)", fontWeight: 700 }}>
             {progreso.toFixed(0)}%
           </span>
         </div>
@@ -124,7 +169,6 @@ function CardMiProyecto({ proyecto, onVerProyecto }) {
         </div>
       </div>
 
-      {/* Stats */}
       <div style={estilos.statsRow}>
         <div>
           <div style={estilos.statLabel}>{t("cuenta.raised")}</div>
@@ -136,7 +180,6 @@ function CardMiProyecto({ proyecto, onVerProyecto }) {
         </div>
       </div>
 
-      {/* CTA */}
       <button
         className="btn btn-secondary"
         style={{ width: "100%", marginTop: 16, justifyContent: "center" }}
@@ -156,7 +199,7 @@ function TabMisProyectos({ proyectos, direccion, onVerProyecto }) {
   if (misProyectos.length === 0) {
     return (
       <div style={estilos.empty}>
-        <span style={{ fontSize: "3rem" }}>🌱</span>
+        <IconSeedling />
         <p style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--text)", marginTop: 16 }}>
           {t("cuenta.noProjects")}
         </p>
@@ -168,7 +211,7 @@ function TabMisProyectos({ proyectos, direccion, onVerProyecto }) {
   }
 
   return (
-    <div className="cuenta-grid" style={estilos.grid} role="list" aria-label="Mis proyectos">
+    <div className="cuenta-grid" style={estilos.grid} role="list" aria-label={t("cuenta.ariaProjects")}>
       {misProyectos.map((p) => (
         <CardMiProyecto key={p.id} proyecto={p} onVerProyecto={onVerProyecto} />
       ))}
@@ -177,59 +220,6 @@ function TabMisProyectos({ proyectos, direccion, onVerProyecto }) {
 }
 
 // ─── Pestaña: Mis contribuciones ──────────────────────────────────────────────
-
-function CardContribucion({ proyecto, aportacion, yieldAcum, onVerProyecto }) {
-  const { t } = useTranslation();
-  const puedeRet = puedeRetirar(proyecto.estado);
-
-  return (
-    <article className="card" style={estilos.card}>
-      {/* Header */}
-      <div style={estilos.cardTop}>
-        <h3 style={estilos.cardTitulo}>{proyecto.nombre}</h3>
-        <EstadoBadge estado={proyecto.estado} />
-      </div>
-
-      {/* Métricas */}
-      <div className="contrib-metrics" style={estilos.contribMetrics}>
-        {/* Aportación */}
-        <div style={estilos.metricBox}>
-          <div style={estilos.metricLabel}>{t("cuenta.myContribution")}</div>
-          <div style={estilos.metricValor}>{stroopsAMXNe(aportacion)}</div>
-        </div>
-
-        <div style={estilos.metricBox}>
-          <div style={estilos.metricLabel}>{t("cuenta.yieldAccum")}</div>
-          <div style={{ ...estilos.metricValor, color: "var(--amber)" }}>
-            {stroopsAMXNe(yieldAcum)}
-          </div>
-        </div>
-      </div>
-
-      {/* Botones */}
-      <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-        <button
-          className="btn btn-secondary"
-          style={{ flex: 1, justifyContent: "center" }}
-          onClick={() => onVerProyecto(proyecto)}
-          aria-label={`${t("cuenta.viewDetailsShort")} ${proyecto.nombre}`}
-        >
-          {t("cuenta.viewDetailsShort")}
-        </button>
-        {puedeRet && (
-          <button
-            className="btn btn-amber"
-            style={{ flex: 1, justifyContent: "center" }}
-            onClick={() => onVerProyecto(proyecto)}
-            aria-label={`${t("cuenta.withdraw")} ${proyecto.nombre}`}
-          >
-            {t("cuenta.withdraw")}
-          </button>
-        )}
-      </div>
-    </article>
-  );
-}
 
 function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
   const { t } = useTranslation();
@@ -267,15 +257,10 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
 
   if (cargando) return <Spinner />;
 
-  const totalInvertido = contribuciones.reduce(
-    (acc, { aportacion }) => acc + BigInt(aportacion),
-    BigInt(0)
-  );
-
   if (contribuciones.length === 0) {
     return (
       <div style={estilos.empty}>
-        <span style={{ fontSize: "3rem" }}>💸</span>
+        <IconInbox />
         <p style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--text)", marginTop: 16 }}>
           {t("cuenta.noContributions")}
         </p>
@@ -287,41 +272,72 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
   }
 
   return (
-    <div>
-      {/* Total invertido */}
-      <div style={estilos.totalInvertidoBanner}>
-        <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>💰</span>
-        <div>
-          <div style={{ fontSize: "0.74rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em" }}>
-            {t("cuenta.totalInvestedLabel")}
-          </div>
-          <div style={{
-            fontFamily: "'DM Mono', monospace",
-            fontWeight: 700,
-            fontSize: "1.25rem",
-            color: "var(--primary)",
-            marginTop: 2,
-          }}>
-            {stroopsAMXNe(totalInvertido)}
-          </div>
-        </div>
-        <div style={{ marginLeft: "auto", fontSize: "0.82rem", color: "var(--muted)" }}>
-          {t("cuenta.inProjects", { count: contribuciones.length, plural: contribuciones.length !== 1 ? "s" : "" })}
-        </div>
-      </div>
-
-      {/* Grid de contribuciones */}
-      <div className="cuenta-grid" style={estilos.grid} role="list" aria-label="Mis contribuciones">
-        {contribuciones.map(({ proyecto, aportacion, yieldAcum }) => (
-          <CardContribucion
-            key={proyecto.id}
-            proyecto={proyecto}
-            aportacion={aportacion}
-            yieldAcum={yieldAcum}
-            onVerProyecto={onVerProyecto}
-          />
-        ))}
-      </div>
+    <div style={{ overflowX: "auto" }}>
+      <table style={estilos.table}>
+        <thead>
+          <tr>
+            <th style={estilos.th}>{t("cuenta.colProyecto")}</th>
+            <th style={estilos.th}>{t("cuenta.colModo")}</th>
+            <th style={{ ...estilos.th, textAlign: "right" }}>{t("cuenta.colCapital")}</th>
+            <th style={{ ...estilos.th, textAlign: "right" }}>{t("cuenta.colRendimiento")}</th>
+            <th style={estilos.th}>{t("cuenta.colEstado")}</th>
+            <th style={estilos.th}>{t("cuenta.colCierre")}</th>
+            <th style={estilos.th} />
+          </tr>
+        </thead>
+        <tbody>
+          {contribuciones.map(({ proyecto, aportacion, yieldAcum }) => {
+            const puedeRet = puedeRetirar(proyecto.estado);
+            const modo = proyecto.modo ?? "Inversor";
+            return (
+              <tr key={proyecto.id} style={estilos.tr}>
+                <td style={estilos.td}>
+                  <span style={{ fontWeight: 600, color: "var(--text)" }}>{proyecto.nombre}</span>
+                </td>
+                <td style={estilos.td}>
+                  <span className={modo === "Mecenas" ? "badge badge-teal" : "badge badge-navy"}>
+                    {modo}
+                  </span>
+                </td>
+                <td style={{ ...estilos.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                  {stroopsAMXNe(aportacion)}
+                </td>
+                <td style={{ ...estilos.td, textAlign: "right", color: "var(--green)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                  {stroopsAMXNe(yieldAcum)}
+                </td>
+                <td style={estilos.td}>
+                  <EstadoBadge estado={proyecto.estado} />
+                </td>
+                <td style={{ ...estilos.td, color: "var(--muted)", fontSize: "0.83rem" }}>
+                  {proyecto.fecha_cierre ?? "—"}
+                </td>
+                <td style={{ ...estilos.td, textAlign: "right" }}>
+                  <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ padding: "6px 12px", fontSize: "0.8rem" }}
+                      onClick={() => onVerProyecto(proyecto)}
+                      aria-label={`${t("cuenta.viewDetailsShort")} ${proyecto.nombre}`}
+                    >
+                      <IconFile />
+                    </button>
+                    {puedeRet && (
+                      <button
+                        className="btn btn-amber"
+                        style={{ padding: "6px 12px", fontSize: "0.8rem" }}
+                        onClick={() => onVerProyecto(proyecto)}
+                        aria-label={`${t("cuenta.withdraw")} ${proyecto.nombre}`}
+                      >
+                        {t("cuenta.withdraw")}
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -329,13 +345,13 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
 // ─── Notificaciones ───────────────────────────────────────────────────────────
 
 function NotificacionesPanel({ direccion }) {
-  const [email,    setEmail]    = useState("");
-  const [enabled,  setEnabled]  = useState(true);
-  const [estado,   setEstado]   = useState("idle"); // idle | saving | ok | error
-  const [cargado,  setCargado]  = useState(false);
+  const [email,   setEmail]   = useState("");
+  const [enabled, setEnabled] = useState(true);
+  const [estado,  setEstado]  = useState("idle"); // idle | saving | ok | error
+  const [cargado, setCargado] = useState(false);
 
   useEffect(() => {
-    if (!direccion) return;
+    if (!direccion || !supabase) return;
     supabase
       .from("user_notifications")
       .select("email, notifications_enabled")
@@ -349,7 +365,7 @@ function NotificacionesPanel({ direccion }) {
 
   async function guardar(e) {
     e.preventDefault();
-    if (!email) return;
+    if (!email || !supabase) return;
     setEstado("saving");
     const { error } = await supabase
       .from("user_notifications")
@@ -361,21 +377,36 @@ function NotificacionesPanel({ direccion }) {
   if (!cargado) return null;
 
   return (
-    <div style={{ background: "#faf8ff", border: "1.5px solid rgba(124,58,237,0.12)", borderRadius: "var(--radius)", padding: "20px 24px", marginBottom: 28 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-        <div>
-          <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: "0.95rem", color: "var(--text)" }}>🔔 Notificaciones por email</div>
-          <div style={{ fontSize: "0.76rem", color: "var(--muted)", marginTop: 2 }}>Recibe alertas cuando tu proyecto sea aprobado, financiado o tenga yield disponible.</div>
+    <div style={estilos.notiPanel}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <IconBell />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--text)" }}>
+              Notificaciones por email
+            </div>
+            <div style={{ fontSize: "0.76rem", color: "var(--muted)", marginTop: 2 }}>
+              Recibe alertas cuando tu proyecto sea aprobado, financiado o tenga yield disponible.
+            </div>
+          </div>
         </div>
-        {/* Toggle */}
         <button
           role="switch"
           aria-checked={enabled}
           onClick={() => setEnabled(v => !v)}
-          style={{ width: 44, height: 24, borderRadius: 99, border: "none", cursor: "pointer", background: enabled ? "#7C3AED" : "#D1D5DB", position: "relative", flexShrink: 0, transition: "background 0.2s" }}
+          style={{
+            width: 44, height: 24, borderRadius: 99, border: "none", cursor: "pointer",
+            background: enabled ? "var(--navy)" : "var(--border2)",
+            position: "relative", flexShrink: 0, transition: "background 0.2s",
+          }}
           aria-label={enabled ? "Desactivar notificaciones" : "Activar notificaciones"}
         >
-          <span style={{ position: "absolute", top: 3, left: enabled ? 22 : 3, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
+          <span style={{
+            position: "absolute", top: 3,
+            left: enabled ? 22 : 3,
+            width: 18, height: 18, borderRadius: "50%",
+            background: "#fff", transition: "left 0.2s",
+          }} />
         </button>
       </div>
 
@@ -387,7 +418,15 @@ function NotificacionesPanel({ direccion }) {
             placeholder="tu@email.com"
             value={email}
             onChange={e => setEmail(e.target.value)}
-            style={{ flex: 1, padding: "9px 14px", borderRadius: 8, border: "1.5px solid rgba(124,58,237,0.20)", fontFamily: "inherit", fontSize: "0.88rem", outline: "none", color: "var(--text)" }}
+            style={{
+              flex: 1, padding: "9px 14px",
+              borderRadius: "var(--radius-sm)",
+              border: "1.5px solid var(--border2)",
+              fontFamily: "inherit", fontSize: "0.88rem",
+              outline: "none", color: "var(--text)",
+            }}
+            onFocus={e => { e.target.style.borderColor = "var(--navy)"; }}
+            onBlur={e => { e.target.style.borderColor = "var(--border2)"; }}
             aria-label="Email para notificaciones"
           />
           <button
@@ -396,7 +435,7 @@ function NotificacionesPanel({ direccion }) {
             className="btn btn-primary"
             style={{ whiteSpace: "nowrap", padding: "9px 18px" }}
           >
-            {estado === "saving" ? "…" : estado === "ok" ? "✓ Guardado" : estado === "error" ? "✗ Error" : "Guardar"}
+            {estado === "saving" ? "…" : estado === "ok" ? "Guardado" : estado === "error" ? "Error" : "Guardar"}
           </button>
         </form>
       )}
@@ -407,6 +446,7 @@ function NotificacionesPanel({ direccion }) {
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido }) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState("proyectos");
   const [proyectos, setProyectos] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -426,19 +466,17 @@ export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido })
     cargar();
   }, [direccion]);
 
-  // Cálculos del summary strip (sólo con proyectos ya cargados)
   const numCreados = proyectos.filter((p) => p.dueno === direccion).length;
 
-  // Contribuciones: conteo básico no requiere RPC adicional aquí —
-  // se calcula dentro de TabMisContribuciones; exponemos el conteo desde el estado
-  // de esa pestaña mediante un estado elevado ligero para el strip.
-  const [numApoyados, setNumApoyados] = useState(null);
+  const [numApoyados,   setNumApoyados]   = useState(null);
   const [totalInvertido, setTotalInvertido] = useState(null);
+  const [totalYield,     setTotalYield]     = useState(null);
 
   useEffect(() => {
     if (proyectos.length === 0) {
       setNumApoyados(0);
       setTotalInvertido(BigInt(0));
+      setTotalYield(BigInt(0));
       return;
     }
 
@@ -447,19 +485,28 @@ export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido })
     async function calcularResumen() {
       try {
         const resultados = await Promise.all(
-          proyectos.map((p) => obtenerAportacion(p.id, direccion))
+          proyectos.map(async (p) => {
+            const [aportacion, yieldAcum] = await Promise.all([
+              obtenerAportacion(p.id, direccion),
+              calcularYield(p.id, direccion),
+            ]);
+            return { aportacion, yieldAcum };
+          })
         );
         if (cancelado) return;
-        const positivos = resultados.filter((a) => a > BigInt(0));
-        const total = positivos.reduce((acc, a) => acc + a, BigInt(0));
+        const positivos = resultados.filter((r) => r.aportacion > BigInt(0));
+        const total  = positivos.reduce((acc, r) => acc + r.aportacion, BigInt(0));
+        const totalY = positivos.reduce((acc, r) => acc + BigInt(r.yieldAcum ?? 0), BigInt(0));
         setNumApoyados(positivos.length);
         setTotalInvertido(total);
+        setTotalYield(totalY);
         onTotalInvertido?.(total);
       } catch (e) {
         console.error("Error calculando resumen:", e);
         if (!cancelado) {
           setNumApoyados(0);
           setTotalInvertido(BigInt(0));
+          setTotalYield(BigInt(0));
         }
       }
     }
@@ -477,28 +524,31 @@ export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido })
       <div style={estilos.header}>
         <div>
           <h2 style={estilos.titulo}>{t("cuenta.title")}</h2>
-          <p style={{ color: "var(--muted)", fontSize: "0.86rem", marginTop: 4, fontFamily: "'DM Mono', monospace" }}>
+          <p style={{ color: "var(--muted)", fontSize: "0.84rem", marginTop: 4, fontFamily: "monospace" }}>
             {direccion.slice(0, 8)}…{direccion.slice(-6)}
           </p>
         </div>
       </div>
 
-      {/* Summary strip */}
-      <div className="cuenta-summary-strip" style={estilos.summaryStrip}>
-        <StatItem
+      {/* 3 Metric Cards */}
+      <div style={estilos.metricsRow}>
+        <MetricCard
+          icon={<IconCapital />}
           label={t("cuenta.totalInvested")}
-          valor={resumenListo ? stroopsAMXNe(totalInvertido) : "—"}
-          mono
+          value={resumenListo ? stroopsAMXNe(totalInvertido) : "—"}
+          accent="var(--navy)"
         />
-        <div style={estilos.stripDivider} />
-        <StatItem
-          label={t("cuenta.projectsCreated")}
-          valor={cargando ? "—" : numCreados}
+        <MetricCard
+          icon={<IconRendimiento />}
+          label={t("cuenta.yieldAccumulated")}
+          value={resumenListo ? stroopsAMXNe(totalYield) : "—"}
+          accent="var(--green)"
         />
-        <div style={estilos.stripDivider} />
-        <StatItem
+        <MetricCard
+          icon={<IconProyectos />}
           label={t("cuenta.projectsSupported")}
-          valor={resumenListo ? numApoyados : "—"}
+          value={resumenListo ? numApoyados : "—"}
+          accent="var(--navy)"
         />
       </div>
 
@@ -506,25 +556,18 @@ export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido })
       <NotificacionesPanel direccion={direccion} />
 
       {/* Tabs */}
-      <div className="cuenta-tabs-row" style={estilos.tabsRow} role="tablist" aria-label="Secciones de mi cuenta">
+      <div className="cuenta-tabs-row" style={estilos.tabsRow} role="tablist" aria-label={t("cuenta.ariaSections")}>
         <button
           role="tab"
           aria-selected={tab === "proyectos"}
           aria-controls="panel-proyectos"
           id="tab-proyectos"
           onClick={() => setTab("proyectos")}
-          style={{
-            ...estilos.tabBtnBase,
-            ...(tab === "proyectos" ? estilos.tabBtnActivo : estilos.tabBtnInactivo),
-          }}
+          style={{ ...estilos.tabBtnBase, ...(tab === "proyectos" ? estilos.tabBtnActivo : estilos.tabBtnInactivo) }}
         >
           {t("cuenta.myProjects")}
           {!cargando && numCreados > 0 && (
-            <span style={{
-              ...estilos.tabChip,
-              background: tab === "proyectos" ? "rgba(255,255,255,0.22)" : "var(--primary-dim)",
-              color:      tab === "proyectos" ? "#fff" : "var(--primary)",
-            }}>
+            <span style={{ ...estilos.tabChip, background: tab === "proyectos" ? "rgba(255,255,255,0.22)" : "var(--navy-dim)", color: tab === "proyectos" ? "#fff" : "var(--navy)" }}>
               {numCreados}
             </span>
           )}
@@ -536,18 +579,11 @@ export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido })
           aria-controls="panel-contribuciones"
           id="tab-contribuciones"
           onClick={() => setTab("contribuciones")}
-          style={{
-            ...estilos.tabBtnBase,
-            ...(tab === "contribuciones" ? estilos.tabBtnActivo : estilos.tabBtnInactivo),
-          }}
+          style={{ ...estilos.tabBtnBase, ...(tab === "contribuciones" ? estilos.tabBtnActivo : estilos.tabBtnInactivo) }}
         >
           {t("cuenta.myContributions")}
           {resumenListo && numApoyados > 0 && (
-            <span style={{
-              ...estilos.tabChip,
-              background: tab === "contribuciones" ? "rgba(255,255,255,0.22)" : "var(--primary-dim)",
-              color:      tab === "contribuciones" ? "#fff" : "var(--primary)",
-            }}>
+            <span style={{ ...estilos.tabChip, background: tab === "contribuciones" ? "rgba(255,255,255,0.22)" : "var(--navy-dim)", color: tab === "contribuciones" ? "#fff" : "var(--navy)" }}>
               {numApoyados}
             </span>
           )}
@@ -609,38 +645,60 @@ const estilos = {
     marginBottom: 28,
   },
   titulo: {
-    fontSize: "1.9rem",
-    color: "var(--text)",
+    fontSize: "1.75rem",
+    fontWeight: 800,
+    color: "var(--navy)",
     letterSpacing: "-0.02em",
-    fontFamily: "'Syne', sans-serif",
   },
 
-  // Summary strip
-  summaryStrip: {
-    display: "flex",
-    alignItems: "center",
-    background: "#fff",
-    border: "1.5px solid rgba(124,58,237,0.12)",
-    borderRadius: "var(--radius)",
-    padding: "16px 24px",
+  // Metric cards
+  metricsRow: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+    gap: 16,
     marginBottom: 28,
-    boxShadow: "0 1px 6px rgba(124,58,237,0.06)",
-    gap: 0,
   },
-  stripDivider: {
-    width: 1,
-    height: 32,
-    background: "rgba(124,58,237,0.10)",
-    flexShrink: 0,
-    margin: "0 20px",
+  metricCard: {
+    background: "var(--card)",
+    border: "1.5px solid var(--border)",
+    borderTop: "3px solid var(--navy)",
+    borderRadius: "var(--radius)",
+    padding: "20px 22px",
+    boxShadow: "var(--shadow-sm)",
+  },
+  metricIcon: {
+    marginBottom: 10,
+  },
+  metricLabel: {
+    fontSize: "0.7rem",
+    color: "var(--muted)",
+    textTransform: "uppercase",
+    letterSpacing: "0.07em",
+    fontWeight: 700,
+    marginBottom: 6,
+  },
+  metricValue: {
+    fontSize: "1.35rem",
+    fontWeight: 800,
+    fontVariantNumeric: "tabular-nums",
+  },
+
+  // Notification panel
+  notiPanel: {
+    background: "var(--card)",
+    border: "1.5px solid var(--border)",
+    borderRadius: "var(--radius)",
+    padding: "20px 24px",
+    marginBottom: 28,
+    boxShadow: "var(--shadow-sm)",
   },
 
   // Tabs
   tabsRow: {
     display: "flex",
-    gap: 8,
-    marginBottom: 28,
-    borderBottom: "2px solid rgba(124,58,237,0.08)",
+    gap: 4,
+    marginBottom: 24,
+    borderBottom: "2px solid var(--border)",
     paddingBottom: 0,
   },
   tabBtnBase: {
@@ -649,20 +707,18 @@ const estilos = {
     gap: 7,
     padding: "10px 18px",
     borderRadius: "var(--radius-sm) var(--radius-sm) 0 0",
-    fontFamily: "'Syne', sans-serif",
     fontWeight: 700,
     fontSize: "0.88rem",
     cursor: "pointer",
     border: "none",
     borderBottom: "2.5px solid transparent",
-    transition: "all 0.18s",
+    transition: "all 0.15s",
     marginBottom: -2,
   },
   tabBtnActivo: {
-    background: "linear-gradient(135deg, #7C3AED, #6D28D9)",
+    background: "var(--navy)",
     color: "#fff",
-    borderBottomColor: "var(--primary)",
-    boxShadow: "0 2px 10px rgba(124,58,237,0.22)",
+    borderBottomColor: "var(--navy)",
   },
   tabBtnInactivo: {
     background: "transparent",
@@ -676,7 +732,7 @@ const estilos = {
     fontWeight: 700,
   },
 
-  // Grid de cards
+  // Grid de cards (proyectos)
   grid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(285px, 1fr))",
@@ -701,7 +757,6 @@ const estilos = {
     fontWeight: 700,
     color: "var(--text)",
     lineHeight: 1.3,
-    fontFamily: "'Syne', sans-serif",
     flex: 1,
   },
   statsRow: {
@@ -709,7 +764,7 @@ const estilos = {
     justifyContent: "space-between",
     marginTop: 16,
     paddingTop: 14,
-    borderTop: "1.5px solid var(--border-soft)",
+    borderTop: "1.5px solid var(--border)",
   },
   statLabel: {
     fontSize: "0.70rem",
@@ -720,51 +775,36 @@ const estilos = {
     marginBottom: 3,
   },
   statValor: {
-    fontFamily: "'DM Mono', monospace",
-    fontSize: "0.82rem",
+    fontSize: "0.84rem",
     color: "var(--text2)",
     fontWeight: 600,
+    fontVariantNumeric: "tabular-nums",
   },
 
-  // Contribuciones
-  contribMetrics: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: 12,
-    marginTop: 16,
-    paddingTop: 14,
-    borderTop: "1.5px solid var(--border-soft)",
+  // Contributions table
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+    fontSize: "0.88rem",
   },
-  metricBox: {
-    background: "var(--primary-dim)",
-    borderRadius: "var(--radius-sm)",
-    padding: "10px 12px",
-  },
-  metricLabel: {
-    fontSize: "0.68rem",
-    color: "var(--muted)",
+  th: {
+    padding: "10px 14px",
+    textAlign: "left",
+    fontSize: "0.70rem",
     textTransform: "uppercase",
     letterSpacing: "0.07em",
     fontWeight: 700,
-    marginBottom: 4,
+    color: "var(--muted)",
+    borderBottom: "2px solid var(--border)",
+    whiteSpace: "nowrap",
   },
-  metricValor: {
-    fontFamily: "'DM Mono', monospace",
-    fontWeight: 700,
-    fontSize: "0.85rem",
-    color: "var(--primary)",
+  tr: {
+    borderBottom: "1px solid var(--border)",
   },
-
-  // Banner total invertido
-  totalInvertidoBanner: {
-    display: "flex",
-    alignItems: "center",
-    gap: 14,
-    background: "linear-gradient(135deg, rgba(124,58,237,0.07), rgba(79,70,229,0.04))",
-    border: "1.5px solid rgba(124,58,237,0.13)",
-    borderRadius: "var(--radius)",
-    padding: "16px 22px",
-    marginBottom: 24,
+  td: {
+    padding: "12px 14px",
+    color: "var(--text2)",
+    verticalAlign: "middle",
   },
 
   // Estado vacío
@@ -786,8 +826,8 @@ const estilos = {
   spinner: {
     width: 36,
     height: 36,
-    border: "3px solid rgba(124,58,237,0.15)",
-    borderTopColor: "var(--primary)",
+    border: "3px solid var(--navy-dim)",
+    borderTopColor: "var(--navy)",
     borderRadius: "50%",
     animation: "spin 0.8s linear infinite",
   },

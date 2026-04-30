@@ -8,16 +8,134 @@ import {
 } from "../stellar/contrato";
 import { subirConFallback } from "../utils/ipfs";
 
-const PASOS = [
-  { n: 1, label: "Datos del proyecto" },
-  { n: 2, label: "Documentos"         },
-  { n: 3, label: "Confirmar"          },
-];
+// ─── SVG Icons ────────────────────────────────────────────────────────────────
 
-const emojis    = ["🌱", "🤝", "📚", "☀️", "🏥", "🎨", "🏗️", "🌊"];
-const categorias = ["Comunidad", "Finanzas", "Educación", "Energía", "Salud", "Arte", "Infraestructura"];
+function IconCheck() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+  );
+}
 
-export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
+function IconLock() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+    </svg>
+  );
+}
+
+function IconID() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2" y="5" width="20" height="14" rx="2"/>
+      <circle cx="8" cy="12" r="2"/>
+      <path d="M14 9h4M14 12h4M14 15h2"/>
+    </svg>
+  );
+}
+
+function IconFileText() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+      <polyline points="10 9 9 9 8 9"/>
+    </svg>
+  );
+}
+
+function IconBriefcase() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2" y="7" width="20" height="14" rx="2"/>
+      <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+    </svg>
+  );
+}
+
+function IconPaperclip() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+    </svg>
+  );
+}
+
+function IconLightbulb() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="12" y1="2" x2="12" y2="3"/>
+      <path d="M12 6a6 6 0 0 1 6 6c0 2.2-1.2 4.1-3 5.2V19a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-1.8C7.2 16.1 6 14.2 6 12a6 6 0 0 1 6-6z"/>
+      <line x1="9" y1="22" x2="15" y2="22"/>
+    </svg>
+  );
+}
+
+function IconInfo() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="8" x2="12" y2="12"/>
+      <line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+  );
+}
+
+function IconIPFS() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+      <circle cx="12" cy="10" r="3"/>
+    </svg>
+  );
+}
+
+// ─── Stepper ──────────────────────────────────────────────────────────────────
+
+function Stepper({ pasos, pasoActual }) {
+  return (
+    <div style={estilos.pasoIndicador}>
+      {pasos.map((p, i) => {
+        const completado = pasoActual > p.n;
+        const activo     = pasoActual === p.n;
+        return (
+          <div key={p.n} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{
+              ...estilos.pasoBurbuja,
+              background: completado ? "var(--green)" : activo ? "var(--navy)" : "var(--border2)",
+              color: completado || activo ? "#fff" : "var(--muted)",
+            }}>
+              {completado ? <IconCheck /> : p.n}
+            </div>
+            <span style={{
+              fontSize: "0.74rem",
+              color: activo ? "var(--navy)" : "var(--muted)",
+              fontWeight: activo ? 700 : 400,
+            }} className="paso-label">
+              {p.label}
+            </span>
+            {i < pasos.length - 1 && (
+              <div style={{
+                width: 20, height: 1.5,
+                background: completado ? "var(--green)" : "var(--border2)",
+                margin: "0 4px",
+              }} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
+
+export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }) {
   const { t } = useTranslation();
   const [paso, setPaso] = useState(1);
 
@@ -36,23 +154,34 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
     meta: "",
     tiempoMeses: "",
     categoria: "Comunidad",
-    emoji: "🌱",
   });
 
   // ── Paso 2: documentos
   const [docs, setDocs] = useState({ ine: null, plan: null, presupuesto: null });
 
   // ── Paso 3: CID del documento (IPFS o hex del hash como fallback)
-  const [docCid, setDocCid] = useState(null);
+  const [docCid,   setDocCid]   = useState(null);
   const [ipfsCids, setIpfsCids] = useState(null); // { ine, plan, presupuesto } cuando IPFS ok
 
-  const [cargando,   setCargando]   = useState(false);
-  const [hasheando,  setHasheando]  = useState(false);
-  const [error,      setError]      = useState("");
+  const [cargando,  setCargando]  = useState(false);
+  const [hasheando, setHasheando] = useState(false);
+  const [error,     setError]     = useState("");
 
   function manejarCambio(e) {
-    setForma({ ...forma, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === "meta") {
+      // Solo dígitos — guarda el número crudo
+      const raw = value.replace(/[^0-9]/g, "");
+      setForma({ ...forma, meta: raw });
+    } else {
+      setForma({ ...forma, [name]: value });
+    }
   }
+
+  // Valor formateado con comas para mostrar en el input
+  const metaFormateada = forma.meta
+    ? Number(forma.meta).toLocaleString("es-MX")
+    : "";
 
   function setDoc(campo, archivo) {
     setDocs(d => ({ ...d, [campo]: archivo ?? null }));
@@ -94,7 +223,8 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
         setDocCid(cid);
       }
       setPaso(3);
-    } catch {
+    } catch (err) {
+      onError?.(err);
       setError(t("crear.errHash"));
     }
     setHasheando(false);
@@ -111,27 +241,23 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
       onCreado();
     } catch (err) {
       console.error("Error al crear proyecto:", err);
-      setError(err?.message || t("crear.errCreate"));
+      onError?.(err);
     }
     setCargando(false);
   }
 
-  // Hex del CID para mostrar al usuario
   const hexHash = docCid ?? "";
 
-  // Yield estimado con tasas reales: ~9.45% CETES + ~4% AMM = ~13.45% APY
-  const APY_CETES = 0.0945;
-  const APY_AMM   = 0.04;
-  const APY_TOTAL = APY_CETES + APY_AMM;
+  const APY_INVERSOR = 0.05; // 5% — rendimiento que recibe el inversor
   const yieldEstimado = forma.meta && forma.tiempoMeses
-    ? (Number(forma.meta) * APY_TOTAL * (Number(forma.tiempoMeses) / 12)).toLocaleString("es-MX", { maximumFractionDigits: 0 })
+    ? (Number(forma.meta) * APY_INVERSOR * (Number(forma.tiempoMeses) / 12)).toLocaleString("es-MX", { maximumFractionDigits: 0 })
     : null;
   const yieldNote = yieldEstimado
-    ? t("crear.yieldNote", { months: forma.tiempoMeses, plural: Number(forma.tiempoMeses) !== 1 ? "s" : "" })
+    ? `~5% anual sobre tu inversión · durante ${forma.tiempoMeses} mes${Number(forma.tiempoMeses) !== 1 ? "es" : ""}`
     : null;
 
   return (
-    <div className="modal-overlay" onClick={onCerrar} role="presentation">
+    <div className="modal-overlay" role="presentation">
       <div
         className="modal"
         role="dialog"
@@ -142,34 +268,12 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
       >
         {/* Header */}
         <div className="modal-header">
-          <h2 id="crear-titulo">{t("crear.title")}</h2>
+          <h2 id="crear-titulo" style={{ fontWeight: 800, color: "var(--navy)" }}>{t("crear.title")}</h2>
           <button className="btn-close" onClick={onCerrar} aria-label={t("crear.closeAria")}>×</button>
         </div>
 
-        {/* Indicador de pasos */}
-        <div style={estilos.pasoIndicador}>
-          {PASOS.map((p, i) => (
-            <div key={p.n} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <div style={{
-                ...estilos.pasoBurbuja,
-                background: paso >= p.n ? "var(--primary)" : "var(--border-soft)",
-                color: paso >= p.n ? "#fff" : "var(--muted)",
-              }}>
-                {paso > p.n ? "✓" : p.n}
-              </div>
-              <span style={{
-                fontSize: "0.74rem",
-                color: paso === p.n ? "var(--primary)" : "var(--muted)",
-                fontWeight: paso === p.n ? 700 : 400,
-              }} className="paso-label">
-                {p.label}
-              </span>
-              {i < PASOS.length - 1 && (
-                <div style={{ width: "20px", height: "1.5px", background: paso > p.n ? "var(--primary)" : "var(--border-soft)", margin: "0 4px" }} />
-              )}
-            </div>
-          ))}
-        </div>
+        {/* Stepper */}
+        <Stepper pasos={PASOS} pasoActual={paso} />
 
         <form onSubmit={manejarSubmit}>
 
@@ -178,28 +282,6 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
           ══════════════════════════════════════════════ */}
           {paso === 1 && (
             <>
-              {/* Emoji */}
-              <div className="campo">
-                <label>{t("crear.iconLabel")}</label>
-                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                  {emojis.map(em => (
-                    <button
-                      key={em}
-                      type="button"
-                      onClick={() => setForma({ ...forma, emoji: em })}
-                      style={{
-                        ...estilos.emojiBtn,
-                        background: forma.emoji === em ? "var(--primary-dim)" : "var(--bg)",
-                        border: `1.5px solid ${forma.emoji === em ? "rgba(124,58,237,0.40)" : "var(--border)"}`,
-                        boxShadow: forma.emoji === em ? "0 0 0 3px rgba(124,58,237,0.10)" : "none",
-                      }}
-                    >
-                      {em}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* Nombre */}
               <div className="campo">
                 <label htmlFor="campo-nombre">{t("crear.nameLabel")}</label>
@@ -211,6 +293,9 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                   onChange={manejarCambio}
                   placeholder={t("crear.namePlaceholder")}
                   maxLength={60}
+                  style={estilos.input}
+                  onFocus={e => { e.target.style.borderColor = "var(--navy)"; }}
+                  onBlur={e => { e.target.style.borderColor = "var(--border2)"; }}
                 />
               </div>
 
@@ -224,12 +309,14 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                   onChange={manejarCambio}
                   placeholder={t("crear.descPlaceholder")}
                   rows={3}
-                  style={{ resize: "none" }}
+                  style={{ ...estilos.input, resize: "none" }}
+                  onFocus={e => { e.target.style.borderColor = "var(--navy)"; }}
+                  onBlur={e => { e.target.style.borderColor = "var(--border2)"; }}
                 />
               </div>
 
               {/* Categoría + Tiempo */}
-              <div className="crear-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                 <div className="campo" style={{ marginBottom: 0 }}>
                   <label htmlFor="campo-categoria">{t("crear.categoryLabel")}</label>
                   <select
@@ -238,7 +325,9 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                     name="categoria"
                     value={forma.categoria}
                     onChange={manejarCambio}
-                    style={{ cursor: "pointer", background: "#fff" }}
+                    style={{ ...estilos.input, cursor: "pointer" }}
+                    onFocus={e => { e.target.style.borderColor = "var(--navy)"; }}
+                    onBlur={e => { e.target.style.borderColor = "var(--border2)"; }}
                   >
                     {categorias.map(c => <option key={c} value={c}>{t(`crear.categories.${c}`)}</option>)}
                   </select>
@@ -255,41 +344,45 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                     placeholder={t("crear.timePlaceholder")}
                     min="1"
                     max="120"
+                    style={estilos.input}
+                    onFocus={e => { e.target.style.borderColor = "var(--navy)"; }}
+                    onBlur={e => { e.target.style.borderColor = "var(--border2)"; }}
                   />
                 </div>
               </div>
 
-              <div className="campo" style={{ marginTop: "18px" }}>
+              <div className="campo" style={{ marginTop: 18 }}>
                 <label htmlFor="campo-meta">{t("crear.goalLabel")}</label>
                 <input
                   id="campo-meta"
                   className="input"
                   name="meta"
-                  type="number"
-                  value={forma.meta}
+                  type="text"
+                  inputMode="numeric"
+                  value={metaFormateada}
                   onChange={manejarCambio}
-                  placeholder={t("crear.goalPlaceholder")}
-                  min="1"
+                  placeholder="Ej. 10,000"
+                  style={estilos.input}
+                  onFocus={e => { e.target.style.borderColor = "var(--navy)"; }}
+                  onBlur={e => { e.target.style.borderColor = "var(--border2)"; }}
                 />
               </div>
 
               {yieldEstimado && (
                 <div style={estilos.yieldResumen}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: "0.78rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                      {t("crear.yieldLabel")}
-                    </span>
-                    <span style={{ fontFamily: "'DM Mono'", color: "var(--amber)", fontWeight: 700, fontSize: "1rem" }}>
-                      ≈ ${yieldEstimado} MXNe
-                    </span>
-                  </div>
-                  <p style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: "4px" }}>{yieldNote}</p>
+                  <span style={{ fontSize: "0.72rem", color: "var(--green)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Ganarías como inversor
+                  </span>
+                  <p style={{ color: "var(--green)", fontWeight: 700, fontSize: "1.15rem", fontVariantNumeric: "tabular-nums", margin: "4px 0" }}>
+                    ≈ ${yieldEstimado} MXNe
+                  </p>
+                  <p style={{ fontSize: "0.72rem", color: "var(--muted)", margin: 0 }}>{yieldNote}</p>
                 </div>
               )}
 
               {error && <p style={estilos.error}>{error}</p>}
 
-              <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
+              <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
                 <button type="button" className="btn btn-ghost" onClick={onCerrar} style={{ flex: 1 }}>
                   {t("crear.cancel")}
                 </button>
@@ -306,9 +399,9 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
           {paso === 2 && (
             <>
               <div style={estilos.docsBanner}>
-                <span style={{ fontSize: "1.3rem" }}>🔒</span>
+                <IconLock />
                 <div>
-                  <p style={{ fontSize: "0.82rem", color: "var(--text2)", fontWeight: 700, marginBottom: "4px" }}>
+                  <p style={{ fontSize: "0.82rem", color: "var(--text2)", fontWeight: 700, marginBottom: 4 }}>
                     {t("crear.docsPrivacyTitle")}
                   </p>
                   <p style={{ fontSize: "0.78rem", color: "var(--muted)", lineHeight: 1.5 }}>
@@ -322,7 +415,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                 label={t("crear.docIneLabel")}
                 descripcion={t("crear.docIneDesc")}
                 accept=".pdf,image/jpeg,image/png,image/webp"
-                icono="🪪"
+                icono={<IconID />}
                 archivo={docs.ine}
                 onChange={f => setDoc("ine", f)}
                 selectLabel={t("crear.selectFile")}
@@ -334,7 +427,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                 label={t("crear.docPlanLabel")}
                 descripcion={t("crear.docPlanDesc")}
                 accept=".pdf"
-                icono="📋"
+                icono={<IconFileText />}
                 archivo={docs.plan}
                 onChange={f => setDoc("plan", f)}
                 selectLabel={t("crear.selectFile")}
@@ -346,7 +439,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
                 label={t("crear.docBudgetLabel")}
                 descripcion={t("crear.docBudgetDesc")}
                 accept=".pdf"
-                icono="💼"
+                icono={<IconBriefcase />}
                 archivo={docs.presupuesto}
                 onChange={f => setDoc("presupuesto", f)}
                 selectLabel={t("crear.selectFile")}
@@ -354,7 +447,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
               />
 
               <div style={estilos.docsTip}>
-                <span>💡</span>
+                <IconLightbulb />
                 <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
                   {t("crear.docsTip")}
                 </span>
@@ -362,7 +455,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
 
               {error && <p style={estilos.error}>{error}</p>}
 
-              <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
+              <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
                 <button type="button" className="btn btn-ghost" onClick={() => { setPaso(1); setError(""); }} style={{ flex: 1 }}>
                   {t("crear.back")}
                 </button>
@@ -386,70 +479,70 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
             <>
               {/* Resumen del proyecto */}
               <div style={estilos.resumenCard}>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" }}>
-                  <span style={{ fontSize: "2rem" }}>{forma.emoji}</span>
-                  <div>
-                    <p style={{ fontWeight: 700, fontSize: "1rem", color: "var(--text)" }}>{forma.nombre}</p>
-                    <p style={{ fontSize: "0.78rem", color: "var(--muted)" }}>
-                      {forma.categoria} · Meta: ${Number(forma.meta).toLocaleString("es-MX")} MXNe
-                    </p>
-                  </div>
+                <div style={{ marginBottom: 14 }}>
+                  <p style={{ fontWeight: 700, fontSize: "1rem", color: "var(--text)" }}>{forma.nombre}</p>
+                  <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: 2 }}>
+                    {forma.categoria} · Meta: ${Number(forma.meta).toLocaleString("es-MX")} MXNe
+                  </p>
                 </div>
 
                 {/* Documentos verificados */}
-                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "14px" }}>
-                  <DocChip nombre={docs.ine?.name} icono="🪪" label="INE" />
-                  <DocChip nombre={docs.plan?.name} icono="📋" label="Plan" />
-                  <DocChip nombre={docs.presupuesto?.name} icono="💼" label="Presupuesto" />
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+                  <DocChip nombre={docs.ine?.name} label="INE" />
+                  <DocChip nombre={docs.plan?.name} label="Plan" />
+                  <DocChip nombre={docs.presupuesto?.name} label="Presupuesto" />
                 </div>
 
                 {/* IPFS / Fallback panel */}
                 <div style={estilos.hashPanel}>
-                  <p style={{ fontSize: "0.7rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>
-                    {ipfsCids ? "📌 Documentos en IPFS" : t("crear.hashTitle")}
-                  </p>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                    <IconIPFS />
+                    <p style={{ fontSize: "0.7rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                      {ipfsCids ? "Documentos en IPFS" : t("crear.hashTitle")}
+                    </p>
+                  </div>
                   {ipfsCids ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      {[["🪪 INE", ipfsCids.ine], ["📋 Plan", ipfsCids.plan], ["💼 Presupuesto", ipfsCids.presupuesto]].map(([label, cid]) => (
+                      {[["INE", ipfsCids.ine], ["Plan", ipfsCids.plan], ["Presupuesto", ipfsCids.presupuesto]].map(([label, cid]) => (
                         <div key={cid} style={{ fontSize: "0.72rem" }}>
                           <span style={{ color: "var(--muted)", marginRight: 6 }}>{label}</span>
                           <a href={`https://ipfs.io/ipfs/${cid}`} target="_blank" rel="noreferrer"
-                             style={{ fontFamily: "'DM Mono'", color: "var(--primary)", wordBreak: "break-all" }}>
+                             style={{ fontFamily: "monospace", color: "var(--navy)", wordBreak: "break-all" }}>
                             {cid.slice(0, 20)}…
                           </a>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <code style={{ fontFamily: "'DM Mono'", fontSize: "0.72rem", color: "var(--primary)", wordBreak: "break-all", lineHeight: 1.6 }}>
+                    <code style={{ fontFamily: "monospace", fontSize: "0.72rem", color: "var(--navy)", wordBreak: "break-all", lineHeight: 1.6 }}>
                       {hexHash.slice(0, 32)}<br />{hexHash.slice(32)}
                     </code>
                   )}
-                  <p style={{ fontSize: "0.68rem", color: "var(--muted)", marginTop: "8px" }}>
+                  <p style={{ fontSize: "0.68rem", color: "var(--muted)", marginTop: 8 }}>
                     {ipfsCids ? "Tus documentos están guardados en IPFS y verificables públicamente." : t("crear.hashNote")}
                   </p>
                 </div>
               </div>
 
               <div style={estilos.infoBanner}>
-                <span>ℹ️</span>
+                <IconInfo />
                 <div style={{ fontSize: "0.8rem", color: "var(--muted)", lineHeight: 1.6 }}>
-                  <p style={{ marginBottom: "8px" }}>
+                  <p style={{ marginBottom: 8 }}>
                     {t("crear.yieldInfoTitle")}
-                    <strong style={{ color: "var(--primary)" }}>{t("crear.yieldInfoYou")}</strong>
+                    <strong style={{ color: "var(--navy)" }}>{t("crear.yieldInfoYou")}</strong>
                     {t("crear.yieldInfoThey")}
                   </p>
-                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                    <span style={estilos.badgeVerde}>🏦 9% CETES · Etherfuse</span>
-                    <span style={estilos.badgePurple}>🌊 4% AMM · Stellar</span>
-                    <span style={estilos.badgeAmber}>= 13% anual para ti</span>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <span style={estilos.badgeVerde}>9.45% CETES · Etherfuse</span>
+                    <span style={estilos.badgeNavy}>4% AMM · Stellar</span>
+                    <span style={estilos.badgeAmber}>= 13.45% anual</span>
                   </div>
                 </div>
               </div>
 
               {error && <p style={estilos.error}>{error}</p>}
 
-              <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
+              <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
                 <button type="button" className="btn btn-ghost" onClick={() => { setPaso(2); setError(""); }} style={{ flex: 1 }}>
                   {t("crear.back")}
                 </button>
@@ -475,18 +568,18 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado }) {
 function CampoDocumento({ id, label, descripcion, accept, icono, archivo, onChange, selectLabel, maxSizeLabel }) {
   return (
     <div style={estilos.campoDoc}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
-        <span style={estilos.docIcono}>{icono}</span>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+        <div style={estilos.docIcono}>{icono}</div>
         <div style={{ flex: 1 }}>
-          <label htmlFor={id} style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--text2)", display: "block", marginBottom: "2px" }}>
+          <label htmlFor={id} style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--text2)", display: "block", marginBottom: 2 }}>
             {label} <span style={{ color: "#DC2626" }}>*</span>
           </label>
-          <p style={{ fontSize: "0.74rem", color: "var(--muted)", marginBottom: "8px" }}>{descripcion}</p>
+          <p style={{ fontSize: "0.74rem", color: "var(--muted)", marginBottom: 8 }}>{descripcion}</p>
           <label htmlFor={id} className="file-label-touch" style={estilos.fileLabel}>
             {archivo ? (
               <>
-                <span style={{ color: "#059669" }}>✓</span>
-                <span style={{ fontSize: "0.78rem", color: "#059669", fontWeight: 600, maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                <span style={{ fontSize: "0.78rem", color: "var(--green)", fontWeight: 600, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {archivo.name}
                 </span>
                 <span style={{ fontSize: "0.7rem", color: "var(--muted)" }}>
@@ -495,8 +588,8 @@ function CampoDocumento({ id, label, descripcion, accept, icono, archivo, onChan
               </>
             ) : (
               <>
-                <span style={{ fontSize: "1rem" }}>📎</span>
-                <span style={{ fontSize: "0.8rem", color: "var(--primary)", fontWeight: 600 }}>{selectLabel}</span>
+                <IconPaperclip />
+                <span style={{ fontSize: "0.8rem", color: "var(--navy)", fontWeight: 600 }}>{selectLabel}</span>
                 <span style={{ fontSize: "0.72rem", color: "var(--muted)" }}>{maxSizeLabel}</span>
               </>
             )}
@@ -515,22 +608,23 @@ function CampoDocumento({ id, label, descripcion, accept, icono, archivo, onChan
 }
 
 // ── Componente: Chip de documento confirmado ──────────────────────────────────
-function DocChip({ icono, label, nombre }) {
+function DocChip({ label, nombre }) {
   if (!nombre) return null;
   return (
     <span style={{
       display: "inline-flex",
       alignItems: "center",
-      gap: "4px",
-      background: "rgba(5,150,105,0.08)",
-      border: "1px solid rgba(5,150,105,0.20)",
-      borderRadius: "99px",
+      gap: 4,
+      background: "var(--green-dim)",
+      border: "1px solid rgba(22,163,74,0.25)",
+      borderRadius: 99,
       padding: "3px 10px",
       fontSize: "0.72rem",
-      color: "#059669",
+      color: "var(--green)",
       fontWeight: 600,
     }}>
-      {icono} {label} ✓
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+      {label}
     </span>
   );
 }
@@ -540,15 +634,15 @@ const estilos = {
   pasoIndicador: {
     display: "flex",
     alignItems: "center",
-    gap: "8px",
+    gap: 8,
     padding: "12px 0 18px",
-    marginBottom: "4px",
-    borderBottom: "1.5px solid var(--border-soft)",
-    marginTop: "-4px",
+    marginBottom: 4,
+    borderBottom: "1.5px solid var(--border)",
+    marginTop: -4,
   },
   pasoBurbuja: {
-    width: "26px",
-    height: "26px",
+    width: 26,
+    height: 26,
     borderRadius: "50%",
     display: "flex",
     alignItems: "center",
@@ -558,55 +652,57 @@ const estilos = {
     flexShrink: 0,
     transition: "all 0.2s",
   },
-  emojiBtn: {
-    width: "44px",
-    height: "44px",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "1.3rem",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    transition: "all 0.15s",
+
+  // Inputs
+  input: {
+    borderColor: "var(--border2)",
+    outline: "none",
   },
+
+  // Yield estimado
   yieldResumen: {
-    background: "rgba(217,119,6,0.07)",
-    border: "1.5px solid rgba(217,119,6,0.18)",
-    borderRadius: "var(--radius-sm)",
-    padding: "12px 14px",
-    marginBottom: "16px",
-  },
-  docsBanner: {
-    display: "flex",
-    gap: "12px",
-    alignItems: "flex-start",
-    background: "var(--primary-dim)",
-    border: "1.5px solid rgba(124,58,237,0.16)",
+    background: "var(--green-dim)",
+    border: "1.5px solid rgba(22,163,74,0.22)",
     borderRadius: "var(--radius-sm)",
     padding: "14px",
+    marginTop: 16,
+    marginBottom: 4,
+    textAlign: "center",
+  },
+
+  // Docs privacy banner
+  docsBanner: {
+    display: "flex",
+    gap: 12,
+    alignItems: "flex-start",
+    background: "var(--navy-dim)",
+    border: "1.5px solid rgba(30,58,95,0.14)",
+    borderRadius: "var(--radius-sm)",
+    padding: 14,
     margin: "14px 0 18px",
   },
   campoDoc: {
     background: "var(--bg)",
-    border: "1.5px solid var(--border-soft)",
+    border: "1.5px solid var(--border)",
     borderRadius: "var(--radius-sm)",
-    padding: "14px",
-    marginBottom: "10px",
+    padding: 14,
+    marginBottom: 10,
   },
   docIcono: {
-    fontSize: "1.6rem",
-    background: "var(--primary-dim)",
-    borderRadius: "8px",
-    padding: "6px 8px",
-    lineHeight: 1,
+    background: "var(--navy-dim)",
+    borderRadius: "var(--radius-sm)",
+    padding: "8px",
     flexShrink: 0,
-    marginTop: "2px",
+    marginTop: 2,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
   fileLabel: {
     display: "inline-flex",
     alignItems: "center",
-    gap: "8px",
-    border: "1.5px dashed rgba(124,58,237,0.30)",
+    gap: 8,
+    border: "1.5px dashed rgba(30,58,95,0.28)",
     borderRadius: "var(--radius-sm)",
     padding: "8px 14px",
     cursor: "pointer",
@@ -615,46 +711,72 @@ const estilos = {
   },
   docsTip: {
     display: "flex",
-    gap: "8px",
+    gap: 8,
     alignItems: "center",
     padding: "8px 12px",
     background: "rgba(0,0,0,0.03)",
     borderRadius: "var(--radius-sm)",
-    marginTop: "4px",
+    marginTop: 4,
   },
+
+  // Paso 3
   resumenCard: {
     background: "var(--bg)",
-    border: "1.5px solid var(--border-soft)",
+    border: "1.5px solid var(--border)",
     borderRadius: "var(--radius-sm)",
-    padding: "18px",
-    marginBottom: "16px",
+    padding: 18,
+    marginBottom: 16,
   },
   hashPanel: {
     background: "#fff",
-    border: "1.5px solid rgba(124,58,237,0.16)",
+    border: "1.5px solid var(--border)",
     borderRadius: "var(--radius-sm)",
     padding: "12px 14px",
   },
   infoBanner: {
     display: "flex",
-    gap: "10px",
+    gap: 10,
     alignItems: "flex-start",
-    background: "var(--primary-dim)",
-    border: "1.5px solid rgba(124,58,237,0.14)",
+    background: "var(--navy-dim)",
+    border: "1.5px solid rgba(30,58,95,0.14)",
     borderRadius: "var(--radius-sm)",
     padding: "12px 14px",
-    marginTop: "4px",
+    marginTop: 4,
   },
-  badgeVerde:  { background: "rgba(5,150,105,0.10)", border: "1px solid rgba(5,150,105,0.25)", borderRadius: "6px", padding: "3px 10px", fontSize: "0.75rem", fontWeight: 700, color: "#059669" },
-  badgePurple: { background: "rgba(124,58,237,0.08)", border: "1px solid rgba(124,58,237,0.20)", borderRadius: "6px", padding: "3px 10px", fontSize: "0.75rem", fontWeight: 700, color: "var(--primary)" },
-  badgeAmber:  { background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.20)", borderRadius: "6px", padding: "3px 10px", fontSize: "0.75rem", fontWeight: 700, color: "var(--amber)" },
+  badgeVerde: {
+    background: "var(--green-dim)",
+    border: "1px solid rgba(22,163,74,0.25)",
+    borderRadius: 6,
+    padding: "3px 10px",
+    fontSize: "0.75rem",
+    fontWeight: 700,
+    color: "var(--green)",
+  },
+  badgeNavy: {
+    background: "var(--navy-dim)",
+    border: "1px solid rgba(30,58,95,0.20)",
+    borderRadius: 6,
+    padding: "3px 10px",
+    fontSize: "0.75rem",
+    fontWeight: 700,
+    color: "var(--navy)",
+  },
+  badgeAmber: {
+    background: "var(--amber-dim)",
+    border: "1px solid rgba(217,119,6,0.20)",
+    borderRadius: 6,
+    padding: "3px 10px",
+    fontSize: "0.75rem",
+    fontWeight: 700,
+    color: "var(--amber)",
+  },
   error: {
-    color: "var(--error)",
+    color: "var(--error, #DC2626)",
     fontSize: "0.83rem",
     background: "rgba(220,38,38,0.06)",
     border: "1px solid rgba(220,38,38,0.18)",
     padding: "10px 14px",
     borderRadius: "var(--radius-sm)",
-    marginTop: "12px",
+    marginTop: 12,
   },
 };
