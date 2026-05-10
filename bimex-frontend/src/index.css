@@ -842,6 +842,14 @@ label {
   .admin-meta-grid { flex-direction: column !important; gap: 10px !important; }
 }
 
+@media (max-width: 400px) {
+  .navbar-logo { font-size: 0.85rem !important; }
+  .navbar-actions { gap: 4px !important; }
+  .wallet-chip { padding: 4px 8px !important; font-size: 0.68rem !important; }
+  .navbar-btn-salir { padding: 3px 7px !important; font-size: 0.68rem !important; }
+  .navbar-btn-admin { padding: 3px 7px !important; font-size: 0.68rem !important; }
+}
+
 @media (max-width: 768px) {
   .landing-stats-bar { padding: 28px 20px; }
   .landing-stats-item { padding: 0 20px; }

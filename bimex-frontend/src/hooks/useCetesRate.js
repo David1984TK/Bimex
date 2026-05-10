@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { parsearError } from "../utils/errores.js";
 
 /**
  * Fetches current CETES APY from Etherfuse sandbox.
@@ -7,6 +8,7 @@ import { useState, useEffect } from "react";
 export function useCetesRate() {
   const [rate, setRate]     = useState(null);   // number, e.g. 9.45
   const [loading, setLoading] = useState(true);
+  const [error, setError]   = useState(null);
 
   useEffect(() => {
     const apiKey = import.meta.env.VITE_ETHERFUSE_API_KEY;
@@ -27,9 +29,12 @@ export function useCetesRate() {
         const apy = cetes?.apy ?? cetes?.rate ?? cetes?.annual_yield ?? 9.45;
         setRate(Number(apy));
       })
-      .catch(() => setRate(9.45))
+      .catch(e => {
+        setError(parsearError(e));
+        setRate(9.45);
+      })
       .finally(() => setLoading(false));
   }, []);
 
-  return { rate, loading };
+  return { rate, loading, error };
 }

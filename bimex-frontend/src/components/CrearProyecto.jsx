@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { parsearError } from "../utils/errores.js";
 import {
   crearProyecto as crearProyectoContrato,
   mxneAStroops,
@@ -137,7 +138,34 @@ function Stepper({ pasos, pasoActual }) {
 
 export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }) {
   const { t } = useTranslation();
+  const modalRef = useRef(null);
+  const botonAbrioRef = useRef(document.activeElement);
   const [paso, setPaso] = useState(1);
+
+  useEffect(() => {
+    const modal = modalRef.current;
+    if (!modal) return;
+    modal.focus();
+    function onKeyDown(e) {
+      if (e.key === "Escape") { onCerrar(); return; }
+      if (e.key !== "Tab") return;
+      const focusables = modal.querySelectorAll(
+        'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      const primero = focusables[0];
+      const ultimo  = focusables[focusables.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === primero) { e.preventDefault(); ultimo?.focus(); }
+      } else {
+        if (document.activeElement === ultimo)  { e.preventDefault(); primero?.focus(); }
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      botonAbrioRef.current?.focus?.();
+    };
+  }, [onCerrar]);
 
   const PASOS = [
     { n: 1, label: t("crear.step1") },
@@ -170,9 +198,11 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
   function manejarCambio(e) {
     const { name, value } = e.target;
     if (name === "meta") {
-      // Solo dígitos — guarda el número crudo
       const raw = value.replace(/[^0-9]/g, "");
       setForma({ ...forma, meta: raw });
+    } else if (name === "tiempoMeses") {
+      const n = parseInt(value, 10);
+      setForma({ ...forma, tiempoMeses: isNaN(n) ? "" : String(Math.min(120, Math.max(1, n))) });
     } else {
       setForma({ ...forma, [name]: value });
     }
@@ -225,7 +255,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
       setPaso(3);
     } catch (err) {
       onError?.(err);
-      setError(t("crear.errHash"));
+      setError(parsearError(err));
     }
     setHasheando(false);
   }
@@ -240,7 +270,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
       await crearProyectoContrato(direccion, forma.nombre, metaStroops, docCid);
       onCreado();
     } catch (err) {
-      console.error("Error al crear proyecto:", err);
+      setError(parsearError(err));
       onError?.(err);
     }
     setCargando(false);
@@ -265,6 +295,8 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
         aria-labelledby="crear-titulo"
         style={{ maxWidth: "540px" }}
         onClick={(e) => e.stopPropagation()}
+        ref={modalRef}
+        tabIndex={-1}
       >
         {/* Header */}
         <div className="modal-header">
@@ -566,6 +598,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
 
 // ── Componente: Campo de documento ───────────────────────────────────────────
 function CampoDocumento({ id, label, descripcion, accept, icono, archivo, onChange, selectLabel, maxSizeLabel }) {
+  const [sizeError, setSizeError] = useState(false);
   return (
     <div style={estilos.campoDoc}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
@@ -599,8 +632,18 @@ function CampoDocumento({ id, label, descripcion, accept, icono, archivo, onChan
             type="file"
             accept={accept}
             style={{ display: "none" }}
-            onChange={e => onChange(e.target.files?.[0] ?? null)}
+            onChange={e => {
+              const f = e.target.files?.[0] ?? null;
+              if (f && f.size > 10_000_000) { e.target.value = ""; setSizeError(true); onChange(null); return; }
+              setSizeError(false);
+              onChange(f);
+            }}
           />
+          {sizeError && (
+            <p style={{ fontSize: "0.74rem", color: "#DC2626", marginTop: 6 }}>
+              El archivo supera el límite de 10 MB.
+            </p>
+          )}
         </div>
       </div>
     </div>

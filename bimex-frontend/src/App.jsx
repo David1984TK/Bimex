@@ -8,6 +8,7 @@ import DetalleProyecto  from "./components/DetalleProyecto";
 import MiCuenta         from "./components/MiCuenta";
 import AdminPanel       from "./components/AdminPanel";
 import Recompensas      from "./components/Recompensas";
+import Transparencia    from "./components/Transparencia";
 import { getStorage }   from "./utils/storage";
 import { parsearError } from "./utils/errores";
 import { obtenerTodosLosProyectos, stroopsAMXNe, mintearMXNePrueba } from "./stellar/contrato";
@@ -66,18 +67,30 @@ const PASOS = [
 ];
 
 // ── Hook: estadísticas en vivo ─────────────────────────────────────────────
+let _statsCache = null;
+let _statsCacheTs = 0;
+
 function useLiveStats() {
-  const [stats, setStats] = useState({ totalProyectos: "—", totalBloqueado: "—", enProgreso: "—" });
+  const [stats, setStats] = useState(() => _statsCache ?? { totalProyectos: "—", totalBloqueado: "—", enProgreso: "—" });
   useEffect(() => {
+    if (_statsCache && Date.now() - _statsCacheTs < 15_000) {
+      setStats(_statsCache);
+      return;
+    }
     obtenerTodosLosProyectos()
       .then(proyectos => {
-        const totalBloqueado = proyectos.reduce((s, p) => s + BigInt(p.aportado ?? 0), BigInt(0));
+        const totalBloqueado = proyectos.reduce((s, p) => {
+          try { return s + BigInt(p.aportado ?? 0); } catch { return s; }
+        }, BigInt(0));
         const enProgreso = proyectos.filter(p => p.estado === "EnProgreso").length;
-        setStats({
+        const next = {
           totalProyectos: proyectos.length.toString(),
           totalBloqueado: stroopsAMXNe(totalBloqueado),
           enProgreso: enProgreso.toString(),
-        });
+        };
+        _statsCache = next;
+        _statsCacheTs = Date.now();
+        setStats(next);
       })
       .catch(() => {});
   }, []);
@@ -199,6 +212,7 @@ export default function App() {
   const [proyectoActivo, setProyectoActivo] = useState(null);
   const [modalCrear,     setModalCrear]     = useState(false);
   const [vistaActual,    setVistaActual]    = useState("proyectos");
+  const [mostrandoTransparencia, setMostrandoTransparencia] = useState(false);
   const [adminPanel,     setAdminPanel]     = useState(false);
   const [autoConectar,   setAutoConectar]   = useState(leerAutoConectarInicial);
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
@@ -241,11 +255,16 @@ export default function App() {
 
   async function cerrarSesionWallet() {
     setCerrandoSesion(true);
-    try { await setAllowed(false); } catch {}
+    try {
+      await Promise.race([
+        setAllowed(false),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 4000)),
+      ]);
+    } catch {}
     finally { desconectarLocal(); setCerrandoSesion(false); }
   }
 
-  function manejarConectado(addr) {
+  const manejarConectado = useCallback((addr) => {
     if (addr) {
       storageSesion.setItem(KEY_SESION_WALLET, "1");
       setDireccion(addr);
@@ -253,12 +272,15 @@ export default function App() {
     } else {
       desconectarLocal();
     }
-  }
+  }, []);
 
   function refrescarLista() { setRefrescar(r => r + 1); }
 
+  if (mostrandoTransparencia) {
+    return <Transparencia onVolver={() => setMostrandoTransparencia(false)} />;
+  }
   if (!direccion) {
-    return <Landing autoConectar={autoConectar} onConectado={manejarConectado} />;
+    return <Landing autoConectar={autoConectar} onConectado={manejarConectado} onTransparencia={() => setMostrandoTransparencia(true)} />;
   }
 
   return (
@@ -292,6 +314,16 @@ export default function App() {
               }}
             >
               {t("nav.myAccount")}
+            </button>
+            <button
+              onClick={() => { setProyectoActivo(null); setVistaActual("transparencia"); }}
+              style={{
+                ...st.navTab,
+                color: vistaActual === "transparencia" && !proyectoActivo ? "var(--navy)" : "var(--muted)",
+                borderBottom: vistaActual === "transparencia" && !proyectoActivo ? "2px solid var(--navy)" : "2px solid transparent",
+              }}
+            >
+              {t("nav.transparency")}
             </button>
           </div>
         </div>
@@ -336,6 +368,7 @@ export default function App() {
             direccion={direccion}
             onCerrar={() => { setProyectoActivo(null); refrescarLista(); }}
             onError={mostrarError}
+            onToast={(msg) => agregarToast(msg, "success")}
           />
         ) : (
           <>
@@ -346,6 +379,9 @@ export default function App() {
                 refrescar={refrescar}
                 onError={mostrarError}
               />
+            )}
+            {vistaActual === "transparencia" && (
+              <Transparencia />
             )}
             {vistaActual === "micuenta" && (
               <MiCuenta
@@ -379,14 +415,14 @@ export default function App() {
 }
 
 // ── Landing ──────────────────────────────────────────────────────────────────
-function Landing({ autoConectar, onConectado }) {
+function Landing({ autoConectar, onConectado, onTransparencia }) {
   const liveStats = useLiveStats();
-  const { rate: cetesRate } = useCetesRate();
+  const { rate: cetesRate, error: cetesError } = useCetesRate();
 
   const STATS_LIVE = [
     { valor: liveStats.totalProyectos, label: "Proyectos activos" },
     { valor: liveStats.totalBloqueado, label: "MXNe invertidos" },
-    { valor: cetesRate ? `${cetesRate}%` : "9.45%", label: "APY CETES hoy" },
+    { valor: cetesRate ? `${cetesRate}%` : "9.45%", label: cetesError ? "APY CETES (ref.)" : "APY CETES hoy" },
   ];
 
   return (
@@ -401,6 +437,12 @@ function Landing({ autoConectar, onConectado }) {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span className="navbar-hide-tablet" style={st.testnetBadge}>Testnet</span>
+          <button
+            onClick={onTransparencia}
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.84rem", fontWeight: 500, color: "var(--navy)", padding: "8px 12px" }}
+          >
+            Transparencia
+          </button>
           <ConectarWallet autoConectar={autoConectar} onConectado={onConectado} inNavbar />
         </div>
       </nav>

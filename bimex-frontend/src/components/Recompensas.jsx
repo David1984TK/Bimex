@@ -89,11 +89,13 @@ export default function Recompensas({ direccion, refrescar, totalInvertido: tota
   // Si el padre ya calculó totalInvertido, úsalo directamente
   useEffect(() => {
     if (totalInvertidoProp != null) {
-      setTotalMXNe(Number(BigInt(totalInvertidoProp)) / 10_000_000);
+      const b = typeof totalInvertidoProp === "bigint" ? totalInvertidoProp : BigInt(totalInvertidoProp ?? 0);
+      setTotalMXNe(Number(b / BigInt(10_000_000)) + Number(b % BigInt(10_000_000)) / 10_000_000);
       setCargando(false);
       return;
     }
     if (!direccion) return;
+    let cancelado = false;
     (async () => {
       setCargando(true);
       try {
@@ -101,14 +103,20 @@ export default function Recompensas({ direccion, refrescar, totalInvertido: tota
         const aportaciones = await Promise.all(
           proyectos.map(p => obtenerAportacion(p.id, direccion).catch(() => BigInt(0)))
         );
-        const totalStroops = aportaciones.reduce((s, a) => s + BigInt(a), BigInt(0));
-        setTotalMXNe(Number(totalStroops) / 10_000_000);
+        const totalStroops = aportaciones.reduce((s, a) => {
+          try { return s + BigInt(a); } catch { return s; }
+        }, BigInt(0));
+        if (!cancelado) {
+          const mxne = Number(totalStroops / BigInt(10_000_000)) + Number(totalStroops % BigInt(10_000_000)) / 10_000_000;
+          setTotalMXNe(mxne);
+        }
       } catch {
-        setTotalMXNe(0);
+        if (!cancelado) setTotalMXNe(0);
       } finally {
-        setCargando(false);
+        if (!cancelado) setCargando(false);
       }
     })();
+    return () => { cancelado = true; };
   }, [direccion, refrescar, totalInvertidoProp]);
 
   // Cierra con Escape o clic fuera
