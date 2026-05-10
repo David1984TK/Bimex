@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { createClient } from "@supabase/supabase-js";
+import { parsearError } from "../utils/errores.js";
 import {
   obtenerTodosLosProyectos,
   obtenerAportacion,
@@ -225,6 +226,7 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
   const { t } = useTranslation();
   const [contribuciones, setContribuciones] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [errorContrib, setErrorContrib] = useState(null);
 
   useEffect(() => {
     if (proyectos.length === 0) {
@@ -234,6 +236,7 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
 
     async function cargarContribuciones() {
       setCargando(true);
+      setErrorContrib(null);
       try {
         const resultados = await Promise.all(
           proyectos.map(async (p) => {
@@ -246,7 +249,7 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
         );
         setContribuciones(resultados.filter((r) => r.aportacion > BigInt(0)));
       } catch (e) {
-        console.error("Error cargando contribuciones:", e);
+        setErrorContrib(parsearError(e));
       } finally {
         setCargando(false);
       }
@@ -256,6 +259,14 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
   }, [proyectos, direccion]);
 
   if (cargando) return <Spinner />;
+
+  if (errorContrib) {
+    return (
+      <div role="alert" style={{ color: "var(--error, #DC2626)", background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.18)", borderRadius: "var(--radius-sm)", padding: "14px 18px", fontSize: "0.86rem", marginTop: 8 }}>
+        {errorContrib}
+      </div>
+    );
+  }
 
   if (contribuciones.length === 0) {
     return (
@@ -360,7 +371,8 @@ function NotificacionesPanel({ direccion }) {
       .then(({ data }) => {
         if (data) { setEmail(data.email); setEnabled(data.notifications_enabled); }
         setCargado(true);
-      });
+      })
+      .catch(() => setCargado(true));
   }, [direccion]);
 
   async function guardar(e) {
@@ -450,15 +462,17 @@ export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido })
   const [tab, setTab] = useState("proyectos");
   const [proyectos, setProyectos] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [errorPrincipal, setErrorPrincipal] = useState(null);
 
   useEffect(() => {
     async function cargar() {
       setCargando(true);
+      setErrorPrincipal(null);
       try {
         const data = await obtenerTodosLosProyectos();
         setProyectos(data);
       } catch (e) {
-        console.error("Error cargando proyectos:", e);
+        setErrorPrincipal(parsearError(e));
       } finally {
         setCargando(false);
       }
@@ -496,14 +510,16 @@ export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido })
         if (cancelado) return;
         const positivos = resultados.filter((r) => r.aportacion > BigInt(0));
         const total  = positivos.reduce((acc, r) => acc + r.aportacion, BigInt(0));
-        const totalY = positivos.reduce((acc, r) => acc + BigInt(r.yieldAcum ?? 0), BigInt(0));
+        const totalY = positivos.reduce((acc, r) => {
+          try { return acc + BigInt(r.yieldAcum ?? 0); } catch { return acc; }
+        }, BigInt(0));
         setNumApoyados(positivos.length);
         setTotalInvertido(total);
         setTotalYield(totalY);
         onTotalInvertido?.(total);
       } catch (e) {
-        console.error("Error calculando resumen:", e);
         if (!cancelado) {
+          setErrorPrincipal(parsearError(e));
           setNumApoyados(0);
           setTotalInvertido(BigInt(0));
           setTotalYield(BigInt(0));
@@ -513,7 +529,7 @@ export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido })
 
     calcularResumen();
     return () => { cancelado = true; };
-  }, [proyectos, direccion]);
+  }, [proyectos, direccion, onTotalInvertido]);
 
   const resumenListo = numApoyados !== null && totalInvertido !== null;
 
@@ -529,6 +545,13 @@ export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido })
           </p>
         </div>
       </div>
+
+      {/* Error principal */}
+      {errorPrincipal && (
+        <div role="alert" style={{ color: "var(--error, #DC2626)", background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.18)", borderRadius: "var(--radius-sm)", padding: "12px 16px", fontSize: "0.86rem", marginBottom: 20 }}>
+          {errorPrincipal}
+        </div>
+      )}
 
       {/* 3 Metric Cards */}
       <div style={estilos.metricsRow}>

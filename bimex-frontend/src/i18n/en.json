@@ -5,7 +5,8 @@
     "testnet": "Testnet",
     "admin": "Admin",
     "logout": "Sign out",
-    "loggingOut": "..."
+    "loggingOut": "...",
+    "transparency": "Transparency"
   },
   "lang": {
     "toggle": "ES"
@@ -31,7 +32,9 @@
     "locked": "Locked",
     "goal": "Goal",
     "verified": "✓ Verified",
-    "verifiedTitle": "Documents verified on blockchain"
+    "verifiedTitle": "Documents verified on blockchain",
+    "loadMore": "Load more",
+    "remaining": "remaining"
   },
   "filters": {
     "all": "All",
@@ -191,7 +194,6 @@
     "goal": "Goal",
     "viewDetails": "View details →",
     "myContribution": "Your contribution",
-    "yieldAccum": "Accumulated yield",
     "viewDetailsShort": "View details",
     "withdraw": "Withdraw",
     "totalInvestedLabel": "Total invested",
@@ -227,6 +229,29 @@
     "toastApproved": "✅ Project #{{id}} approved",
     "toastRejected": "❌ Project #{{id}} rejected",
     "errLoad": "Could not load projects: {{msg}}"
+  },
+  "transp": {
+    "title": "Public Transparency",
+    "subtitle": "Real-time data from Stellar smart contract. No intermediaries.",
+    "back": "← Back",
+    "statTotal": "Projects",
+    "statLocked": "MXNe locked",
+    "statProgress": "In progress",
+    "statYield": "Yield generated",
+    "loading": "Loading blockchain data…",
+    "empty": "No public projects yet",
+    "emptyHint": "Projects will appear here when created.",
+    "noResults": "No projects in this state",
+    "viewAll": "View all",
+    "verified": "Verified",
+    "infoTitle": "On-chain data",
+    "infoDesc": "This information comes directly from the smart contract on Stellar Testnet. It cannot be manipulated.",
+    "retry": "Retry",
+    "errorLoad": "Could not load data. Check your connection.",
+    "filterLabel": "Filter by status:",
+    "funding": "Funding",
+    "goal": "Goal",
+    "locked": "Locked"
   },
   "recompensas": {
     "label": "Your rewards",

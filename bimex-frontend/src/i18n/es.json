@@ -5,7 +5,8 @@
     "testnet": "Testnet",
     "admin": "Admin",
     "logout": "Salir",
-    "loggingOut": "..."
+    "loggingOut": "...",
+    "transparency": "Transparencia"
   },
   "lang": {
     "toggle": "EN"
@@ -31,7 +32,9 @@
     "locked": "Bloqueado",
     "goal": "Meta",
     "verified": "✓ Verificado",
-    "verifiedTitle": "Documentos verificados en blockchain"
+    "verifiedTitle": "Documentos verificados en blockchain",
+    "loadMore": "Ver más",
+    "remaining": "restantes"
   },
   "filters": {
     "all": "Todos",
@@ -191,7 +194,6 @@
     "goal": "Meta",
     "viewDetails": "Ver detalles →",
     "myContribution": "Tu aportación",
-    "yieldAccum": "Yield acumulado",
     "viewDetailsShort": "Ver detalles",
     "withdraw": "Retirar",
     "totalInvestedLabel": "Total invertido",
@@ -227,6 +229,29 @@
     "toastApproved": "✅ Proyecto #{{id}} aprobado",
     "toastRejected": "❌ Proyecto #{{id}} rechazado",
     "errLoad": "No se pudieron cargar los proyectos: {{msg}}"
+  },
+  "transp": {
+    "title": "Transparencia pública",
+    "subtitle": "Datos en tiempo real del contrato inteligente en Stellar. Sin intermediarios.",
+    "back": "← Volver",
+    "statTotal": "Proyectos",
+    "statLocked": "MXNe bloqueado",
+    "statProgress": "En progreso",
+    "statYield": "Yield generado",
+    "loading": "Cargando datos del blockchain…",
+    "empty": "Sin proyectos públicos todavía",
+    "emptyHint": "Los proyectos aparecerán aquí cuando sean creados.",
+    "noResults": "Sin proyectos en este estado",
+    "viewAll": "Ver todos",
+    "verified": "Verificado",
+    "infoTitle": "Datos en cadena",
+    "infoDesc": "Esta información proviene directamente del contrato inteligente en Stellar Testnet. No puede ser manipulada.",
+    "retry": "Reintentar",
+    "errorLoad": "No se pudo cargar la información. Verifica tu conexión.",
+    "filterLabel": "Filtrar por estado:",
+    "funding": "Financiamiento",
+    "goal": "Meta",
+    "locked": "Bloqueado"
   },
   "recompensas": {
     "label": "Tus recompensas",

@@ -165,12 +165,9 @@ export async function obtenerBalanceMXNe(direccion) {
 
 export async function obtenerTotalProyectos() {
   try {
-    console.log("[Bimex] llamando total_proyectos en contrato:", CONFIG.CONTRACT_ID);
     const total = await simularLectura("total_proyectos", []);
-    console.log("[Bimex] total_proyectos respuesta:", total);
     return Number(total);
-  } catch (e) {
-    console.error("[Bimex] Error en total_proyectos:", e);
+  } catch {
     return 0;
   }
 }
@@ -191,6 +188,7 @@ function decodificarEstado(rawEstado) {
   if (nombre === "EnProgreso")  return "EnProgreso";
   if (nombre === "EnRevision")  return "EnRevision";
   if (nombre === "Rechazado")   return "Rechazado";
+  if (nombre === "EtapaInicial") return "EtapaInicial";
   return "EtapaInicial";
 }
 
@@ -435,7 +433,8 @@ export async function hashearDocumentos(ine, plan, presupuesto) {
 // ─── Helpers de formato ───────────────────────────────────────────────────────
 
 export function stroopsAMXNe(stroops) {
-  const valor = Number(BigInt(stroops)) / 10_000_000;
+  const b = typeof stroops === "bigint" ? stroops : BigInt(stroops ?? 0);
+  const valor = Number(b / BigInt(10_000_000)) + Number(b % BigInt(10_000_000)) / 10_000_000;
   return `${valor.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXNe`;
 }
 

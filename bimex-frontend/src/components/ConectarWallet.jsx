@@ -3,6 +3,7 @@ import {
   isConnected, isAllowed, requestAccess, getAddress, getNetwork,
 } from "@stellar/freighter-api";
 import { CONFIG } from "../stellar/contrato";
+import { parsearError } from "../utils/errores.js";
 
 export default function ConectarWallet({ onConectado, autoConectar = true, inNavbar = false }) {
   const [estado,    setEstado]    = useState("inactivo");
@@ -32,11 +33,17 @@ export default function ConectarWallet({ onConectado, autoConectar = true, inNav
       if (!conectado) { setEstado("sin_extension"); return; }
       await requestAccess();
       const { networkPassphrase } = await getNetwork();
+      if (!networkPassphrase) { setError("Freighter no devolvió la red activa. Asegúrate de que esté desbloqueado."); setEstado("error"); return; }
       if (networkPassphrase !== CONFIG.NETWORK_PASSPHRASE) { setEstado("red_incorrecta"); return; }
       const { address } = await getAddress();
+      if (!address || address.length < 10) {
+        setError("No se pudo obtener la dirección de la wallet. Intenta de nuevo.");
+        setEstado("error");
+        return;
+      }
       setDireccion(address); setEstado("conectado"); onConectado?.(address);
     } catch (e) {
-      setError(e.message || "Error al conectar");
+      setError(parsearError(e));
       setEstado("error");
     }
   }
@@ -54,7 +61,7 @@ export default function ConectarWallet({ onConectado, autoConectar = true, inNav
         background: "var(--green)", flexShrink: 0,
       }} />
       <span style={{ fontFamily: "monospace", fontSize: inNavbar ? 12 : 14, color: "var(--navy)", fontWeight: 600 }}>
-        {direccion.slice(0, 4)}…{direccion.slice(-4)}
+        {direccion && direccion.length >= 8 ? `${direccion.slice(0, 4)}…${direccion.slice(-4)}` : direccion}
       </span>
     </div>
   );

@@ -6,6 +6,7 @@ import {
   rechazarProyecto,
   stroopsAMXNe,
 } from "../stellar/contrato";
+import { parsearError } from "../utils/errores.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -24,14 +25,6 @@ function docHashHex(docHash) {
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
   return hex.slice(0, 16) + "…";
-}
-
-function mensajeCorto(err) {
-  const msg = err?.message || "Error inesperado.";
-  if (msg.includes("HostError") || msg.includes("XDR") || msg.length > 120) {
-    return "Contract error. Please try again.";
-  }
-  return msg;
 }
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -86,7 +79,7 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
       const todos = await obtenerTodosLosProyectos();
       setProyectos(todos.filter((p) => p.estado === "EnRevision"));
     } catch (err) {
-      mostrarToast(t("admin.errLoad", { msg: mensajeCorto(err) }), "error");
+      mostrarToast(parsearError(err), "error");
     }
     setCargando(false);
   }
@@ -147,7 +140,7 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
       mostrarToast(t("admin.toastApproved", { id: idProyecto }));
       await cargarPendientes();
     } catch (err) {
-      mostrarToast(mensajeCorto(err), "error");
+      mostrarToast(parsearError(err), "error");
     }
   }
 
@@ -176,25 +169,20 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
   }
 
   async function confirmarRechazo(idProyecto) {
-    const estado = rechazando[idProyecto];
-    if (!estado) return;
+    const estadoActual = rechazando[idProyecto];
+    if (!estadoActual || !estadoActual.motivo.trim()) return;
 
-    setRechazando((prev) => ({
-      ...prev,
-      [idProyecto]: { ...prev[idProyecto], enviando: true },
-    }));
+    const motivo = estadoActual.motivo;
+    setRechazando((prev) => ({ ...prev, [idProyecto]: { ...prev[idProyecto], enviando: true } }));
 
     try {
-      await rechazarProyecto(direccion, idProyecto, estado.motivo);
+      await rechazarProyecto(direccion, idProyecto, motivo);
       mostrarToast(t("admin.toastRejected", { id: idProyecto }));
       cancelarRechazo(idProyecto);
       await cargarPendientes();
     } catch (err) {
-      mostrarToast(mensajeCorto(err), "error");
-      setRechazando((prev) => ({
-        ...prev,
-        [idProyecto]: { ...prev[idProyecto], enviando: false },
-      }));
+      mostrarToast(parsearError(err), "error");
+      setRechazando((prev) => ({ ...prev, [idProyecto]: { ...prev[idProyecto], enviando: false } }));
     }
   }
 

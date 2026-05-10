@@ -1,12 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { obtenerTodosLosProyectos, stroopsAMXNe } from "../stellar/contrato";
+import { parsearError } from "../utils/errores.js";
 
 export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
   const { t } = useTranslation();
   const [proyectos, setProyectos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [filtro, setFiltro] = useState("Todos");
+  const [visibles, setVisibles] = useState(12);
+  const [errorCarga, setErrorCarga] = useState(null);
+  const cargandoRef = useRef(false);
 
   const ESTADOS_OCULTOS = new Set(["EnRevision", "Rechazado"]);
   const FILTROS = [
@@ -18,21 +22,28 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
   ];
 
   async function cargar() {
+    if (cargandoRef.current) return;
+    cargandoRef.current = true;
     setCargando(true);
+    setErrorCarga(null);
     try {
       const data = await obtenerTodosLosProyectos();
       setProyectos(data);
     } catch (e) {
-      console.error("[Bimex] Error cargando proyectos:", e);
+      setErrorCarga(parsearError(e));
     } finally {
       setCargando(false);
+      cargandoRef.current = false;
     }
   }
 
   useEffect(() => { cargar(); }, [refrescar]);
+  useEffect(() => { setVisibles(12); }, [filtro]);
 
   const proyectosPublicos = proyectos.filter(p => !ESTADOS_OCULTOS.has(p.estado));
-  const totalBloqueado = proyectosPublicos.reduce((s, p) => s + BigInt(p.aportado ?? 0), BigInt(0));
+  const totalBloqueado = proyectosPublicos.reduce((s, p) => {
+    try { return s + BigInt(p.aportado ?? 0); } catch { return s; }
+  }, BigInt(0));
   const enProgreso = proyectosPublicos.filter(p => p.estado === "EnProgreso").length;
   const liberados  = proyectosPublicos.filter(p => p.estado === "Liberado").length;
 
@@ -102,6 +113,7 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
               <button
                 key={f.key}
                 onClick={() => setFiltro(f.key)}
+                aria-pressed={activo}
                 style={{
                   ...estilos.filtroBtnBase,
                   background: activo ? "var(--navy)" : "var(--card)",
@@ -129,6 +141,13 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* Error de carga */}
+      {errorCarga && (
+        <div className="error-mensaje" role="alert" style={{ color: "var(--error, #DC2626)", background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.18)", borderRadius: "var(--radius-sm)", padding: "12px 16px", fontSize: "0.86rem", marginBottom: 20 }}>
+          {errorCarga}
         </div>
       )}
 
@@ -166,11 +185,23 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
           </button>
         </div>
       ) : (
-        <div className="grid-proyectos" style={estilos.grid} role="list" aria-label={t("lista.ariaList")}>
-          {proyectosFiltrados.map((p) => (
-            <CardProyecto key={p.id} proyecto={p} onClick={() => onSeleccionar(p)} />
-          ))}
-        </div>
+        <>
+          <div className="grid-proyectos" style={estilos.grid} role="list" aria-label={t("lista.ariaList")}>
+            {proyectosFiltrados.slice(0, visibles).map((p) => (
+              <CardProyecto key={p.id} proyecto={p} onClick={() => onSeleccionar(p)} />
+            ))}
+          </div>
+          {proyectosFiltrados.length > visibles && (
+            <div style={{ display: "flex", justifyContent: "center", marginTop: 24 }}>
+              <button
+                className="btn btn-ghost"
+                onClick={() => setVisibles(v => v + 12)}
+              >
+                {t("lista.loadMore")} ({proyectosFiltrados.length - visibles} {t("lista.remaining")})
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

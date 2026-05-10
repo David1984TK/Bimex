@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { parsearError } from "../utils/errores.js";
 import {
   contribuir as contribuirContrato,
   retirarPrincipal as retirarPrincipalContrato,
@@ -71,18 +72,19 @@ const IconShield = () => (
   </svg>
 );
 
-export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, onCerrar, onError }) {
+export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, onCerrar, onError, onToast }) {
   const { t } = useTranslation();
+  const montadoRef = useRef(true);
+  useEffect(() => () => { montadoRef.current = false; }, []);
   const [proyecto,          setProyecto]          = useState(proyectoInicial);
   const [cantidad,          setCantidad]          = useState("");
   const [cargando,          setCargando]          = useState(false);
   const [modoInversion,     setModoInversion]     = useState("inversor");
   const [vistaRetirar,      setVistaRetirar]      = useState(false);
   const [confirmarAbandonar,setConfirmarAbandonar]= useState(false);
-  const [toast,             setToast]             = useState(null);
   const [miAportacion,      setMiAportacion]      = useState(BigInt(0));
   const [miYield,           setMiYield]           = useState(BigInt(0));
-  const [balanceMXNe,       setBalanceMXNe]       = useState(BigInt(0));
+  const [balanceMXNe,       setBalanceMXNe]       = useState(null);
 
   const estado    = proyecto.estado ?? "EtapaInicial";
   const estadoCfg = ESTADO_CONFIG[estado] ?? ESTADO_CONFIG.EtapaInicial;
@@ -113,14 +115,17 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
         obtenerProyecto(proyecto.id).catch(() => null),
         obtenerAportacion(proyecto.id, direccion).catch(() => BigInt(0)),
         calcularYield(proyecto.id, direccion).catch(() => BigInt(0)),
-        obtenerBalanceMXNe(direccion).catch(() => BigInt(0)),
+        obtenerBalanceMXNe(direccion).catch(() => null),
       ]);
+      if (!montadoRef.current) return;
       if (proyActualizado) setProyecto(proyActualizado);
       setMiAportacion(aport);
       setMiYield(yld);
       setBalanceMXNe(bal);
-    } catch { /* ignore */ }
-  }, [proyecto.id, direccion]);
+    } catch (e) {
+      if (montadoRef.current) onError?.(parsearError(e));
+    }
+  }, [proyecto.id, direccion, onError]);
 
   useEffect(() => { refrescar(); }, [refrescar]);
 
@@ -130,11 +135,6 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onCerrar]);
-
-  function mostrarToast(msg, tipo = "success") {
-    setToast({ msg, tipo });
-    setTimeout(() => setToast(null), 4500);
-  }
 
   function mensajeCorto(err) {
     const msg = err?.message || t("detalle.errContract");
@@ -148,9 +148,9 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
     setCantidad(raw);
   }
 
-  const cantidadNum   = Number(cantidad);
+  const cantidadNum    = Number(cantidad);
   const cantidadValida = cantidad !== "" && !isNaN(cantidadNum) && cantidadNum > 0;
-  const superaBalance  = cantidadValida && mxneAStroops(cantidadNum) > balanceMXNe;
+  const superaBalance  = cantidadValida && balanceMXNe !== null && mxneAStroops(cantidadNum) > balanceMXNe;
   const errorCantidad  = !cantidadValida && cantidad !== ""
     ? t("detalle.errAmount")
     : superaBalance
@@ -164,7 +164,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
     setCargando(true);
     try {
       await contribuirContrato(direccion, proyecto.id, mxneAStroops(Number(cantidad)));
-      mostrarToast(t("detalle.toastContributed", { amount: cantidad }));
+      onToast?.(t("detalle.toastContributed", { amount: cantidad }));
       setCantidad("");
       await refrescar();
     } catch (err) {
@@ -177,7 +177,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
     setCargando(true);
     try {
       await retirarPrincipalContrato(direccion, proyecto.id);
-      mostrarToast(t("detalle.toastWithdrawn", { amount: stroopsAMXNe(miAportacion) }));
+      onToast?.(t("detalle.toastWithdrawn", { amount: stroopsAMXNe(miAportacion) }));
       setMiAportacion(BigInt(0));
       setMiYield(BigInt(0));
       setVistaRetirar(false);
@@ -189,12 +189,12 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
   }
 
   async function manejarReclamarYield() {
-    if (estado !== "Liberado") { mostrarToast(t("detalle.errYieldOnly"), "error"); return; }
-    if (yieldDueno === BigInt(0)) { mostrarToast(t("detalle.errNoYield"), "error"); return; }
+    if (estado !== "Liberado") { onError?.(t("detalle.errYieldOnly")); return; }
+    if (miYield === BigInt(0)) { onError?.(t("detalle.errNoYield")); return; }
     setCargando(true);
     try {
       await reclamarYieldContrato(direccion, proyecto.id);
-      mostrarToast(t("detalle.toastYield"));
+      onToast?.(t("detalle.toastYield"));
       await refrescar();
     } catch (err) {
       onError?.(err);
@@ -207,7 +207,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
     setCargando(true);
     try {
       await abandonarProyectoContrato(direccion, proyecto.id);
-      mostrarToast(t("detalle.toastAbandoned"));
+      onToast?.(t("detalle.toastAbandoned"));
       await refrescar();
     } catch (err) {
       onError?.(err);
@@ -219,7 +219,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
     setCargando(true);
     try {
       await solicitarContinuarContrato(direccion, proyecto.id);
-      mostrarToast(t("detalle.toastContinued"));
+      onToast?.(t("detalle.toastContinued"));
       await refrescar();
     } catch (err) {
       onError?.(err);
@@ -307,17 +307,17 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
               <div className="split-table">
                 <div className="split-row">
                   <span className="split-name" style={{ color: "var(--green)", fontWeight: 600 }}>{t("detalle.splitProject")}</span>
-                  <div className="split-bar-wrap"><div className="split-bar" style={{ width: "44.6%", background: "var(--green)" }} /></div>
+                  <div className="split-bar-wrap" role="progressbar" aria-valuenow={45} aria-valuemin={0} aria-valuemax={100} aria-valuetext="6.00%"><div className="split-bar" style={{ width: "44.6%", background: "var(--green)" }} /></div>
                   <span className="split-pct" style={{ color: "var(--green)" }}>6.00%</span>
                 </div>
                 <div className="split-row">
                   <span className="split-name" style={{ color: "var(--navy)", fontWeight: 600 }}>{t("detalle.splitInvestor")}</span>
-                  <div className="split-bar-wrap"><div className="split-bar" style={{ width: "37.2%", background: "var(--navy)" }} /></div>
+                  <div className="split-bar-wrap" role="progressbar" aria-valuenow={37} aria-valuemin={0} aria-valuemax={100} aria-valuetext="5.00%"><div className="split-bar" style={{ width: "37.2%", background: "var(--navy)" }} /></div>
                   <span className="split-pct" style={{ color: "var(--navy)" }}>5.00%</span>
                 </div>
                 <div className="split-row" style={{ background: "var(--bg)" }}>
                   <span className="split-name" style={{ color: "var(--muted)" }}>{t("detalle.splitPlatform")}</span>
-                  <div className="split-bar-wrap"><div className="split-bar" style={{ width: "18.2%", background: "var(--subtle)" }} /></div>
+                  <div className="split-bar-wrap" role="progressbar" aria-valuenow={18} aria-valuemin={0} aria-valuemax={100} aria-valuetext="2.45%"><div className="split-bar" style={{ width: "18.2%", background: "var(--subtle)" }} /></div>
                   <span className="split-pct" style={{ color: "var(--muted)" }}>2.45%</span>
                 </div>
                 <div style={{ padding: "12px 18px", background: "var(--bg)", borderTop: "2px solid var(--border)", display: "flex", justifyContent: "space-between", fontSize: "0.82rem" }}>
@@ -401,7 +401,14 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
                       {stroopsAMXNe(proyecto.meta ?? 0)}
                     </span>
                   </div>
-                  <div className="progress-section__bar">
+                  <div
+                    className="progress-section__bar"
+                    role="progressbar"
+                    aria-valuenow={Math.round(porcentaje)}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuetext={`${porcentaje.toFixed(0)}%`}
+                  >
                     <div className="progress-section__fill" style={{ width: `${porcentaje}%` }} />
                   </div>
                   <div className="progress-meta">
@@ -442,6 +449,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
                       <button
                         className={`mode-btn${modoInversion === "inversor" ? " active" : ""}`}
                         onClick={() => setModoInversion("inversor")}
+                        aria-pressed={modoInversion === "inversor"}
                       >
                         <h4>{t("detalle.modeInversor")}</h4>
                         <p>{t("detalle.modeInversorDesc")}</p>
@@ -449,6 +457,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
                       <button
                         className={`mode-btn${modoInversion === "mecenas" ? " active" : ""}`}
                         onClick={() => setModoInversion("mecenas")}
+                        aria-pressed={modoInversion === "mecenas"}
                       >
                         <h4>{t("detalle.modeMecenas")}</h4>
                         <p>{t("detalle.modeMecenasDesc")}</p>
@@ -474,7 +483,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
                           {errorCantidad}
                         </p>
                       )}
-                      {cantidadValida && !superaBalance && (
+                      {cantidadValida && !superaBalance && balanceMXNe !== null && (
                         <p style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: 5 }}>
                           {t("detalle.available")}: {stroopsAMXNe(balanceMXNe)}
                         </p>
@@ -565,14 +574,14 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
                   </>
                 )}
 
-                {/* Reclamar yield (dueño) */}
-                {esDueno && !esAbandonado && BigInt(proyecto.aportado ?? 0) > BigInt(0) && (
+                {/* Reclamar yield (dueño, solo cuando proyecto liberado) */}
+                {esDueno && estado === "Liberado" && BigInt(proyecto.aportado ?? 0) > BigInt(0) && (
                   <button
                     className="btn btn-secondary"
                     style={{ width: "100%", justifyContent: "center", marginTop: 8 }}
                     onClick={manejarReclamarYield}
-                    disabled={cargando || yieldDueno === BigInt(0)}
-                    title={yieldDueno === BigInt(0) ? t("detalle.waitYield") : ""}
+                    disabled={cargando || miYield === BigInt(0)}
+                    title={miYield === BigInt(0) ? t("detalle.waitYield") : ""}
                   >
                     {cargando ? t("detalle.processing") : t("detalle.claimYield")}
                   </button>
@@ -597,16 +606,6 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
         </div>
       </div>
 
-      {toast && (
-        <div
-          className={`toast ${toast.tipo}`}
-          role={toast.tipo === "error" ? "alert" : "status"}
-          aria-live={toast.tipo === "error" ? "assertive" : "polite"}
-          aria-atomic="true"
-        >
-          {toast.msg}
-        </div>
-      )}
     </>
   );
 }
