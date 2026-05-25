@@ -206,6 +206,8 @@ export async function obtenerProyecto(id) {
     yield_entregado: BigInt(raw.yield_entregado ?? 0),
     estado: decodificarEstado(raw.estado),
     timestamp_inicio: Number(raw.timestamp_inicio ?? 0),
+    timestamp_vencimiento: Number(raw.timestamp_vencimiento ?? 0),
+    tiempo_meses: Number(raw.tiempo_meses ?? 0),
     // Dual-yield
     capital_en_cetes: BigInt(raw.capital_en_cetes ?? 0),
     capital_en_amm: BigInt(raw.capital_en_amm ?? 0),
@@ -284,12 +286,21 @@ export async function obtenerTodosLosProyectos() {
 
 // ─── Funciones de ESCRITURA ───────────────────────────────────────────────────
 
-export async function crearProyecto(direccion, nombre, metaMXNe, docCid) {
+export async function crearProyecto(direccion, nombre, metaMXNe, docCid, tiempoMeses) {
   const tx = await construirTx(direccion, "crear_proyecto", [
     dirAScVal(direccion),
     nativeToScVal(nombre, { type: "string" }),
     nativeToScVal(metaMXNe, { type: "i128" }),
     nativeToScVal(docCid, { type: "string" }),
+    nativeToScVal(Number(tiempoMeses), { type: "u32" }),
+  ]);
+  return firmarYEnviar(tx, direccion);
+}
+
+export async function retiroAnticipado(direccion, idProyecto) {
+  const tx = await construirTx(direccion, "retiro_anticipado", [
+    dirAScVal(direccion),
+    nativeToScVal(idProyecto, { type: "u32" }),
   ]);
   return firmarYEnviar(tx, direccion);
 }

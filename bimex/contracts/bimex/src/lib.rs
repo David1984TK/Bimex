@@ -34,6 +34,9 @@ pub enum EstadoProyecto {
 /// El capital se divide 50/50 entre CETES y AMM al momento de cada contribución.
 /// `timestamp_inicio` se resetea cada vez que el dueño reclama yield, y también
 /// cuando un nuevo dueño toma el proyecto vía `solicitar_continuar`.
+/// `timestamp_vencimiento` marca cuándo expira el plazo de recaudación: si el
+/// proyecto no alcanza la meta antes de esa fecha, los backers pueden retirar
+/// su capital íntegro mediante `retirar_principal`.
 #[contracttype]
 #[derive(Clone)]
 pub struct Proyecto {
@@ -44,6 +47,8 @@ pub struct Proyecto {
     pub yield_entregado: i128,
     pub estado: EstadoProyecto,
     pub timestamp_inicio: u64,
+    pub timestamp_vencimiento: u64,
+    pub tiempo_meses: u32,
     pub capital_en_cetes: i128,
     pub yield_cetes_acumulado: i128,
     pub capital_en_amm: i128,
@@ -103,6 +108,9 @@ pub enum Clave {
 const DEFAULT_CETES_BPS: u32 = 945;  // 9.45 % anual (CETES referencia)
 const DEFAULT_AMM_BPS:   u32 = 400;  // 4.00 % anual (liquidez AMM)
 
+// Segundos por mes (30 días)
+const SEGUNDOS_POR_MES: u64 = 30 * 24 * 3_600;
+
 // ============================================================
 //  HELPERS
 // ============================================================
@@ -116,8 +124,6 @@ const DEFAULT_AMM_BPS:   u32 = 400;  // 4.00 % anual (liquidez AMM)
 /// The remainder term preserves precision lost in the integer division.
 fn calcular_yield_seguro(capital: i128, bps: i128, minutos: i128) -> i128 {
     const MINUTOS_ANO: i128 = 525_600;
-    // Divide before multiply to prevent overflow: (capital / MINUTOS_ANO) * bps * minutos / 10_000
-    // Order chosen to keep intermediate values small while preserving precision
     (capital / MINUTOS_ANO) * bps / 10_000 * minutos
         + (capital % MINUTOS_ANO) * bps / 10_000 * minutos / MINUTOS_ANO
 }
@@ -137,13 +143,6 @@ impl BimexContrato {
     /// Parámetros de producción:
     ///   yield_cetes_bps = 945  (9.45% APY — CETES / Etherfuse Stablebonds)
     ///   yield_amm_bps   = 400  (4.00% APY — AMM de Stellar)
-    ///
-    /// Ejemplo (Testnet):
-    ///   stellar contract invoke --id <CONTRACT_ID> --source <ADMIN> \
-    ///     --network testnet -- inicializar \
-    ///     --admin <ADMIN_ADDRESS> \
-    ///     --token_mxne <MXNE_SAC_ADDRESS> \
-    ///     --yield_cetes_bps 945 --yield_amm_bps 400
     pub fn inicializar(
         env: Env,
         admin: Address,
@@ -166,7 +165,8 @@ impl BimexContrato {
     /// Crea un nuevo proyecto en estado EnRevision.
     ///
     /// `meta` se expresa en stroops (1 MXNe = 10_000_000 stroops).
-    /// `doc_hash` es el SHA-256 de 32 bytes del documento del proyecto.
+    /// `doc_cid` es el CID de IPFS o el SHA-256 hex de los documentos del proyecto.
+    /// `tiempo_meses` es el plazo máximo de recaudación (1–120 meses).
     /// Retorna el ID asignado al proyecto.
     pub fn crear_proyecto(
         env: Env,
@@ -174,11 +174,16 @@ impl BimexContrato {
         nombre: String,
         meta: i128,
         doc_cid: String,
+        tiempo_meses: u32,
     ) -> u32 {
         dueno.require_auth();
         assert!(meta > 0, "La meta debe ser mayor a 0");
+        assert!(tiempo_meses >= 1 && tiempo_meses <= 120, "El tiempo debe estar entre 1 y 120 meses");
 
         let id: u32 = env.storage().instance().get(&Clave::ContadorProyectos).unwrap_or(0);
+
+        let ahora = env.ledger().timestamp();
+        let timestamp_vencimiento = ahora + (tiempo_meses as u64) * SEGUNDOS_POR_MES;
 
         let proyecto = Proyecto {
             dueno,
@@ -187,7 +192,9 @@ impl BimexContrato {
             total_aportado: 0,
             yield_entregado: 0,
             estado: EstadoProyecto::EnRevision,
-            timestamp_inicio: env.ledger().timestamp(),
+            timestamp_inicio: ahora,
+            timestamp_vencimiento,
+            tiempo_meses,
             capital_en_cetes: 0,
             yield_cetes_acumulado: 0,
             capital_en_amm: 0,
@@ -208,6 +215,7 @@ impl BimexContrato {
     /// - El capital se divide 50/50 entre CETES y AMM.
     /// - Si total_aportado >= meta, el proyecto pasa a estado Liberado.
     /// - Top-ups preservan el timestamp original del backer.
+    /// - No se aceptan contribuciones si el plazo de recaudación ya venció.
     pub fn contribuir(env: Env, backer: Address, id_proyecto: u32, cantidad: i128) {
         // AUTH FIRST
         backer.require_auth();
@@ -223,6 +231,13 @@ impl BimexContrato {
             "El proyecto no acepta fondos"
         );
 
+        // No contributions after deadline
+        let ahora = env.ledger().timestamp();
+        assert!(
+            ahora < proyecto.timestamp_vencimiento,
+            "El plazo de recaudacion ha vencido"
+        );
+
         // Cap contribution to prevent overfunding
         let restante = proyecto.meta - proyecto.total_aportado;
         assert!(restante > 0, "El proyecto ya alcanzo su meta");
@@ -231,7 +246,6 @@ impl BimexContrato {
         let aportacion_existente: Option<Aportacion> = env
             .storage().persistent().get(&Clave::Aportacion(id_proyecto, backer.clone()));
 
-        let ahora = env.ledger().timestamp();
         // Preserve original timestamp on top-up to avoid yield clock reset
         let nueva_aportacion = match aportacion_existente {
             Some(a) => Aportacion { cantidad: a.cantidad + cantidad, timestamp: a.timestamp },
@@ -326,7 +340,6 @@ impl BimexContrato {
         // AUTH FIRST — before any other logic
         proyecto.dueno.require_auth();
 
-        // Only active projects with funds can yield
         assert!(
             proyecto.estado == EstadoProyecto::EnProgreso ||
             proyecto.estado == EstadoProyecto::Liberado,
@@ -364,8 +377,13 @@ impl BimexContrato {
 
     /// Devuelve el principal íntegro al backer.
     ///
-    /// Solo válido en estado Liberado o Abandonado.
-    /// Elimina la Aportacion del storage y reduce total_aportado.
+    /// Válido cuando:
+    ///   - El proyecto está en estado Liberado o Abandonado, O
+    ///   - El plazo de recaudación ha vencido (timestamp >= timestamp_vencimiento)
+    ///     aunque el proyecto no haya alcanzado la meta.
+    ///
+    /// En el caso de vencimiento sin meta, el yield acumulado hasta ese momento
+    /// ya fue o puede ser reclamado por el dueño vía `reclamar_yield`.
     /// Retorna el monto retirado en stroops.
     pub fn retirar_principal(env: Env, backer: Address, id_proyecto: u32) -> i128 {
         // AUTH FIRST
@@ -375,10 +393,16 @@ impl BimexContrato {
             .storage().persistent().get(&Clave::Proyecto(id_proyecto))
             .expect("Proyecto no existe");
 
+        let ahora = env.ledger().timestamp();
+        let plazo_vencido = ahora >= proyecto.timestamp_vencimiento &&
+            (proyecto.estado == EstadoProyecto::EtapaInicial ||
+             proyecto.estado == EstadoProyecto::EnProgreso);
+
         assert!(
-            proyecto.estado == EstadoProyecto::Liberado ||
-            proyecto.estado == EstadoProyecto::Abandonado,
-            "Solo puedes retirar cuando el proyecto este liberado o abandonado"
+            proyecto.estado == EstadoProyecto::Liberado  ||
+            proyecto.estado == EstadoProyecto::Abandonado ||
+            plazo_vencido,
+            "Solo puedes retirar cuando el proyecto este liberado, abandonado o haya vencido el plazo"
         );
 
         let aportacion: Aportacion = env
@@ -412,6 +436,66 @@ impl BimexContrato {
         monto
     }
 
+    /// Retiro anticipado — el backer sale antes del vencimiento y antes de que
+    /// el proyecto sea Liberado.
+    ///
+    /// Devuelve el 100 % del capital aportado. El yield que el backer habría
+    /// generado durante el tiempo restante se queda en el proyecto para que
+    /// el dueño lo reclame vía `reclamar_yield`.
+    ///
+    /// No es posible llamar esta función si el plazo ya venció (usa
+    /// `retirar_principal` en ese caso) ni si el proyecto ya está Liberado
+    /// o Abandonado.
+    pub fn retiro_anticipado(env: Env, backer: Address, id_proyecto: u32) -> i128 {
+        // AUTH FIRST
+        backer.require_auth();
+
+        let mut proyecto: Proyecto = env
+            .storage().persistent().get(&Clave::Proyecto(id_proyecto))
+            .expect("Proyecto no existe");
+
+        assert!(
+            proyecto.estado == EstadoProyecto::EtapaInicial ||
+            proyecto.estado == EstadoProyecto::EnProgreso,
+            "El retiro anticipado solo aplica a proyectos activos"
+        );
+
+        let ahora = env.ledger().timestamp();
+        assert!(
+            ahora < proyecto.timestamp_vencimiento,
+            "El plazo ya vencio, usa retirar_principal"
+        );
+
+        let aportacion: Aportacion = env
+            .storage().persistent().get(&Clave::Aportacion(id_proyecto, backer.clone()))
+            .expect("No tienes aportacion en este proyecto");
+
+        assert!(aportacion.cantidad > 0, "Principal ya retirado");
+
+        let monto = aportacion.cantidad;
+
+        // EFFECTS first — yield acumulado se queda en el proyecto
+        env.storage().persistent().remove(&Clave::Aportacion(id_proyecto, backer.clone()));
+        proyecto.total_aportado -= monto;
+
+        let mitad = monto / 2;
+        proyecto.capital_en_cetes = proyecto.capital_en_cetes.saturating_sub(mitad);
+        proyecto.capital_en_amm   = proyecto.capital_en_amm.saturating_sub(monto - mitad);
+
+        if proyecto.total_aportado == 0 {
+            proyecto.estado = EstadoProyecto::EtapaInicial;
+        }
+
+        env.storage().persistent().set(&Clave::Proyecto(id_proyecto), &proyecto);
+
+        // INTERACTION last — devolver solo capital
+        let token_mxne: Address = env.storage().instance().get(&Clave::TokenMXNe).unwrap();
+        let token = token::Client::new(&env, &token_mxne);
+        token.transfer(&env.current_contract_address(), &backer, &monto);
+
+        monto
+    }
+
     /// Marca el proyecto como Abandonado. Solo el dueño puede llamarlo.
     /// Válido en EtapaInicial, EnProgreso o Liberado.
     /// Tras esto, los backers pueden retirar su principal.
@@ -423,7 +507,6 @@ impl BimexContrato {
         // AUTH FIRST
         proyecto.dueno.require_auth();
 
-        // Only active projects can be abandoned
         assert!(
             proyecto.estado == EstadoProyecto::EtapaInicial ||
             proyecto.estado == EstadoProyecto::EnProgreso   ||

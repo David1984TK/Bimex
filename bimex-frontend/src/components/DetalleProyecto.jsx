@@ -4,6 +4,7 @@ import { parsearError } from "../utils/errores.js";
 import {
   contribuir as contribuirContrato,
   retirarPrincipal as retirarPrincipalContrato,
+  retiroAnticipado as retiroAnticipadoContrato,
   reclamarYield as reclamarYieldContrato,
   abandonarProyecto as abandonarProyectoContrato,
   solicitarContinuar as solicitarContinuarContrato,
@@ -91,6 +92,13 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
   const esDueno      = direccion === proyecto.dueno;
   const esAbandonado = estado === "Abandonado";
   const aceptaFondos = estado === "EtapaInicial" || estado === "EnProgreso";
+
+  const ahora = Math.floor(Date.now() / 1000);
+  const tsVencimiento = proyecto.timestamp_vencimiento ?? 0;
+  const plazoVencido  = tsVencimiento > 0 && ahora >= tsVencimiento;
+  const fechaVencimiento = tsVencimiento > 0
+    ? new Date(tsVencimiento * 1000).toLocaleDateString("es-MX", { year: "numeric", month: "short", day: "numeric" })
+    : null;
 
   const aportado   = Number(proyecto.aportado ?? 0);
   const meta       = Number(proyecto.meta ?? 0);
@@ -215,6 +223,20 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
     setCargando(false);
   }
 
+  async function manejarRetiroAnticipado() {
+    setCargando(true);
+    try {
+      await retiroAnticipadoContrato(direccion, proyecto.id);
+      onToast?.(t("detalle.toastWithdrawn", { amount: stroopsAMXNe(miAportacion) }));
+      setMiAportacion(BigInt(0));
+      setMiYield(BigInt(0));
+      await refrescar();
+    } catch (err) {
+      onError?.(err);
+    }
+    setCargando(false);
+  }
+
   async function manejarSolicitarContinuar() {
     setCargando(true);
     try {
@@ -295,6 +317,15 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
                     <label>{t("detalle.yieldAvailable")}</label>
                     <span className="green" style={{ fontFamily: "monospace", fontSize: "1.1rem" }}>
                       {stroopsAMXNe(yieldDueno)}
+                    </span>
+                  </div>
+                )}
+                {fechaVencimiento && (
+                  <div className="info-cell" style={{ gridColumn: "1 / -1" }}>
+                    <label>{t("detalle.deadline")}</label>
+                    <span style={{ fontFamily: "monospace", fontSize: "0.9rem", color: plazoVencido ? "var(--error)" : "var(--text)" }}>
+                      {fechaVencimiento}
+                      {plazoVencido && <span style={{ marginLeft: 8, fontSize: "0.78rem", color: "var(--error)", fontWeight: 600 }}>{t("detalle.expired")}</span>}
                     </span>
                   </div>
                 )}
@@ -527,12 +558,33 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
                   </>
                 )}
 
-                {/* Capital bloqueado (no se puede retirar aún) */}
+                {/* Capital bloqueado o retiro anticipado disponible */}
                 {miAportacion > BigInt(0) && (estado === "EtapaInicial" || estado === "EnProgreso") && (
-                  <div className="locked-notice">
-                    <IconShield />
-                    <span>{t("detalle.locked")}</span>
-                  </div>
+                  plazoVencido ? (
+                    <div className="detail-banner detail-banner--amber" style={{ marginTop: 8 }}>
+                      <IconShield />
+                      <span>{t("detalle.expiredBanner")}</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="locked-notice">
+                        <IconShield />
+                        <span>{t("detalle.locked")}</span>
+                      </div>
+                      <button
+                        className="btn btn-ghost"
+                        style={{ width: "100%", justifyContent: "center", marginTop: 8, fontSize: "0.82rem", color: "var(--muted)" }}
+                        onClick={manejarRetiroAnticipado}
+                        disabled={cargando}
+                        title={t("detalle.earlyWithdrawTitle")}
+                      >
+                        {cargando ? t("detalle.processing") : t("detalle.earlyWithdraw")}
+                      </button>
+                      <p style={{ fontSize: "0.72rem", color: "var(--muted)", textAlign: "center", marginTop: 4 }}>
+                        {t("detalle.earlyWithdrawNote")}
+                      </p>
+                    </>
+                  )
                 )}
 
                 {/* Retirar capital */}

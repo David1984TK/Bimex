@@ -118,7 +118,13 @@
     "toastWithdrawn": "You withdrew {{amount}} to your wallet",
     "toastYield": "Yield claimed and sent to your wallet",
     "toastAbandoned": "Project marked as abandoned",
-    "toastContinued": "You are now the new project owner"
+    "toastContinued": "You are now the new project owner",
+    "deadline": "Fundraising deadline",
+    "expired": "Expired",
+    "expiredBanner": "Deadline passed. You can withdraw your capital.",
+    "earlyWithdraw": "Early withdrawal",
+    "earlyWithdrawTitle": "You recover your full capital; accumulated yield stays in the project",
+    "earlyWithdrawNote": "You recover 100% of your capital. Yield generated to date is donated to the project."
   },
   "crear": {
     "title": "Register project",

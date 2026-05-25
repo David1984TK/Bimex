@@ -5,9 +5,14 @@ use soroban_sdk::{
     Env, String,
 };
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 fn doc_cid_vacio(env: &Env) -> String {
     String::from_str(env, "")
 }
+
+/// 6 meses en segundos — plazo por defecto en la mayoría de los tests
+const PLAZO_6_MESES: u64 = 6 * 30 * 24 * 3_600; // 15_552_000 s
 
 fn setup() -> (Env, BimexContratoClient<'static>, Address, Address, Address) {
     let env = Env::default();
@@ -89,6 +94,7 @@ fn test_flujo_completo() {
         &String::from_str(&env, "Huerto comunitario CDMX"),
         &200_000_000i128,
         &String::from_str(&env, ""),
+        &6u32,
     );
     assert_eq!(id, 0);
     assert_eq!(cliente.obtener_proyecto(&id).estado, EstadoProyecto::EnRevision);
@@ -125,7 +131,7 @@ fn test_flujo_completo() {
 fn test_estado_capital() {
     let (env, cliente, _admin, dueno, backer) = setup();
 
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test capital"), &10_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test capital"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
     // Overfunding cap: only 10M accepted even though 200M sent
     cliente.contribuir(&backer, &id, &200_000_000i128);
@@ -140,7 +146,7 @@ fn test_estado_capital() {
 fn test_abandonar_y_continuar() {
     let (env, cliente, _admin, dueno, backer) = setup();
 
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Proyecto prueba"), &10_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Proyecto prueba"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
     cliente.abandonar_proyecto(&id);
 
@@ -157,7 +163,7 @@ fn test_abandonar_y_continuar() {
 fn test_meta_alcanzada() {
     let (env, cliente, _admin, dueno, backer) = setup();
 
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Meta exacta"), &100_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Meta exacta"), &100_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
     cliente.contribuir(&backer, &id, &100_000_000i128);
 
@@ -168,12 +174,128 @@ fn test_meta_alcanzada() {
 fn test_crear_multiples_proyectos() {
     let (env, cliente, _admin, dueno, _backer) = setup();
 
-    let id0 = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Proyecto A"), &10_000_000i128, &doc_cid_vacio(&env));
-    let id1 = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Proyecto B"), &20_000_000i128, &doc_cid_vacio(&env));
+    let id0 = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Proyecto A"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    let id1 = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Proyecto B"), &20_000_000i128, &doc_cid_vacio(&env), &12u32);
 
     assert_eq!(id0, 0);
     assert_eq!(id1, 1);
     assert_eq!(cliente.total_proyectos(), 2);
+}
+
+// ============================================================
+//  TIEMPO Y VENCIMIENTO
+// ============================================================
+
+/// El proyecto almacena correctamente tiempo_meses y timestamp_vencimiento
+#[test]
+fn test_tiempo_meses_almacenado() {
+    let (env, cliente, _admin, dueno, _backer) = setup();
+
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Plazo 3 meses"), &10_000_000i128, &doc_cid_vacio(&env), &3u32);
+    let p = cliente.obtener_proyecto(&id);
+
+    assert_eq!(p.tiempo_meses, 3u32);
+    // timestamp_inicio = 0 (ledger starts at 0), vencimiento = 3 * 30 * 24 * 3600
+    let esperado: u64 = 3 * 30 * 24 * 3_600;
+    assert_eq!(p.timestamp_vencimiento, esperado);
+}
+
+/// No se pueden hacer contribuciones después del vencimiento
+#[test]
+#[should_panic(expected = "El plazo de recaudacion ha vencido")]
+fn test_contribuir_despues_de_vencimiento_falla() {
+    let (env, cliente, _admin, dueno, backer) = setup();
+
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Plazo corto"), &100_000_000i128, &doc_cid_vacio(&env), &1u32);
+    cliente.admin_aprobar(&id);
+
+    // Avanzar más allá del vencimiento (1 mes = 2_592_000 s)
+    env.ledger().with_mut(|l| l.timestamp = 2_592_001);
+    cliente.contribuir(&backer, &id, &10_000_000i128);
+}
+
+/// Después del vencimiento el backer puede retirar principal aunque el proyecto
+/// no haya alcanzado la meta
+#[test]
+fn test_retiro_despues_de_vencimiento() {
+    let (env, cliente, _admin, dueno, backer) = setup();
+
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Vence sin meta"), &500_000_000i128, &doc_cid_vacio(&env), &1u32);
+    cliente.admin_aprobar(&id);
+    cliente.contribuir(&backer, &id, &100_000_000i128);
+
+    assert_eq!(cliente.obtener_proyecto(&id).estado, EstadoProyecto::EnProgreso);
+
+    // Avanzar más allá del vencimiento
+    env.ledger().with_mut(|l| l.timestamp = 2_592_001);
+
+    let monto = cliente.retirar_principal(&backer, &id);
+    assert_eq!(monto, 100_000_000i128);
+    assert_eq!(cliente.obtener_proyecto(&id).total_aportado, 0);
+}
+
+/// `retiro_anticipado` devuelve el 100 % del capital antes del vencimiento
+#[test]
+fn test_retiro_anticipado_devuelve_capital() {
+    let (env, cliente, _admin, dueno, backer) = setup();
+
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Retiro anticipado"), &500_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.admin_aprobar(&id);
+    cliente.contribuir(&backer, &id, &100_000_000i128);
+
+    // Avanzar 30 min (dentro del plazo de 6 meses)
+    env.ledger().with_mut(|l| l.timestamp = 30 * 60);
+
+    let monto = cliente.retiro_anticipado(&backer, &id);
+    assert_eq!(monto, 100_000_000i128);
+
+    let p = cliente.obtener_proyecto(&id);
+    assert_eq!(p.total_aportado, 0);
+    assert_eq!(p.estado, EstadoProyecto::EtapaInicial);
+}
+
+/// `retiro_anticipado` no es posible después del vencimiento
+#[test]
+#[should_panic(expected = "El plazo ya vencio, usa retirar_principal")]
+fn test_retiro_anticipado_despues_de_vencimiento_falla() {
+    let (env, cliente, _admin, dueno, backer) = setup();
+
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Plazo corto"), &500_000_000i128, &doc_cid_vacio(&env), &1u32);
+    cliente.admin_aprobar(&id);
+    cliente.contribuir(&backer, &id, &100_000_000i128);
+
+    env.ledger().with_mut(|l| l.timestamp = 2_592_001);
+    cliente.retiro_anticipado(&backer, &id);
+}
+
+/// `retiro_anticipado` no aplica a proyectos Liberados
+#[test]
+#[should_panic(expected = "El retiro anticipado solo aplica a proyectos activos")]
+fn test_retiro_anticipado_proyecto_liberado_falla() {
+    let (env, cliente, _admin, dueno, backer) = setup();
+
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Liberado"), &100_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.admin_aprobar(&id);
+    cliente.contribuir(&backer, &id, &100_000_000i128);
+
+    assert_eq!(cliente.obtener_proyecto(&id).estado, EstadoProyecto::Liberado);
+    cliente.retiro_anticipado(&backer, &id);
+}
+
+/// tiempo_meses = 0 es inválido
+#[test]
+#[should_panic(expected = "El tiempo debe estar entre 1 y 120 meses")]
+fn test_tiempo_meses_cero_falla() {
+    let (env, cliente, _admin, dueno, _backer) = setup();
+    cliente.crear_proyecto(&dueno, &String::from_str(&env, "Sin plazo"), &10_000_000i128, &doc_cid_vacio(&env), &0u32);
+}
+
+/// tiempo_meses > 120 es inválido
+#[test]
+#[should_panic(expected = "El tiempo debe estar entre 1 y 120 meses")]
+fn test_tiempo_meses_excesivo_falla() {
+    let (env, cliente, _admin, dueno, _backer) = setup();
+    cliente.crear_proyecto(&dueno, &String::from_str(&env, "Demasiado largo"), &10_000_000i128, &doc_cid_vacio(&env), &121u32);
 }
 
 // ============================================================
@@ -185,9 +307,8 @@ fn test_crear_multiples_proyectos() {
 #[should_panic(expected = "El proyecto no esta activo")]
 fn test_vul01_yield_bloqueado_en_revision() {
     let (env, cliente, _admin, dueno, _backer) = setup();
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &10_000_000i128, &doc_cid_vacio(&env));
-    // Project is EnRevision — yield claim must panic
-    env.ledger().with_mut(|l| l.timestamp = 525_600 * 60); // 1 year
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    env.ledger().with_mut(|l| l.timestamp = 525_600 * 60);
     cliente.reclamar_yield(&id);
 }
 
@@ -196,10 +317,10 @@ fn test_vul01_yield_bloqueado_en_revision() {
 #[should_panic(expected = "El proyecto no esta activo")]
 fn test_vul01b_yield_bloqueado_rechazado() {
     let (env, cliente, admin, dueno, _backer) = setup();
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &10_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_rechazar(&id, &String::from_str(&env, "Documentos invalidos"));
     env.ledger().with_mut(|l| l.timestamp = 525_600 * 60);
-    let _ = admin; // suppress unused warning
+    let _ = admin;
     cliente.reclamar_yield(&id);
 }
 
@@ -208,7 +329,7 @@ fn test_vul01b_yield_bloqueado_rechazado() {
 #[should_panic(expected = "El proyecto no esta activo")]
 fn test_vul01c_yield_bloqueado_abandonado() {
     let (env, cliente, _admin, dueno, _backer) = setup();
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &10_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
     cliente.abandonar_proyecto(&id);
     env.ledger().with_mut(|l| l.timestamp = 525_600 * 60);
@@ -220,7 +341,7 @@ fn test_vul01c_yield_bloqueado_abandonado() {
 #[should_panic(expected = "El proyecto no puede ser abandonado en su estado actual")]
 fn test_vul02_no_abandonar_rechazado() {
     let (env, cliente, _admin, dueno, _backer) = setup();
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &10_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_rechazar(&id, &String::from_str(&env, "Motivo"));
     cliente.abandonar_proyecto(&id);
 }
@@ -230,8 +351,7 @@ fn test_vul02_no_abandonar_rechazado() {
 #[should_panic(expected = "El proyecto no puede ser abandonado en su estado actual")]
 fn test_vul02b_no_abandonar_en_revision() {
     let (env, cliente, _admin, dueno, _backer) = setup();
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &10_000_000i128, &doc_cid_vacio(&env));
-    // Still EnRevision — must not be abandonable
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.abandonar_proyecto(&id);
 }
 
@@ -239,13 +359,12 @@ fn test_vul02b_no_abandonar_en_revision() {
 #[test]
 fn test_vul03_overfunding_cap() {
     let (env, cliente, _admin, dueno, backer) = setup();
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &50_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &50_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
-    // Send 3x the meta
     cliente.contribuir(&backer, &id, &150_000_000i128);
 
     let p = cliente.obtener_proyecto(&id);
-    assert_eq!(p.total_aportado, 50_000_000i128); // capped at meta
+    assert_eq!(p.total_aportado, 50_000_000i128);
     assert_eq!(p.estado, EstadoProyecto::Liberado);
 }
 
@@ -253,19 +372,17 @@ fn test_vul03_overfunding_cap() {
 #[test]
 fn test_vul04_timestamp_preservado_en_topup() {
     let (env, cliente, _admin, dueno, backer) = setup();
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &200_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &200_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
 
-    // First contribution at t=0
     cliente.contribuir(&backer, &id, &50_000_000i128);
     let ts_original = cliente.obtener_aportacion(&id, &backer).timestamp;
     assert_eq!(ts_original, 0);
 
-    // Top-up at t=60s — timestamp must remain 0
     env.ledger().with_mut(|l| l.timestamp = 60);
     cliente.contribuir(&backer, &id, &50_000_000i128);
     let ts_despues = cliente.obtener_aportacion(&id, &backer).timestamp;
-    assert_eq!(ts_despues, 0); // must not have been reset to 60
+    assert_eq!(ts_despues, 0);
 }
 
 /// VUL-05: yield bps bounds enforced
@@ -275,10 +392,10 @@ fn test_vul05_yield_bps_cetes_excede_maximo() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let admin      = Address::generate(&env);
+    let admin       = Address::generate(&env);
     let token_admin = Address::generate(&env);
-    let token_id   = env.register_stellar_asset_contract_v2(token_admin);
-    let token_mxne = token_id.address();
+    let token_id    = env.register_stellar_asset_contract_v2(token_admin);
+    let token_mxne  = token_id.address();
 
     let contrato_id = env.register(BimexContrato, ());
     let cliente     = BimexContratoClient::new(&env, &contrato_id);
@@ -293,10 +410,10 @@ fn test_vul05b_yield_bps_amm_excede_maximo() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let admin      = Address::generate(&env);
+    let admin       = Address::generate(&env);
     let token_admin = Address::generate(&env);
-    let token_id   = env.register_stellar_asset_contract_v2(token_admin);
-    let token_mxne = token_id.address();
+    let token_id    = env.register_stellar_asset_contract_v2(token_admin);
+    let token_mxne  = token_id.address();
 
     let contrato_id = env.register(BimexContrato, ());
     let cliente     = BimexContratoClient::new(&env, &contrato_id);
@@ -308,34 +425,33 @@ fn test_vul05b_yield_bps_amm_excede_maximo() {
 #[test]
 fn test_vul06_continuar_resetea_timestamp() {
     let (env, cliente, _admin, dueno, backer) = setup();
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &10_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
 
-    // Advance time significantly before takeover
-    env.ledger().with_mut(|l| l.timestamp = 525_600 * 60); // 1 year
+    env.ledger().with_mut(|l| l.timestamp = 525_600 * 60);
     cliente.abandonar_proyecto(&id);
 
     let nuevo_dueno = Address::generate(&env);
+    let _ = backer;
     cliente.solicitar_continuar(&nuevo_dueno, &id);
 
-    // timestamp_inicio must be reset to now (1 year mark), not original 0
     let p = cliente.obtener_proyecto(&id);
     assert_eq!(p.timestamp_inicio, 525_600 * 60);
 }
 
-/// VUL-07: double withdrawal prevented — second retirar_principal must panic
+/// VUL-07: double withdrawal prevented
 #[test]
-#[should_panic(expected = "Solo puedes retirar cuando el proyecto este liberado o abandonado")]
+#[should_panic(expected = "Solo puedes retirar cuando el proyecto este liberado, abandonado o haya vencido el plazo")]
 fn test_vul07_no_doble_retiro() {
     let (env, cliente, _admin, dueno, backer) = setup();
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &100_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &100_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
     cliente.contribuir(&backer, &id, &100_000_000i128);
 
     assert_eq!(cliente.obtener_proyecto(&id).estado, EstadoProyecto::Liberado);
 
     cliente.retirar_principal(&backer, &id);
-    // Second call must panic — aportacion was removed
+    // Estado vuelve a EtapaInicial, plazo no vencido → debe panicar
     cliente.retirar_principal(&backer, &id);
 }
 
@@ -344,22 +460,21 @@ fn test_vul07_no_doble_retiro() {
 #[should_panic(expected = "El proyecto no acepta fondos")]
 fn test_vul08_no_contribuir_en_revision() {
     let (env, cliente, _admin, dueno, backer) = setup();
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &100_000_000i128, &doc_cid_vacio(&env));
-    // Not approved yet — must reject contribution
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &100_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.contribuir(&backer, &id, &10_000_000i128);
 }
 
-/// VUL-09: retirar_principal rejected on EnProgreso state
+/// VUL-09: retirar_principal rejected on EnProgreso state before vencimiento
 #[test]
-#[should_panic(expected = "Solo puedes retirar cuando el proyecto este liberado o abandonado")]
+#[should_panic(expected = "Solo puedes retirar cuando el proyecto este liberado, abandonado o haya vencido el plazo")]
 fn test_vul09_no_retirar_en_progreso() {
     let (env, cliente, _admin, dueno, backer) = setup();
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &200_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &200_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
     cliente.contribuir(&backer, &id, &50_000_000i128);
 
     assert_eq!(cliente.obtener_proyecto(&id).estado, EstadoProyecto::EnProgreso);
-    // Must not allow withdrawal while project is still in progress
+    // Plazo no vencido (timestamp=0, vencimiento=PLAZO_6_MESES) → debe panicar
     cliente.retirar_principal(&backer, &id);
 }
 
@@ -367,55 +482,41 @@ fn test_vul09_no_retirar_en_progreso() {
 //  TASAS REALES DE PRODUCCIÓN
 // ============================================================
 
-/// Verifica que las tasas de producción (CETES 945 bps, AMM 400 bps) producen
-/// el yield correcto a un año.  Con un proyecto de 1 000 MXNe (capital dividido
-/// 50 / 50 entre CETES y AMM):
-///   - 500 MXNe × 9.45 % ≈ 47.25 MXNe en CETES
-///   - 500 MXNe × 4.00 % ≈ 20.00 MXNe en AMM
-/// Se tolera un margen de ±2 MXNe por truncamiento en aritmética entera.
 #[test]
 fn test_yield_tasas_reales_produccion() {
     let (env, cliente, _admin, dueno, backer) = setup();
 
-    // 1 000 MXNe meta (1 000 000 000 stroops con 6 decimales)
     let meta: i128 = 1_000_000_000;
     let id = cliente.crear_proyecto(
         &dueno,
         &String::from_str(&env, "Produccion tasas reales"),
         &meta,
         &doc_cid_vacio(&env),
+        &12u32,
     );
     cliente.admin_aprobar(&id);
     cliente.contribuir(&backer, &id, &meta);
 
     assert_eq!(cliente.obtener_proyecto(&id).estado, EstadoProyecto::Liberado);
 
-    // Avanzar exactamente un año (525 600 minutos = 525 600 × 60 segundos)
     const SEGUNDOS_ANO: u64 = 525_600 * 60;
     env.ledger().with_mut(|l| l.timestamp = SEGUNDOS_ANO);
 
     let detalle = cliente.calcular_yield_detallado(&id);
 
-    // 500 MXNe a 9.45 % ≈ 47.25 MXNe → aceptamos [45, 49] MXNe
     assert!(
         detalle.cetes >= 45_000_000 && detalle.cetes <= 49_000_000,
-        "CETES yield anual fuera de rango esperado (~47.25 MXNe): {} stroops",
-        detalle.cetes
+        "CETES yield anual fuera de rango (~47.25 MXNe): {} stroops", detalle.cetes
     );
-
-    // 500 MXNe a 4.00 % ≈ 20.00 MXNe → aceptamos [18, 22] MXNe
     assert!(
         detalle.amm >= 18_000_000 && detalle.amm <= 22_000_000,
-        "AMM yield anual fuera de rango esperado (~20.00 MXNe): {} stroops",
-        detalle.amm
+        "AMM yield anual fuera de rango (~20.00 MXNe): {} stroops", detalle.amm
     );
-
-    // El total debe ser la suma exacta de ambas partes
     assert_eq!(detalle.total, detalle.cetes + detalle.amm);
 }
 
 // ============================================================
-//  EDGE CASE COVERAGE — PR #30 (JoesWalker)
+//  EDGE CASE COVERAGE
 // ============================================================
 
 #[test]
@@ -425,7 +526,7 @@ fn test_multiple_contributors_same_project() {
     let asset = StellarAssetClient::new(&env, &token_mxne);
     asset.mint(&backer2, &500_000_000i128);
 
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Multi backer"), &300_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Multi backer"), &300_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
     cliente.contribuir(&backer1, &id, &100_000_000i128);
     cliente.contribuir(&backer2, &id, &200_000_000i128);
@@ -444,7 +545,7 @@ fn test_multiple_contributors_same_project() {
 fn test_multiple_contributions_same_backer_accumulate() {
     let (env, cliente, _admin, dueno, backer) = setup();
 
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Acumulado"), &500_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Acumulado"), &500_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
     cliente.contribuir(&backer, &id, &100_000_000i128);
     cliente.contribuir(&backer, &id, &150_000_000i128);
@@ -458,7 +559,7 @@ fn test_multiple_contributions_same_backer_accumulate() {
 fn test_admin_rechazar_con_motivo() {
     let (env, cliente, _admin, dueno, _backer) = setup();
 
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Proyecto malo"), &10_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Proyecto malo"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_rechazar(&id, &String::from_str(&env, "Documentacion incompleta"));
 
     let p = cliente.obtener_proyecto(&id);
@@ -471,7 +572,7 @@ fn test_solicitar_continuar_con_fondos_existentes() {
     let (env, cliente, _admin, dueno, backer) = setup();
     let nuevo_dueno = Address::generate(&env);
 
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Con fondos"), &500_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Con fondos"), &500_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
     cliente.contribuir(&backer, &id, &100_000_000i128);
     cliente.abandonar_proyecto(&id);
@@ -486,7 +587,7 @@ fn test_solicitar_continuar_con_fondos_existentes() {
 fn test_retirar_principal_proyecto_abandonado() {
     let (env, cliente, _admin, dueno, backer) = setup();
 
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Abandonado"), &500_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Abandonado"), &500_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
     cliente.contribuir(&backer, &id, &100_000_000i128);
     cliente.abandonar_proyecto(&id);
@@ -499,7 +600,7 @@ fn test_retirar_principal_proyecto_abandonado() {
 fn test_yield_cero_sin_tiempo_transcurrido() {
     let (env, cliente, _admin, dueno, backer) = setup();
 
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Sin tiempo"), &500_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Sin tiempo"), &500_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
     cliente.contribuir(&backer, &id, &100_000_000i128);
 
@@ -514,7 +615,7 @@ fn test_yield_cero_sin_tiempo_transcurrido() {
 fn test_capital_distribucion_impar() {
     let (env, cliente, _admin, dueno, backer) = setup();
 
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Impar"), &500_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Impar"), &500_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
     cliente.contribuir(&backer, &id, &101i128);
 
@@ -527,7 +628,7 @@ fn test_capital_distribucion_impar() {
 fn test_retirar_todos_los_fondos_vuelve_a_etapa_inicial() {
     let (env, cliente, _admin, dueno, backer) = setup();
 
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Reset"), &500_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Reset"), &500_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
     cliente.contribuir(&backer, &id, &100_000_000i128);
     assert_eq!(cliente.obtener_proyecto(&id).estado, EstadoProyecto::EnProgreso);
@@ -545,7 +646,7 @@ fn test_retirar_todos_los_fondos_vuelve_a_etapa_inicial() {
 #[should_panic(expected = "El proyecto no acepta fondos")]
 fn test_contribuir_proyecto_en_revision_falla() {
     let (env, cliente, _admin, dueno, backer) = setup();
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "En revision"), &100_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "En revision"), &100_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.contribuir(&backer, &id, &10_000_000i128);
 }
 
@@ -553,7 +654,7 @@ fn test_contribuir_proyecto_en_revision_falla() {
 #[should_panic(expected = "El proyecto no acepta fondos")]
 fn test_contribuir_proyecto_rechazado_falla() {
     let (env, cliente, _admin, dueno, backer) = setup();
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Rechazado"), &100_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Rechazado"), &100_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_rechazar(&id, &String::from_str(&env, "Fraude"));
     cliente.contribuir(&backer, &id, &10_000_000i128);
 }
@@ -562,17 +663,17 @@ fn test_contribuir_proyecto_rechazado_falla() {
 #[should_panic(expected = "El proyecto no acepta fondos")]
 fn test_contribuir_proyecto_liberado_falla() {
     let (env, cliente, _admin, dueno, backer) = setup();
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Liberado"), &100_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Liberado"), &100_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
     cliente.contribuir(&backer, &id, &100_000_000i128);
     cliente.contribuir(&backer, &id, &10_000_000i128);
 }
 
 #[test]
-#[should_panic(expected = "Solo puedes retirar cuando el proyecto este liberado o abandonado")]
+#[should_panic(expected = "Solo puedes retirar cuando el proyecto este liberado, abandonado o haya vencido el plazo")]
 fn test_retirar_principal_en_progreso_falla() {
     let (env, cliente, _admin, dueno, backer) = setup();
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "En progreso"), &500_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "En progreso"), &500_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
     cliente.contribuir(&backer, &id, &100_000_000i128);
     cliente.retirar_principal(&backer, &id);
@@ -582,7 +683,7 @@ fn test_retirar_principal_en_progreso_falla() {
 #[should_panic(expected = "Solo se pueden aprobar proyectos en revision")]
 fn test_admin_aprobar_proyecto_ya_aprobado_falla() {
     let (env, cliente, _admin, dueno, _backer) = setup();
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Doble aprobacion"), &100_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Doble aprobacion"), &100_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
     cliente.admin_aprobar(&id);
 }
@@ -591,7 +692,7 @@ fn test_admin_aprobar_proyecto_ya_aprobado_falla() {
 #[should_panic(expected = "Solo se pueden rechazar proyectos en revision")]
 fn test_admin_rechazar_proyecto_aprobado_falla() {
     let (env, cliente, _admin, dueno, _backer) = setup();
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Rechazar aprobado"), &100_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Rechazar aprobado"), &100_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
     cliente.admin_rechazar(&id, &String::from_str(&env, "Tarde"));
 }
@@ -600,7 +701,7 @@ fn test_admin_rechazar_proyecto_aprobado_falla() {
 #[should_panic(expected = "Solo puedes continuar proyectos abandonados")]
 fn test_solicitar_continuar_proyecto_activo_falla() {
     let (env, cliente, _admin, dueno, backer) = setup();
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Activo"), &100_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Activo"), &100_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
     cliente.solicitar_continuar(&backer, &id);
 }
@@ -616,14 +717,14 @@ fn test_inicializar_dos_veces_falla() {
 #[should_panic(expected = "La meta debe ser mayor a 0")]
 fn test_crear_proyecto_meta_cero_falla() {
     let (env, cliente, _admin, dueno, _backer) = setup();
-    cliente.crear_proyecto(&dueno, &String::from_str(&env, "Meta cero"), &0i128, &doc_cid_vacio(&env));
+    cliente.crear_proyecto(&dueno, &String::from_str(&env, "Meta cero"), &0i128, &doc_cid_vacio(&env), &6u32);
 }
 
 #[test]
 #[should_panic(expected = "Cantidad debe ser mayor a 0")]
 fn test_contribuir_cantidad_cero_falla() {
     let (env, cliente, _admin, dueno, backer) = setup();
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Cero"), &100_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Cero"), &100_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
     cliente.contribuir(&backer, &id, &0i128);
 }
@@ -632,14 +733,12 @@ fn test_contribuir_cantidad_cero_falla() {
 #[should_panic(expected = "Aun no hay yield suficiente acumulado")]
 fn test_reclamar_yield_cero_falla() {
     let (env, cliente, _admin, dueno, backer) = setup();
-    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Sin yield"), &500_000_000i128, &doc_cid_vacio(&env));
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Sin yield"), &500_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
     cliente.contribuir(&backer, &id, &100_000_000i128);
     cliente.reclamar_yield(&id);
 }
 
-/// Confirma que el yield a 1 año NO alcanza las magnitudes de las antiguas tasas demo
-/// (CETES 25 000 bps ≈ 2 500 MXNe, AMM 10 000 bps ≈ 1 000 MXNe sobre 500 MXNe).
 #[test]
 fn test_yield_no_es_demo_exagerado() {
     let (env, cliente, _admin, dueno, backer) = setup();
@@ -650,6 +749,7 @@ fn test_yield_no_es_demo_exagerado() {
         &String::from_str(&env, "Anti-demo check"),
         &meta,
         &doc_cid_vacio(&env),
+        &12u32,
     );
     cliente.admin_aprobar(&id);
     cliente.contribuir(&backer, &id, &meta);
@@ -659,7 +759,6 @@ fn test_yield_no_es_demo_exagerado() {
 
     let detalle = cliente.calcular_yield_detallado(&id);
 
-    // Con 25 000 bps, 500 MXNe produciría ~1 250 MXNe — muy por encima del límite sano
-    assert!(detalle.cetes < 100_000_000, "CETES yield parece estar usando tasa demo: {} stroops", detalle.cetes);
-    assert!(detalle.amm   < 100_000_000, "AMM yield parece estar usando tasa demo: {} stroops", detalle.amm);
+    assert!(detalle.cetes < 100_000_000, "CETES parece tasa demo: {} stroops", detalle.cetes);
+    assert!(detalle.amm   < 100_000_000, "AMM parece tasa demo: {} stroops",   detalle.amm);
 }

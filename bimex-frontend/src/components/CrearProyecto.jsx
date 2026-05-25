@@ -267,7 +267,8 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
     setError("");
     try {
       const metaStroops = mxneAStroops(Number(forma.meta));
-      await crearProyectoContrato(direccion, forma.nombre, metaStroops, docCid);
+      const meses = Math.max(1, Math.min(120, Number(forma.tiempoMeses) || 6));
+      await crearProyectoContrato(direccion, forma.nombre, metaStroops, docCid, meses);
       onCreado();
     } catch (err) {
       setError(parsearError(err));
