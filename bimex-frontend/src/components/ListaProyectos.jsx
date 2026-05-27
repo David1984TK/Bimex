@@ -40,6 +40,18 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
   useEffect(() => { cargar(); }, [refrescar]);
   useEffect(() => { setVisibles(12); }, [filtro]);
 
+  useEffect(() => {
+    const url = import.meta.env.VITE_INDEXER_URL;
+    if (!url) return;
+    const es = new EventSource(`${url}/sse`);
+    const recargar = () => cargar();
+    es.addEventListener('proyecto_actualizado', recargar);
+    es.addEventListener('nueva_contribucion', recargar);
+    es.addEventListener('yield_reclamado', recargar);
+    es.onerror = () => es.close();
+    return () => es.close();
+  }, []);
+
   const proyectosPublicos = proyectos.filter(p => !ESTADOS_OCULTOS.has(p.estado));
   const totalBloqueado = proyectosPublicos.reduce((s, p) => {
     try { return s + BigInt(p.aportado ?? 0); } catch { return s; }
