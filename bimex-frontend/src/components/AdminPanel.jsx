@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { crearThrottle } from "../utils/throttle.js";
 import {
   obtenerTodosLosProyectos,
   aprobarProyecto,
@@ -69,6 +70,8 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
   // rechazando: { [idProyecto]: { motivo: string, enviando: boolean } }
   const [rechazando, setRechazando] = useState({});
 
+  const throttleAdmin = useRef(crearThrottle(3000)).current;
+
   const modalRef = useRef(null);
   const botonAbrioRef = useRef(document.activeElement);
 
@@ -136,11 +139,17 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
 
   async function manejarAprobar(idProyecto) {
     try {
-      await aprobarProyecto(direccion, idProyecto);
-      mostrarToast(t("admin.toastApproved", { id: idProyecto }));
-      await cargarPendientes();
+      await throttleAdmin.ejecutar(async () => {
+        await aprobarProyecto(direccion, idProyecto);
+        mostrarToast(t("admin.toastApproved", { id: idProyecto }));
+        await cargarPendientes();
+      });
     } catch (err) {
-      mostrarToast(parsearError(err), "error");
+      if (err.message.includes("espera")) {
+        mostrarToast(err.message, "info");
+      } else {
+        mostrarToast(parsearError(err), "error");
+      }
     }
   }
 
@@ -173,16 +182,21 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
     if (!estadoActual || !estadoActual.motivo.trim()) return;
 
     const motivo = estadoActual.motivo;
-    setRechazando((prev) => ({ ...prev, [idProyecto]: { ...prev[idProyecto], enviando: true } }));
-
     try {
-      await rechazarProyecto(direccion, idProyecto, motivo);
-      mostrarToast(t("admin.toastRejected", { id: idProyecto }));
-      cancelarRechazo(idProyecto);
-      await cargarPendientes();
+      await throttleAdmin.ejecutar(async () => {
+        setRechazando((prev) => ({ ...prev, [idProyecto]: { ...prev[idProyecto], enviando: true } }));
+        await rechazarProyecto(direccion, idProyecto, motivo);
+        mostrarToast(t("admin.toastRejected", { id: idProyecto }));
+        cancelarRechazo(idProyecto);
+        await cargarPendientes();
+      });
     } catch (err) {
-      mostrarToast(parsearError(err), "error");
-      setRechazando((prev) => ({ ...prev, [idProyecto]: { ...prev[idProyecto], enviando: false } }));
+      if (err.message.includes("espera")) {
+        mostrarToast(err.message, "info");
+      } else {
+        mostrarToast(parsearError(err), "error");
+        setRechazando((prev) => ({ ...prev, [idProyecto]: { ...prev[idProyecto], enviando: false } }));
+      }
     }
   }
 
@@ -343,7 +357,7 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
                               className="btn"
                               style={{ flex: 2, justifyContent: "center", background: "#DC2626", color: "#fff" }}
                               onClick={() => confirmarRechazo(proyecto.id)}
-                              disabled={estadoRechazo.enviando || !estadoRechazo.motivo.trim()}
+                              disabled={estadoRechazo.enviando || !estadoRechazo.motivo.trim() || throttleAdmin.estaBloqueado()}
                             >
                               {estadoRechazo.enviando ? t("admin.processing") : t("admin.confirmReject")}
                             </button>
@@ -356,6 +370,7 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
                             className="btn btn-primary"
                             style={{ flex: 1, minWidth: "120px", justifyContent: "center" }}
                             onClick={() => manejarAprobar(proyecto.id)}
+                            disabled={throttleAdmin.estaBloqueado()}
                           >
                             {t("admin.approve")}
                           </button>
