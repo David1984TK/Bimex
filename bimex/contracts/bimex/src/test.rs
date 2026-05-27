@@ -11,8 +11,6 @@ fn doc_cid_vacio(env: &Env) -> String {
     String::from_str(env, "")
 }
 
-/// 6 meses en segundos — plazo por defecto en la mayoría de los tests
-const PLAZO_6_MESES: u64 = 6 * 30 * 24 * 3_600; // 15_552_000 s
 
 fn setup() -> (Env, BimexContratoClient<'static>, Address, Address, Address) {
     let env = Env::default();
@@ -761,4 +759,78 @@ fn test_yield_no_es_demo_exagerado() {
 
     assert!(detalle.cetes < 100_000_000, "CETES parece tasa demo: {} stroops", detalle.cetes);
     assert!(detalle.amm   < 100_000_000, "AMM parece tasa demo: {} stroops",   detalle.amm);
+}
+
+// ============================================================
+//  TTL TESTS
+// ============================================================
+
+#[test]
+fn test_extend_ttl() {
+    let (env, cliente, _admin, dueno, backer) = setup();
+
+    // El contrato inicialmente extiende el TTL de la instancia en inicializar().
+    // Podemos verificar que la instancia existe.
+    env.as_contract(&cliente.address, || {
+        assert!(env.storage().instance().has(&Clave::Admin));
+    });
+
+    // Crear un proyecto extiende TTL de instancia y proyecto
+    let id = cliente.crear_proyecto(
+        &dueno,
+        &String::from_str(&env, "Proyecto TTL"),
+        &100_000_000i128,
+        &doc_cid_vacio(&env),
+        &6u32,
+    );
+
+    // Contribuir extiende TTL de instancia, proyecto y aportación
+    cliente.admin_aprobar(&id);
+    cliente.contribuir(&backer, &id, &10_000_000i128);
+
+    // Verificar que las entradas existen después de las operaciones
+    env.as_contract(&cliente.address, || {
+        assert!(env.storage().persistent().has(&Clave::Proyecto(id)));
+        assert!(env.storage().persistent().has(&Clave::Aportacion(id, backer)));
+    });
+
+    // Nota: El entorno de tests de Soroban no permite verificar el valor exacto del TTL
+    // fácilmente sin usar APIs internas experimentales, pero el hecho de que las
+    // llamadas no fallen y el estado se mantenga es la verificación básica.
+}
+
+// ============================================================
+//  ADMIN ROTATION TESTS
+// ============================================================
+
+#[test]
+fn test_admin_cambiar_admin_exito() {
+    let (env, cliente, admin, dueno, _backer) = setup();
+    let nuevo_admin = Address::generate(&env);
+
+    cliente.admin_cambiar_admin(&admin, &nuevo_admin);
+
+    // Verificar que el nuevo admin puede aprobar
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Proyecto A"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.admin_aprobar(&id);
+
+    let p = cliente.obtener_proyecto(&id);
+    assert_eq!(p.estado, EstadoProyecto::EtapaInicial);
+}
+
+#[test]
+#[should_panic(expected = "Solo el admin actual puede transferir el rol")]
+fn test_admin_cambiar_admin_no_autorizado() {
+    let (env, cliente, _admin, dueno, _backer) = setup();
+    let nuevo_admin = Address::generate(&env);
+
+    // dueno no es admin
+    cliente.admin_cambiar_admin(&dueno, &nuevo_admin);
+}
+
+#[test]
+#[should_panic(expected = "El nuevo admin debe ser diferente")]
+fn test_admin_cambiar_admin_mismo_admin_falla() {
+    let (_env, cliente, admin, _dueno, _backer) = setup();
+    cliente.admin_cambiar_admin(&admin, &admin);
 }
