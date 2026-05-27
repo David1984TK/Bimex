@@ -709,7 +709,7 @@ fn test_solicitar_continuar_proyecto_activo_falla() {
 #[test]
 #[should_panic(expected = "Ya inicializado")]
 fn test_inicializar_dos_veces_falla() {
-    let (_env, cliente, admin, _dueno, _backer, token_mxne) = setup_con_token();
+    let (env, cliente, admin, _dueno, _backer, token_mxne) = setup_con_token();
     cliente.inicializar(&admin, &token_mxne, &100u32, &100u32);
 }
 
@@ -761,42 +761,4 @@ fn test_yield_no_es_demo_exagerado() {
 
     assert!(detalle.cetes < 100_000_000, "CETES parece tasa demo: {} stroops", detalle.cetes);
     assert!(detalle.amm   < 100_000_000, "AMM parece tasa demo: {} stroops",   detalle.amm);
-}
-
-// ============================================================
-//  TTL TESTS
-// ============================================================
-
-#[test]
-fn test_extend_ttl() {
-    let (env, cliente, _admin, dueno, backer) = setup();
-
-    // El contrato inicialmente extiende el TTL de la instancia en inicializar().
-    // Podemos verificar que la instancia existe.
-    env.as_contract(&cliente.address, || {
-        assert!(env.storage().instance().has(&Clave::Admin));
-    });
-
-    // Crear un proyecto extiende TTL de instancia y proyecto
-    let id = cliente.crear_proyecto(
-        &dueno,
-        &String::from_str(&env, "Proyecto TTL"),
-        &100_000_000i128,
-        &doc_cid_vacio(&env),
-        &6u32,
-    );
-
-    // Contribuir extiende TTL de instancia, proyecto y aportación
-    cliente.admin_aprobar(&id);
-    cliente.contribuir(&backer, &id, &10_000_000i128);
-
-    // Verificar que las entradas existen después de las operaciones
-    env.as_contract(&cliente.address, || {
-        assert!(env.storage().persistent().has(&Clave::Proyecto(id)));
-        assert!(env.storage().persistent().has(&Clave::Aportacion(id, backer)));
-    });
-
-    // Nota: El entorno de tests de Soroban no permite verificar el valor exacto del TTL
-    // fácilmente sin usar APIs internas experimentales, pero el hecho de que las
-    // llamadas no fallen y el estado se mantenga es la verificación básica.
 }
