@@ -2,6 +2,8 @@ import 'dotenv/config';
 import { SorobanRpc } from '@stellar/stellar-sdk';
 import { parseTx } from './eventParser.js';
 import { upsertProyecto, upsertAportacion, insertEvento, getLastIndexedLedger } from './database.js';
+import { notificarClientes } from './sse.js';
+import './api.js'; // start HTTP + SSE server in the same process
 
 const RPC_URL         = process.env.STELLAR_RPC_URL;
 const CONTRACT_ID     = process.env.CONTRACT_ID;
@@ -31,8 +33,9 @@ async function processBatch(startLedger) {
 
     const { evento, proyecto, aportacion } = parsed;
     await insertEvento(evento).catch(console.error);
-    if (proyecto)   await upsertProyecto(proyecto).catch(console.error);
-    if (aportacion) await upsertAportacion(aportacion).catch(console.error);
+    if (proyecto)   { await upsertProyecto(proyecto).catch(console.error); notificarClientes('proyecto_actualizado', { id: proyecto.id, estado: proyecto.estado }); }
+    if (aportacion) { await upsertAportacion(aportacion).catch(console.error); notificarClientes('nueva_contribucion', { proyectoId: aportacion.proyecto_id, monto: aportacion.monto }); }
+    if (evento.tipo === 'yield_reclamado') notificarClientes('yield_reclamado', { proyectoId: evento.proyecto_id, monto: evento.monto });
 
     console.log(`[${new Date().toISOString()}] ${evento.tipo} ledger=${evento.ledger} tx=${evento.tx_hash}`);
   }

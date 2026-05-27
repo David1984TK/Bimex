@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import http from 'node:http';
 import supabase from './database.js';
+import { agregarCliente, eliminarCliente } from './sse.js';
 
 const PORT = parseInt(process.env.API_PORT ?? '3001', 10);
 
@@ -73,6 +74,20 @@ async function route(req, res) {
                            .reduce((s, a) => s + Number(a.monto ?? 0), 0),
     };
     return json(res, 200, stats);
+  }
+
+  // GET /sse — Server-Sent Events stream
+  if (parts[0] === 'sse' && !parts[1]) {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': process.env.FRONTEND_URL || '*',
+    });
+    res.write(':ok\n\n');
+    agregarCliente(res);
+    req.on('close', () => eliminarCliente(res));
+    return;
   }
 
   json(res, 404, { error: 'Not found' });

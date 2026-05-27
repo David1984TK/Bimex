@@ -9,6 +9,7 @@ import MiCuenta         from "./components/MiCuenta";
 import AdminPanel       from "./components/AdminPanel";
 import Recompensas      from "./components/Recompensas";
 import Transparencia    from "./components/Transparencia";
+import Changelog        from "./components/Changelog";
 import { getStorage }   from "./utils/storage";
 import { parsearError } from "./utils/errores";
 import { obtenerTodosLosProyectos, stroopsAMXNe, mintearMXNePrueba } from "./stellar/contrato";
@@ -213,6 +214,7 @@ export default function App() {
   const [modalCrear,     setModalCrear]     = useState(false);
   const [vistaActual,    setVistaActual]    = useState("proyectos");
   const [mostrandoTransparencia, setMostrandoTransparencia] = useState(false);
+  const [mostrandoChangelog,     setMostrandoChangelog]     = useState(false);
   const [adminPanel,     setAdminPanel]     = useState(false);
   const [autoConectar,   setAutoConectar]   = useState(leerAutoConectarInicial);
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
@@ -279,8 +281,20 @@ export default function App() {
   if (mostrandoTransparencia) {
     return <Transparencia onVolver={() => setMostrandoTransparencia(false)} />;
   }
+  if (mostrandoChangelog) {
+    return (
+      <div>
+        <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)" }}>
+          <button className="btn btn-ghost" onClick={() => setMostrandoChangelog(false)} style={{ fontSize: "0.84rem" }}>
+            ← Volver
+          </button>
+        </div>
+        <Changelog />
+      </div>
+    );
+  }
   if (!direccion) {
-    return <Landing autoConectar={autoConectar} onConectado={manejarConectado} onTransparencia={() => setMostrandoTransparencia(true)} />;
+    return <Landing autoConectar={autoConectar} onConectado={manejarConectado} onTransparencia={() => setMostrandoTransparencia(true)} onChangelog={() => setMostrandoChangelog(true)} />;
   }
 
   return (
@@ -383,6 +397,9 @@ export default function App() {
             {vistaActual === "transparencia" && (
               <Transparencia />
             )}
+            {vistaActual === "changelog" && (
+              <Changelog />
+            )}
             {vistaActual === "micuenta" && (
               <MiCuenta
                 direccion={direccion}
@@ -410,12 +427,22 @@ export default function App() {
           </>
         )}
       </main>
+      <footer style={{ ...st.footer, padding: "16px 40px" }}>
+        <button
+          onClick={() => { setProyectoActivo(null); setVistaActual("changelog"); }}
+          style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.55)", fontSize: "0.78rem", fontWeight: 500, padding: "4px 8px" }}
+        >
+          Novedades
+        </button>
+        <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
+        <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.78rem" }}>Bimex · Stellar Testnet</span>
+      </footer>
     </div>
   );
 }
 
 // ── Landing ──────────────────────────────────────────────────────────────────
-function Landing({ autoConectar, onConectado, onTransparencia }) {
+function Landing({ autoConectar, onConectado, onTransparencia, onChangelog }) {
   const liveStats = useLiveStats();
   const { rate: cetesRate, error: cetesError } = useCetesRate();
 
@@ -604,9 +631,12 @@ function Landing({ autoConectar, onConectado, onTransparencia }) {
           <LogoSVG size={20} light />
           <span style={{ fontWeight: 700, fontSize: "1rem", color: "rgba(255,255,255,0.85)" }}>Bimex</span>
         </div>
-        <p style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.78rem" }}>
+        <p style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.78rem", marginBottom: 10 }}>
           Hack+ Alebrije · Stellar · CDMX 2025 · Construido con Soroban y MXNe
         </p>
+        <button onClick={onChangelog} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.45)", fontSize: "0.78rem", fontWeight: 500, padding: 0 }}>
+          Novedades
+        </button>
       </footer>
     </div>
   );
