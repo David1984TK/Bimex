@@ -660,6 +660,25 @@ impl BimexContrato {
         extender_ttl_proyecto(&env, id_proyecto);
     }
 
+    /// Transfiere el rol de administrador a una nueva dirección.
+    /// Solo el admin actual puede llamar esta función.
+    pub fn admin_cambiar_admin(env: Env, admin_actual: Address, nuevo_admin: Address) {
+        admin_actual.require_auth();
+        let guardado: Address = env.storage().instance().get(&Clave::Admin).expect("No inicializado");
+        assert!(admin_actual == guardado, "Solo el admin actual puede transferir el rol");
+        assert!(nuevo_admin != admin_actual, "El nuevo admin debe ser diferente");
+
+        env.storage().instance().set(&Clave::Admin, &nuevo_admin);
+
+        // Evento de auditoría
+        env.events().publish(
+            (soroban_sdk::symbol_short!("adm_chg"), admin_actual, nuevo_admin.clone()),
+            nuevo_admin
+        );
+
+        extender_ttl_instancia(&env);
+    }
+
     pub fn obtener_proyecto(env: Env, id: u32) -> Proyecto {
         extender_ttl_instancia(&env);
         extender_ttl_proyecto(&env, id);
