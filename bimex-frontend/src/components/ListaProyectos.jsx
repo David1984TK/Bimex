@@ -1,18 +1,21 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { obtenerTodosLosProyectos, stroopsAMXNe } from "../stellar/contrato";
 import { parsearError } from "../utils/errores.js";
+
+const ESTADOS_OCULTOS = new Set(["EnRevision", "Rechazado"]);
 
 export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
   const { t } = useTranslation();
   const [proyectos, setProyectos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [filtro, setFiltro] = useState("Todos");
+  const [textoBusqueda, setTextoBusqueda] = useState("");
+  const [busquedaDebounced, setBusquedaDebounced] = useState("");
   const [visibles, setVisibles] = useState(12);
   const [errorCarga, setErrorCarga] = useState(null);
   const cargandoRef = useRef(false);
 
-  const ESTADOS_OCULTOS = new Set(["EnRevision", "Rechazado"]);
   const FILTROS = [
     { key: "Todos",        label: t("filters.all"),        dot: null            },
     { key: "EtapaInicial", label: t("filters.initial"),    dot: "var(--muted)"  },
@@ -39,6 +42,11 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
 
   useEffect(() => { cargar(); }, [refrescar]);
   useEffect(() => { setVisibles(12); }, [filtro]);
+  useEffect(() => {
+    const timer = setTimeout(() => setBusquedaDebounced(textoBusqueda), 300);
+    return () => clearTimeout(timer);
+  }, [textoBusqueda]);
+  useEffect(() => { setVisibles(12); }, [busquedaDebounced]);
 
   useEffect(() => {
     const url = import.meta.env.VITE_INDEXER_URL;
@@ -52,16 +60,31 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
     return () => es.close();
   }, []);
 
-  const proyectosPublicos = proyectos.filter(p => !ESTADOS_OCULTOS.has(p.estado));
+  const proyectosPublicos = useMemo(
+    () => proyectos.filter(p => !ESTADOS_OCULTOS.has(p.estado)),
+    [proyectos]
+  );
   const totalBloqueado = proyectosPublicos.reduce((s, p) => {
     try { return s + BigInt(p.aportado ?? 0); } catch { return s; }
   }, BigInt(0));
   const enProgreso = proyectosPublicos.filter(p => p.estado === "EnProgreso").length;
   const liberados  = proyectosPublicos.filter(p => p.estado === "Liberado").length;
 
-  const proyectosFiltrados = filtro === "Todos"
-    ? proyectosPublicos
-    : proyectosPublicos.filter(p => p.estado === filtro);
+  const busquedaNormalizada = busquedaDebounced.trim().toLowerCase();
+  const hayBusqueda = busquedaNormalizada.length > 0;
+  const proyectosFiltrados = useMemo(() => {
+    const porEstado = filtro === "Todos"
+      ? proyectosPublicos
+      : proyectosPublicos.filter(p => p.estado === filtro);
+
+    if (!busquedaNormalizada) return porEstado;
+
+    return porEstado.filter(p => {
+      const nombre = String(p.nombre ?? "").toLowerCase();
+      const descripcion = String(p.descripcion ?? "").toLowerCase();
+      return nombre.includes(busquedaNormalizada) || descripcion.includes(busquedaNormalizada);
+    });
+  }, [busquedaNormalizada, filtro, proyectosPublicos]);
 
   return (
     <div className="lista-contenedor" style={estilos.contenedor}>
@@ -116,6 +139,28 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
       {/* Filtros */}
       {proyectosPublicos.length > 0 && (
         <div className="filtros-row" style={estilos.filtrosRow}>
+          <div style={estilos.busquedaContainer}>
+            <input
+              type="search"
+              className="input"
+              placeholder={t("lista.buscar")}
+              aria-label={t("lista.buscar")}
+              value={textoBusqueda}
+              onChange={(e) => setTextoBusqueda(e.target.value)}
+              style={estilos.busquedaInput}
+            />
+            {textoBusqueda && (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setTextoBusqueda("")}
+                aria-label={t("lista.limpiarBusqueda")}
+                style={estilos.busquedaClear}
+              >
+                ×
+              </button>
+            )}
+          </div>
           {FILTROS.map(f => {
             const activo = filtro === f.key;
             const count = f.key === "Todos"
@@ -191,9 +236,16 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
           <p style={{ fontSize: "1rem", fontWeight: 600, color: "var(--text)", marginTop: 16 }}>
-            {t("lista.noResults")}
+            {hayBusqueda ? t("lista.noSearchResults", { term: busquedaDebounced.trim() }) : t("lista.noResults")}
           </p>
-          <button className="btn btn-ghost" onClick={() => setFiltro("Todos")} style={{ marginTop: 16 }}>
+          <button
+            className="btn btn-ghost"
+            onClick={() => {
+              setFiltro("Todos");
+              setTextoBusqueda("");
+            }}
+            style={{ marginTop: 16 }}
+          >
             {t("lista.viewAll")}
           </button>
         </div>
@@ -374,4 +426,7 @@ const estilos = {
   empty:         { display: "flex", flexDirection: "column", alignItems: "center", padding: "80px 0", textAlign: "center" },
   filtrosRow:    { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 },
   filtroBtnBase: { padding: "6px 14px", borderRadius: "var(--radius-sm)", fontFamily: "Inter, sans-serif", fontWeight: 500, fontSize: "0.82rem", cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 4 },
+  busquedaContainer: { display: "flex", alignItems: "center", gap: 8, width: "100%", marginBottom: 6 },
+  busquedaInput: { maxWidth: 360 },
+  busquedaClear: { padding: "8px 12px", lineHeight: 1, fontSize: "1rem" },
 };
