@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#F9FAFB"/>
+  <rect x="64" y="64" width="1072" height="502" rx="32" fill="#FFFFFF" stroke="#E5E7EB" stroke-width="2"/>
+  <g transform="translate(128 132)">
+    <rect width="132" height="132" rx="28" fill="#1E3A5F"/>
+    <circle cx="35" cy="36" r="10" fill="none" stroke="#FFFFFF" stroke-width="7"/>
+    <circle cx="35" cy="66" r="10" fill="none" stroke="#FFFFFF" stroke-width="7"/>
+    <circle cx="35" cy="96" r="10" fill="none" stroke="#FFFFFF" stroke-width="7"/>
+    <path d="M50 36h32c16 0 25 9 25 23s-9 23-25 23H50" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+    <path d="M50 96h36c14 0 22-8 22-22" fill="none" stroke="#22C55E" stroke-width="7" stroke-linecap="round"/>
+  </g>
+  <text x="292" y="202" fill="#1E3A5F" font-family="Inter, Arial, sans-serif" font-size="88" font-weight="700">Bimex</text>
+  <text x="128" y="330" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="58" font-weight="700">Crowdfunding de Impacto Social</text>
+  <text x="128" y="412" fill="#374151" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="500">Aporta MXNe a proyectos verificados.</text>
+  <text x="128" y="462" fill="#374151" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="500">El rendimiento financia el impacto.</text>
+  <rect x="128" y="504" width="378" height="48" rx="24" fill="#DCFCE7"/>
+  <text x="152" y="537" fill="#166534" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">Tu capital siempre regresa</text>
+</svg>
