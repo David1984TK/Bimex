@@ -707,7 +707,7 @@ fn test_solicitar_continuar_proyecto_activo_falla() {
 #[test]
 #[should_panic(expected = "Ya inicializado")]
 fn test_inicializar_dos_veces_falla() {
-    let (_env, cliente, admin, _dueno, _backer, token_mxne) = setup_con_token();
+    let (env, cliente, admin, _dueno, _backer, token_mxne) = setup_con_token();
     cliente.inicializar(&admin, &token_mxne, &100u32, &100u32);
 }
 
