@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { obtenerTodosLosProyectos, calcularYieldDetallado, stroopsAMXNe } from "../stellar/contrato";
 import { parsearError } from "../utils/errores.js";
+import { usePaginacion, ControlPagina } from "../hooks/usePaginacion.js";
 
 const ESTADOS_OCULTOS = new Set(["EnRevision", "Rechazado"]);
 
@@ -36,6 +37,7 @@ export default function Transparencia({ onVolver }) {
   const [errorCarga, setErrorCarga] = useState(null);
   const [filtro, setFiltro] = useState("Todos");
   const [totalYield, setTotalYield] = useState(BigInt(0));
+  const gridRef = useRef(null);
 
   const FILTROS = [
     { key: "Todos",        label: t("filters.all")        },
@@ -77,6 +79,22 @@ export default function Transparencia({ onVolver }) {
   const proyectosFiltrados = filtro === "Todos"
     ? proyectos
     : proyectos.filter(p => p.estado === filtro);
+
+  const {
+    datosPagina,
+    pagina,
+    setPagina,
+    totalPaginas,
+    total: totalFiltrados,
+    cargandoPagina,
+  } = usePaginacion(proyectosFiltrados, [filtro]);
+
+  const handlePaginaChange = (nuevaPagina) => {
+    setPagina(nuevaPagina);
+    if (gridRef.current) {
+      gridRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
 
   return (
     <div style={{ maxWidth: "1140px", margin: "0 auto", padding: "40px 24px" }}>
@@ -241,15 +259,43 @@ export default function Transparencia({ onVolver }) {
               </button>
             </div>
           ) : (
-            <div className="grid-proyectos" style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(285px, 1fr))",
-              gap: 16,
-            }} role="list" aria-label={t("transp.title")}>
-              {proyectosFiltrados.map(p => (
-                <ProyectoCard key={p.id} proyecto={p} />
-              ))}
-            </div>
+            <>
+              <div ref={gridRef} className="grid-proyectos" style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(285px, 1fr))",
+                gap: 16,
+                opacity: cargandoPagina ? 0.5 : 1,
+                transition: "opacity 0.15s",
+              }} role="list" aria-label={t("transp.title")}>
+                {cargandoPagina
+                  ? Array.from({ length: Math.min(8, datosPagina.length || 8) }).map((_, i) => (
+                      <div key={`skeleton-${i}`} style={{
+                        borderRadius: "var(--radius)",
+                        border: "1px solid var(--border)",
+                        padding: 20,
+                        display: "flex", flexDirection: "column", gap: 12,
+                      }}>
+                        <div className="skeleton" style={{ height: 14, width: 80, borderRadius: 4 }} />
+                        <div className="skeleton" style={{ height: 18, width: "80%", borderRadius: 4 }} />
+                        <div className="skeleton" style={{ height: 8, width: "100%", borderRadius: 4, marginTop: 14 }} />
+                        <div style={{ display: "flex", gap: 16, marginTop: 14 }}>
+                          <div className="skeleton" style={{ height: 16, width: 60, borderRadius: 4 }} />
+                          <div className="skeleton" style={{ height: 16, width: 60, borderRadius: 4 }} />
+                        </div>
+                      </div>
+                    ))
+                  : datosPagina.map(p => (
+                      <ProyectoCard key={p.id} proyecto={p} />
+                    ))
+                }
+              </div>
+              <ControlPagina
+                pagina={pagina}
+                totalPaginas={totalPaginas}
+                onChange={handlePaginaChange}
+                t={t}
+              />
+            </>
           )}
         </>
       )}

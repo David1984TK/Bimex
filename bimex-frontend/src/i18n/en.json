@@ -259,6 +259,14 @@
     "goal": "Goal",
     "locked": "Locked"
   },
+  "pagination": {
+    "prevShort": "Previous",
+    "nextShort": "Next",
+    "prev": "Previous page",
+    "next": "Next page",
+    "pageOf": "Page {{current}} of {{total}}",
+    "ariaLabel": "Pagination"
+  },
   "recompensas": {
     "label": "Your rewards",
     "level": "Level",

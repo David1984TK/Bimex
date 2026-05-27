@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { createClient } from "@supabase/supabase-js";
 import { parsearError } from "../utils/errores.js";
+import { usePaginacion, ControlPagina } from "../hooks/usePaginacion.js";
 import {
   obtenerTodosLosProyectos,
   obtenerAportacion,
@@ -211,9 +212,19 @@ function CardMiProyecto({ proyecto, onVerProyecto }) {
   );
 }
 
-function TabMisProyectos({ proyectos, direccion, onVerProyecto }) {
-  const { t } = useTranslation();
+function TabMisProyectos({ proyectos, direccion, onVerProyecto, t }) {
   const misProyectos = proyectos.filter((p) => p.dueno === direccion);
+  const gridRef = useRef(null);
+
+  const { datosPagina, pagina, setPagina, totalPaginas, total, cargandoPagina } =
+    usePaginacion(misProyectos, [proyectos, direccion]);
+
+  const handlePaginaChange = (nuevaPagina) => {
+    setPagina(nuevaPagina);
+    if (gridRef.current) {
+      gridRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
 
   if (misProyectos.length === 0) {
     return (
@@ -230,10 +241,26 @@ function TabMisProyectos({ proyectos, direccion, onVerProyecto }) {
   }
 
   return (
-    <div className="cuenta-grid" style={estilos.grid} role="list" aria-label={t("cuenta.ariaProjects")}>
-      {misProyectos.map((p) => (
-        <CardMiProyecto key={p.id} proyecto={p} onVerProyecto={onVerProyecto} />
-      ))}
+    <div ref={gridRef} style={{ opacity: cargandoPagina ? 0.5 : 1, transition: "opacity 0.15s" }}>
+      {cargandoPagina && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(285px, 1fr))", gap: 20, marginBottom: 16 }}>
+          {Array.from({ length: Math.min(4, datosPagina.length || 4) }).map((_, i) => (
+            <div key={`skeleton-${i}`} className="card" style={{ padding: 20 }}>
+              <div className="skeleton" style={{ height: 16, width: "60%", borderRadius: 4, marginBottom: 12 }} />
+              <div className="skeleton" style={{ height: 8, width: "100%", borderRadius: 4 }} />
+              <div className="skeleton" style={{ height: 16, width: "40%", borderRadius: 4, marginTop: 14 }} />
+            </div>
+          ))}
+        </div>
+      )}
+      {!cargandoPagina && (
+        <div className="cuenta-grid" style={estilos.grid} role="list" aria-label={t("cuenta.ariaProjects")}>
+          {datosPagina.map((p) => (
+            <CardMiProyecto key={p.id} proyecto={p} onVerProyecto={onVerProyecto} />
+          ))}
+        </div>
+      )}
+      <ControlPagina pagina={pagina} totalPaginas={totalPaginas} onChange={handlePaginaChange} t={t} />
     </div>
   );
 }
@@ -245,6 +272,7 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
   const [contribuciones, setContribuciones] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [errorContrib, setErrorContrib] = useState(null);
+  const tableRef = useRef(null);
 
   useEffect(() => {
     if (proyectos.length === 0) {
@@ -275,6 +303,22 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
 
     cargarContribuciones();
   }, [proyectos, direccion]);
+
+  // Hook must be called unconditionally (Rules of Hooks)
+  const {
+    datosPagina,
+    pagina,
+    setPagina,
+    totalPaginas,
+    cargandoPagina,
+  } = usePaginacion(contribuciones, [contribuciones]);
+
+  const handlePaginaChange = (nuevaPagina) => {
+    setPagina(nuevaPagina);
+    if (tableRef.current) {
+      tableRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
 
   if (cargando) {
     return (
@@ -307,72 +351,76 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
   }
 
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={estilos.table}>
-        <thead>
-          <tr>
-            <th style={estilos.th}>{t("cuenta.colProyecto")}</th>
-            <th style={estilos.th}>{t("cuenta.colModo")}</th>
-            <th style={{ ...estilos.th, textAlign: "right" }}>{t("cuenta.colCapital")}</th>
-            <th style={{ ...estilos.th, textAlign: "right" }}>{t("cuenta.colRendimiento")}</th>
-            <th style={estilos.th}>{t("cuenta.colEstado")}</th>
-            <th style={estilos.th}>{t("cuenta.colCierre")}</th>
-            <th style={estilos.th} />
-          </tr>
-        </thead>
-        <tbody>
-          {contribuciones.map(({ proyecto, aportacion, yieldAcum }) => {
-            const puedeRet = puedeRetirar(proyecto.estado);
-            const modo = proyecto.modo ?? "Inversor";
-            return (
-              <tr key={proyecto.id} style={estilos.tr}>
-                <td style={estilos.td}>
-                  <span style={{ fontWeight: 600, color: "var(--text)" }}>{proyecto.nombre}</span>
-                </td>
-                <td style={estilos.td}>
-                  <span className={modo === "Mecenas" ? "badge badge-teal" : "badge badge-navy"}>
-                    {modo}
-                  </span>
-                </td>
-                <td style={{ ...estilos.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                  {stroopsAMXNe(aportacion)}
-                </td>
-                <td style={{ ...estilos.td, textAlign: "right", color: "var(--green)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                  {stroopsAMXNe(yieldAcum)}
-                </td>
-                <td style={estilos.td}>
-                  <EstadoBadge estado={proyecto.estado} />
-                </td>
-                <td style={{ ...estilos.td, color: "var(--muted)", fontSize: "0.83rem" }}>
-                  {proyecto.fecha_cierre ?? "—"}
-                </td>
-                <td style={{ ...estilos.td, textAlign: "right" }}>
-                  <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                    <button
-                      className="btn btn-secondary"
-                      style={{ padding: "6px 12px", fontSize: "0.8rem" }}
-                      onClick={() => onVerProyecto(proyecto)}
-                      aria-label={`${t("cuenta.viewDetailsShort")} ${proyecto.nombre}`}
-                    >
-                      <IconFile />
-                    </button>
-                    {puedeRet && (
+    <div ref={tableRef} style={{ overflowX: "auto", opacity: cargandoPagina ? 0.5 : 1, transition: "opacity 0.15s" }}>
+      {cargandoPagina && <SkeletonTableRows count={5} />}
+      {!cargandoPagina && (
+        <table style={estilos.table}>
+          <thead>
+            <tr>
+              <th style={estilos.th}>{t("cuenta.colProyecto")}</th>
+              <th style={estilos.th}>{t("cuenta.colModo")}</th>
+              <th style={{ ...estilos.th, textAlign: "right" }}>{t("cuenta.colCapital")}</th>
+              <th style={{ ...estilos.th, textAlign: "right" }}>{t("cuenta.colRendimiento")}</th>
+              <th style={estilos.th}>{t("cuenta.colEstado")}</th>
+              <th style={estilos.th}>{t("cuenta.colCierre")}</th>
+              <th style={estilos.th} />
+            </tr>
+          </thead>
+          <tbody>
+            {datosPagina.map(({ proyecto, aportacion, yieldAcum }) => {
+              const puedeRet = puedeRetirar(proyecto.estado);
+              const modo = proyecto.modo ?? "Inversor";
+              return (
+                <tr key={proyecto.id} style={estilos.tr}>
+                  <td style={estilos.td}>
+                    <span style={{ fontWeight: 600, color: "var(--text)" }}>{proyecto.nombre}</span>
+                  </td>
+                  <td style={estilos.td}>
+                    <span className={modo === "Mecenas" ? "badge badge-teal" : "badge badge-navy"}>
+                      {modo}
+                    </span>
+                  </td>
+                  <td style={{ ...estilos.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                    {stroopsAMXNe(aportacion)}
+                  </td>
+                  <td style={{ ...estilos.td, textAlign: "right", color: "var(--green)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                    {stroopsAMXNe(yieldAcum)}
+                  </td>
+                  <td style={estilos.td}>
+                    <EstadoBadge estado={proyecto.estado} />
+                  </td>
+                  <td style={{ ...estilos.td, color: "var(--muted)", fontSize: "0.83rem" }}>
+                    {proyecto.fecha_cierre ?? "—"}
+                  </td>
+                  <td style={{ ...estilos.td, textAlign: "right" }}>
+                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                       <button
-                        className="btn btn-amber"
+                        className="btn btn-secondary"
                         style={{ padding: "6px 12px", fontSize: "0.8rem" }}
                         onClick={() => onVerProyecto(proyecto)}
-                        aria-label={`${t("cuenta.withdraw")} ${proyecto.nombre}`}
+                        aria-label={`${t("cuenta.viewDetailsShort")} ${proyecto.nombre}`}
                       >
-                        {t("cuenta.withdraw")}
+                        <IconFile />
                       </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                      {puedeRet && (
+                        <button
+                          className="btn btn-amber"
+                          style={{ padding: "6px 12px", fontSize: "0.8rem" }}
+                          onClick={() => onVerProyecto(proyecto)}
+                          aria-label={`${t("cuenta.withdraw")} ${proyecto.nombre}`}
+                        >
+                          {t("cuenta.withdraw")}
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+      <ControlPagina pagina={pagina} totalPaginas={totalPaginas} onChange={handlePaginaChange} t={t} />
     </div>
   );
 }
@@ -668,6 +716,7 @@ export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido })
                 proyectos={proyectos}
                 direccion={direccion}
                 onVerProyecto={onVerProyecto}
+                t={t}
               />
             )}
           </div>
