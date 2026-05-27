@@ -73,6 +73,47 @@ const IconShield = () => (
   </svg>
 );
 
+// ── Skeleton components ───────────────────────────────────────────────────────
+function SkeletonDetailLeft() {
+  return (
+    <div className="detail-main" aria-hidden="true" style={{ pointerEvents: 'none', userSelect: 'none' }}>
+      <div className="detail-header">
+        <div className="skeleton" style={{ height: 22, width: 100, marginBottom: 12 }} />
+        <div className="skeleton" style={{ height: 28, width: '65%' }} />
+      </div>
+      <div className="detail-section" style={{ marginTop: 28 }}>
+        <div className="skeleton" style={{ height: 14, width: 120, marginBottom: 14 }} />
+        <div className="info-grid">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="info-cell" style={{ background: 'var(--card)' }}>
+              <div className="skeleton" style={{ height: 12, width: '50%', marginBottom: 6 }} />
+              <div className="skeleton" style={{ height: 18, width: '40%' }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SkeletonInvestPanel() {
+  return (
+    <div className="invest-panel" aria-hidden="true" style={{ pointerEvents: 'none', userSelect: 'none' }}>
+      <div className="invest-panel-head">
+        <div className="skeleton" style={{ height: 14, width: '40%', marginBottom: 8, background: 'linear-gradient(90deg, rgba(255,255,255,0.08) 25%, rgba(255,255,255,0.20) 50%, rgba(255,255,255,0.08) 75%)', backgroundSize: '200% 100%' }} />
+        <div className="skeleton" style={{ height: 18, width: '60%', background: 'linear-gradient(90deg, rgba(255,255,255,0.08) 25%, rgba(255,255,255,0.20) 50%, rgba(255,255,255,0.08) 75%)', backgroundSize: '200% 100%' }} />
+      </div>
+      <div className="invest-body">
+        <div className="skeleton" style={{ height: 14, width: '30%', marginBottom: 8 }} />
+        <div className="skeleton" style={{ height: 6, borderRadius: 99, marginBottom: 16 }} />
+        <div className="skeleton" style={{ height: 40, borderRadius: 6, marginBottom: 12 }} />
+        <div className="skeleton" style={{ height: 40, borderRadius: 6, marginBottom: 16 }} />
+        <div className="skeleton" style={{ height: 44, borderRadius: 6 }} />
+      </div>
+    </div>
+  );
+}
+
 export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, onCerrar, onError, onToast }) {
   const { t } = useTranslation();
   const montadoRef = useRef(true);
@@ -80,6 +121,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
   const [proyecto,          setProyecto]          = useState(proyectoInicial);
   const [cantidad,          setCantidad]          = useState("");
   const [cargando,          setCargando]          = useState(false);
+  const [cargandoInicial,   setCargandoInicial]   = useState(true);
   const [modoInversion,     setModoInversion]     = useState("inversor");
   const [vistaRetirar,      setVistaRetirar]      = useState(false);
   const [confirmarAbandonar,setConfirmarAbandonar]= useState(false);
@@ -117,7 +159,10 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
     : [];
 
   const refrescar = useCallback(async () => {
-    if (!direccion || proyecto.id == null) return;
+    if (!direccion || proyecto.id == null) {
+      setCargandoInicial(false);
+      return;
+    }
     try {
       const [proyActualizado, aport, yld, bal] = await Promise.all([
         obtenerProyecto(proyecto.id).catch(() => null),
@@ -132,8 +177,10 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
       setBalanceMXNe(bal);
     } catch (e) {
       if (montadoRef.current) onError?.(parsearError(e));
+    } finally {
+      setCargandoInicial(false);
     }
-  }, [proyecto.id, direccion, onError]);
+  }, [proyecto.id, direccion, onError, setCargandoInicial]);
 
   useEffect(() => { refrescar(); }, [refrescar]);
 
@@ -261,6 +308,14 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
 
         {/* 2-column grid */}
         <div className="detail-grid">
+
+          {cargandoInicial ? (
+            <>
+              <SkeletonDetailLeft />
+              <SkeletonInvestPanel />
+            </>
+          ) : (
+            <>
 
           {/* ── LEFT: Project info ── */}
           <div className="detail-main">
@@ -654,6 +709,9 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
               </div>
             </div>
           </div>
+
+            </>
+          )}
 
         </div>
       </div>

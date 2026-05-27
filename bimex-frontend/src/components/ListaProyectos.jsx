@@ -153,9 +153,10 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
 
       {/* Grid / estados */}
       {cargando ? (
-        <div style={estilos.loading} role="status" aria-live="polite">
-          <div style={estilos.spinner} aria-hidden="true" />
-          <p style={{ color: "var(--muted)", marginTop: 16, fontSize: "0.9rem" }}>{t("lista.loading")}</p>
+        <div className="grid-proyectos" style={estilos.grid} role="status" aria-live="polite" aria-label={t("lista.loading")}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
         </div>
       ) : proyectos.length === 0 ? (
         <div style={estilos.empty}>
@@ -204,6 +205,25 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
         </>
       )}
     </div>
+  );
+}
+
+// ── Skeleton card ──────────────────────────────────────────────────────────────
+function SkeletonCard() {
+  return (
+    <article className="card" aria-hidden="true" style={{ ...estilos.card, pointerEvents: 'none', userSelect: 'none' }}>
+      <div style={estilos.cardTop}>
+        <div className="skeleton" style={{ height: 22, width: 90, borderRadius: 99 }} />
+      </div>
+      <div className="skeleton" style={{ height: 20, width: '70%', marginBottom: 8 }} />
+      <div className="skeleton" style={{ height: 14, width: '40%', marginBottom: 18 }} />
+      <div className="skeleton" style={{ height: 8, borderRadius: 4, marginBottom: 8 }} />
+      <div style={estilos.statsRow}>
+        <div className="skeleton" style={{ height: 14, width: 70 }} />
+        <div className="skeleton" style={{ height: 14, width: 70 }} />
+      </div>
+      <div className="skeleton" style={{ height: 36, marginTop: 16, borderRadius: 6 }} />
+    </article>
   );
 }
 

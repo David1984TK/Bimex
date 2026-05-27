@@ -117,6 +117,24 @@ function Spinner() {
   );
 }
 
+function SkeletonTableRows({ count = 5 }) {
+  return (
+    <div aria-hidden="true" style={{ pointerEvents: 'none', userSelect: 'none' }}>
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} style={{ display: 'flex', gap: 16, padding: '12px 14px', borderBottom: '1px solid var(--border)', alignItems: 'center' }}>
+          <div className="skeleton" style={{ height: 16, width: '25%' }} />
+          <div className="skeleton" style={{ height: 16, width: '10%' }} />
+          <div className="skeleton" style={{ height: 16, width: '12%' }} />
+          <div className="skeleton" style={{ height: 16, width: '12%' }} />
+          <div className="skeleton" style={{ height: 16, width: '15%' }} />
+          <div className="skeleton" style={{ height: 16, width: '10%' }} />
+          <div className="skeleton" style={{ height: 28, width: '16%', borderRadius: 6 }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function EstadoBadge({ estado }) {
   const { t } = useTranslation();
   const cfg = getBadgeCfg(estado);
@@ -258,7 +276,13 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
     cargarContribuciones();
   }, [proyectos, direccion]);
 
-  if (cargando) return <Spinner />;
+  if (cargando) {
+    return (
+      <div role="status" aria-live="polite" aria-label={t("cuenta.loading")}>
+        <SkeletonTableRows count={5} />
+      </div>
+    );
+  }
 
   if (errorContrib) {
     return (
@@ -615,7 +639,22 @@ export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido })
 
       {/* Paneles */}
       {cargando ? (
-        <Spinner />
+        <div role="status" aria-live="polite" aria-label={t("cuenta.loading")} style={{ pointerEvents: 'none', userSelect: 'none' }}>
+          <div style={estilos.metricsRow}>
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} style={{ ...estilos.metricCard, borderTop: '3px solid var(--border)' }}>
+                <div className="skeleton" style={{ width: 24, height: 24, borderRadius: 4, marginBottom: 10 }} />
+                <div className="skeleton" style={{ height: 12, width: '60%', marginBottom: 6 }} />
+                <div className="skeleton" style={{ height: 22, width: '40%' }} />
+              </div>
+            ))}
+          </div>
+          <div className="cuenta-tabs-row" style={{ ...estilos.tabsRow, borderBottom: '2px solid var(--border)', marginBottom: 24, gap: 4 }}>
+            <div className="skeleton" style={{ height: 38, width: 130, borderRadius: '6px 6px 0 0' }} />
+            <div className="skeleton" style={{ height: 38, width: 150, borderRadius: '6px 6px 0 0' }} />
+          </div>
+          <SkeletonTableRows count={4} />
+        </div>
       ) : (
         <>
           <div
