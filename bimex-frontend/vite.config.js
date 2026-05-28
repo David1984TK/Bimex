@@ -8,6 +8,7 @@ export default defineConfig({
     global: 'globalThis',
   },
   resolve: {
+    dedupe: ['react', 'react-dom'],
     alias: {
       buffer: 'buffer',
     },

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import { parsearError } from "../utils/errores.js";
+import { QRCodeSVG } from "qrcode.react";
 import {
   contribuir as contribuirContrato,
   retirarPrincipal as retirarPrincipalContrato,
@@ -158,6 +159,8 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
   const [modoInversion,     setModoInversion]     = useState("inversor");
   const [vistaRetirar,      setVistaRetirar]      = useState(false);
   const [confirmarAbandonar,setConfirmarAbandonar]= useState(false);
+  const [mostrarQR,         setMostrarQR]         = useState(false);
+  const [toastVisible,      setToastVisible]      = useState(false);
   const [miAportacion,      setMiAportacion]      = useState(BigInt(0));
   const [miYield,           setMiYield]           = useState(BigInt(0));
   const [balanceMXNe,       setBalanceMXNe]       = useState(null);
@@ -174,6 +177,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
   const fechaVencimiento = tsVencimiento > 0
     ? new Date(tsVencimiento * 1000).toLocaleDateString("es-MX", { year: "numeric", month: "short", day: "numeric" })
     : null;
+  const urlProyecto = window.location.href;
 
   const aportado   = Number(proyecto.aportado ?? 0);
   const meta       = Number(proyecto.meta ?? 0);
@@ -235,10 +239,28 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
 
   // Escape → volver
   useEffect(() => {
-    function onKey(e) { if (e.key === "Escape") onCerrar(); }
+    if (mostrarQR) return;
+    function onKey(e) {
+      if (e.key === "Escape") {
+        if (onCerrar) onCerrar();
+        else navigate("/proyectos");
+      }
+    }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onCerrar]);
+  }, [onCerrar, navigate, mostrarQR]);
+
+  useEffect(() => {
+    if (!mostrarQR) return;
+    const handler = (e) => { if (e.key === "Escape") setMostrarQR(false); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [mostrarQR]);
+
+  function mostrarToast() {
+    setToastVisible(true);
+    setTimeout(() => setToastVisible(false), 2000);
+  }
 
   function mensajeCorto(err) {
     const msg = err?.message || t("detalle.errContract");
@@ -382,7 +404,18 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                   {t(estadoCfg.labelKey)}
                 </span>
               </div>
-              <h1>{proyecto.nombre}</h1>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                <h1 style={{ margin: 0 }}>{proyecto.nombre}</h1>
+                <button
+                  onClick={() => setMostrarQR(true)}
+                  className="btn btn-outline btn-sm"
+                  aria-label={t("detalle.compartir.abrir")}
+                  type="button"
+                  style={{ fontSize: "0.82rem", padding: "8px 14px" }}
+                >
+                  ↗ {t("detalle.compartir.boton")}
+                </button>
+              </div>
             </div>
 
             {/* Banners de estado */}
@@ -769,6 +802,85 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
 
         </div>
       </div>
+
+      {mostrarQR && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-compartir-titulo"
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 1000
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setMostrarQR(false); }}
+        >
+          <div style={{
+            background: "var(--card)", borderRadius: "var(--radius)",
+            padding: 32, maxWidth: 400, width: "90%",
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 20
+          }}>
+            <h3 id="modal-compartir-titulo" style={{ margin: 0 }}>
+              {t("detalle.compartir.titulo")}
+            </h3>
+
+            <QRCodeSVG value={urlProyecto} size={200} />
+
+            <div style={{ display: "flex", gap: 8, width: "100%" }}>
+              <input
+                readOnly
+                value={urlProyecto}
+                style={{
+                  flex: 1, padding: "8px 12px",
+                  border: "1.5px solid var(--border2)",
+                  borderRadius: "var(--radius-sm)",
+                  fontSize: "0.82rem", color: "var(--muted)",
+                  fontFamily: "monospace"
+                }}
+              />
+              <button
+                className="btn btn-secondary"
+                onClick={() => {
+                  navigator.clipboard.writeText(urlProyecto);
+                  mostrarToast();
+                }}
+                type="button"
+              >
+                📋 {t("detalle.compartir.copiar")}
+              </button>
+            </div>
+
+            {toastVisible && (
+              <p style={{ color: "var(--green)", fontSize: "0.85rem", margin: 0 }}>
+                {t("detalle.compartir.copiado")}
+              </p>
+            )}
+
+            {navigator.share && (
+              <button
+                className="btn btn-secondary"
+                style={{ width: "100%" }}
+                onClick={() => navigator.share({
+                  title: proyecto.nombre,
+                  url: urlProyecto
+                })}
+                type="button"
+              >
+                {t("detalle.compartir.nativo")}
+              </button>
+            )}
+
+            <button
+              className="btn btn-outline"
+              style={{ width: "100%" }}
+              onClick={() => setMostrarQR(false)}
+              type="button"
+            >
+              {t("detalle.compartir.cerrar")}
+            </button>
+          </div>
+        </div>
+      )}
 
     </>
   );
