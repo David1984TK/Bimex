@@ -41,8 +41,8 @@ function puedeRetirar(estado) {
 }
 
 function escaparCSV(valor) {
-  const texto = String(valor ?? "").trim();
-  const sanitizado = /^[=+\-@]/.test(texto) ? `'${texto}` : texto;
+  const texto = String(valor ?? "");
+  const sanitizado = /^\s*[=+\-@]/.test(texto) ? `'${texto}` : texto;
   return `"${sanitizado.replace(/"/g, '""')}"`;
 }
 
@@ -53,7 +53,9 @@ function stroopsADecimal(stroops, decimales) {
   const entero = absoluto / 10_000_000n;
   const resto = absoluto % 10_000_000n;
   const signo = esNegativo ? "-" : "";
-  return `${signo}${entero}.${String(resto).padStart(7, "0").slice(0, decimales)}`;
+  const decimalesNorm = Math.max(0, Math.min(7, Math.trunc(Number(decimales) || 0)));
+  if (decimalesNorm === 0) return `${signo}${entero}`;
+  return `${signo}${entero}.${String(resto).padStart(7, "0").slice(0, decimalesNorm)}`;
 }
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -243,17 +245,23 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
   const [contribuciones, setContribuciones] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [errorContrib, setErrorContrib] = useState(null);
-  const dateFormatter = new Intl.DateTimeFormat("es-MX");
 
-  function exportarCSV(contribuciones) {
+  function exportarCSV(rows) {
     const encabezado = ["Proyecto", "Monto (MXNe)", "Fecha", "Yield acumulado (MXNe)", "Estado"];
-    const filas = contribuciones.map((c) => [
+    const dateFormatter = new Intl.DateTimeFormat("es-MX");
+    const filas = rows.map((c) => {
+      const fecha = c.proyecto?.timestamp_inicio
+        ? dateFormatter.format(new Date(c.proyecto.timestamp_inicio * 1000))
+        : "";
+
+      return [
       escaparCSV(c.proyecto?.nombre ?? ""),
       escaparCSV(stroopsADecimal(c.aportacion, 2)),
-      escaparCSV(dateFormatter.format(new Date((c.proyecto?.timestamp_inicio ?? 0) * 1000))),
+      escaparCSV(fecha),
       escaparCSV(stroopsADecimal(c.yieldAcum, 4)),
       escaparCSV(c.proyecto?.estado ?? ""),
-    ]);
+      ];
+    });
     const csv = [encabezado, ...filas].map((fila) => fila.join(",")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -263,7 +271,7 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
   useEffect(() => {
