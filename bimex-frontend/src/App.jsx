@@ -10,6 +10,8 @@ import AdminPanel       from "./components/AdminPanel";
 import Recompensas      from "./components/Recompensas";
 import Transparencia    from "./components/Transparencia";
 import Changelog        from "./components/Changelog";
+import Terminos         from "./components/Terminos";
+import Privacidad       from "./components/Privacidad";
 import { getStorage }   from "./utils/storage";
 import { parsearError } from "./utils/errores";
 import { obtenerTodosLosProyectos, stroopsAMXNe, mintearMXNePrueba } from "./stellar/contrato";
@@ -215,6 +217,8 @@ export default function App() {
   const [vistaActual,    setVistaActual]    = useState("proyectos");
   const [mostrandoTransparencia, setMostrandoTransparencia] = useState(false);
   const [mostrandoChangelog,     setMostrandoChangelog]     = useState(false);
+  const [mostrandoTerminos,      setMostrandoTerminos]      = useState(false);
+  const [mostrandoPrivacidad,    setMostrandoPrivacidad]    = useState(false);
   const [adminPanel,     setAdminPanel]     = useState(false);
   const [autoConectar,   setAutoConectar]   = useState(leerAutoConectarInicial);
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
@@ -293,8 +297,14 @@ export default function App() {
       </div>
     );
   }
+  if (mostrandoTerminos) {
+    return <Terminos onVolver={() => setMostrandoTerminos(false)} />;
+  }
+  if (mostrandoPrivacidad) {
+    return <Privacidad onVolver={() => setMostrandoPrivacidad(false)} />;
+  }
   if (!direccion) {
-    return <Landing autoConectar={autoConectar} onConectado={manejarConectado} onTransparencia={() => setMostrandoTransparencia(true)} onChangelog={() => setMostrandoChangelog(true)} />;
+    return <Landing autoConectar={autoConectar} onConectado={manejarConectado} onTransparencia={() => setMostrandoTransparencia(true)} onChangelog={() => setMostrandoChangelog(true)} onTerminos={() => setMostrandoTerminos(true)} onPrivacidad={() => setMostrandoPrivacidad(true)} />;
   }
 
   return (
@@ -428,21 +438,32 @@ export default function App() {
         )}
       </main>
       <footer style={{ ...st.footer, padding: "16px 40px" }}>
-        <button
-          onClick={() => { setProyectoActivo(null); setVistaActual("changelog"); }}
-          style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.55)", fontSize: "0.78rem", fontWeight: 500, padding: "4px 8px" }}
-        >
-          Novedades
-        </button>
-        <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
-        <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.78rem" }}>Bimex · Stellar Testnet</span>
+        <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
+          <button onClick={() => { setProyectoActivo(null); setVistaActual("changelog"); }}
+            style={st.footerLink}>
+            Novedades
+          </button>
+          <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
+          <button onClick={() => { setMostrandoTerminos(true); setProyectoActivo(null); }}
+            style={st.footerLink}>
+            {t("footer.terms")}
+          </button>
+          <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
+          <button onClick={() => { setMostrandoPrivacidad(true); setProyectoActivo(null); }}
+            style={st.footerLink}>
+            {t("footer.privacy")}
+          </button>
+          <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
+          <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.78rem" }}>Bimex · Stellar Testnet</span>
+        </div>
       </footer>
     </div>
   );
 }
 
 // ── Landing ──────────────────────────────────────────────────────────────────
-function Landing({ autoConectar, onConectado, onTransparencia, onChangelog }) {
+function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTerminos, onPrivacidad }) {
+  const { t } = useTranslation();
   const liveStats = useLiveStats();
   const { rate: cetesRate, error: cetesError } = useCetesRate();
 
@@ -634,9 +655,19 @@ function Landing({ autoConectar, onConectado, onTransparencia, onChangelog }) {
         <p style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.78rem", marginBottom: 10 }}>
           Hack+ Alebrije · Stellar · CDMX 2025 · Construido con Soroban y MXNe
         </p>
-        <button onClick={onChangelog} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.45)", fontSize: "0.78rem", fontWeight: 500, padding: 0 }}>
-          Novedades
-        </button>
+        <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
+          <button onClick={onChangelog} style={st.footerLinkLanding}>
+            Novedades
+          </button>
+          <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
+          <button onClick={onTerminos} style={st.footerLinkLanding}>
+            {t("footer.terms")}
+          </button>
+          <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
+          <button onClick={onPrivacidad} style={st.footerLinkLanding}>
+            {t("footer.privacy")}
+          </button>
+        </div>
       </footer>
     </div>
   );
@@ -706,5 +737,15 @@ const st = {
   sectionSub: { color: "var(--muted)", fontSize: "0.95rem", maxWidth: 480 },
   footer: {
     background: "var(--navy)", padding: "28px 40px", textAlign: "center",
+  },
+  footerLink: {
+    background: "none", border: "none", cursor: "pointer",
+    color: "rgba(255,255,255,0.55)", fontSize: "0.78rem",
+    fontWeight: 500, padding: "4px 8px",
+  },
+  footerLinkLanding: {
+    background: "none", border: "none", cursor: "pointer",
+    color: "rgba(255,255,255,0.45)", fontSize: "0.78rem",
+    fontWeight: 500, padding: 0,
   },
 };

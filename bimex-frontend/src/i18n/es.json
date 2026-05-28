@@ -259,6 +259,44 @@
     "goal": "Meta",
     "locked": "Bloqueado"
   },
+  "footer": {
+    "terms": "Términos",
+    "privacy": "Privacidad"
+  },
+  "terminos": {
+    "title": "Términos y Condiciones de Uso",
+    "updated": "Última actualización: mayo 2026",
+    "back": "Volver",
+    "backAria": "Volver a la página anterior",
+    "s1Title": "1. Descripción del Servicio",
+    "s1Body": "Bimex es una plataforma de crowdfunding de impacto social que opera sobre la red Stellar mediante contratos inteligentes Soroban. Los contribuyentes depositan MXNe (peso mexicano estable vinculado 1:1 al MXN) en proyectos sociales verificados. El capital depositado permanece bajo el control del contrato inteligente, no de la plataforma.\n\nEl rendimiento generado por el capital (a través de CETES vía Etherfuse y del AMM de Stellar) se utiliza para financiar el proyecto social durante su duración. Al finalizar el proyecto, cada contribuyente recupera exactamente el monto que aportó, independientemente del desempeño del proyecto.",
+    "s2Title": "2. Naturaleza de las Contribuciones",
+    "s2Body": "Las contribuciones realizadas en Bimex NO constituyen inversiones reguladas por la Ley del Mercado de Valores ni por ninguna otra autoridad financiera en México o en el extranjero. No se otorgan títulos, acciones, participaciones ni derechos de propiedad sobre el proyecto o la plataforma.\n\nLos contribuyentes no reciben rendimientos financieros sobre su capital. El rendimiento generado se destina íntegramente al proyecto social. La devolución del capital al finalizar el proyecto no constituye una ganancia ni un rendimiento financiero para el contribuyente, sino la recuperación de su depósito original.\n\nBimex no es una institución de crédito, casa de bolsa, SAPI, ni Sociedad Cooperativa de Ahorro y Préstamo.",
+    "s3Title": "3. Riesgos de Blockchain y Stellar",
+    "s3Body": "Bimex utiliza la red Stellar y contratos inteligentes Soroban. Al usar la plataforma, el usuario reconoce y acepta los siguientes riesgos:\n\n- Riesgo de red: Stellar puede experimentar congestión, bifurcaciones (forks), actualizaciones de protocolo, o ataques que afecten la disponibilidad o seguridad del servicio.\n- Riesgo de contrato inteligente: Aunque el código del contrato ha sido probado, ningún software está libre de errores o vulnerabilidades. No se garantiza que el contrato esté exento de bugs que pudieran resultar en pérdida de fondos.\n- Riesgo de cassación: Las transacciones en Stellar son irreversibles una vez confirmadas. Los errores al ingresar direcciones o cantidades no pueden ser revertidos por Bimex ni por ninguna autoridad.\n- Riesgo regulatorio: La regulación de activos digitales y crowdfunding está en evolución. Cambios regulatorios podrían afectar la operación de Bimex o la capacidad de los usuarios para acceder a sus fondos.\n- Riesgo de token MXNe: MXNe es un token estable emitido por Etherfuse. Su estabilidad depende de la correcta operación del emisor y de los mecanismos de reserva subyacentes.",
+    "s4Title": "4. Responsabilidad del Usuario",
+    "s4Body": "El usuario es el único responsable de:\n\n- La custodia de su wallet Freighter y de su clave privada. Bimex nunca solicitará tu clave privada ni frase semilla.\n- La precisión de las direcciones de wallet ingresadas.\n- Mantener su sistema seguro (antimalware, actualizaciones, contraseñas fuertes).\n- Cumplir con sus obligaciones fiscales locales derivadas del uso de la plataforma.\n- No utilizar la plataforma para actividades ilícitas, lavado de dinero o financiamiento al terrorismo.",
+    "s5Title": "5. Limitación de Responsabilidad",
+    "s5Body": "Bimex, sus desarrolladores, colaboradores y entidades asociadas no serán responsables por:\n\n- Pérdida de fondos debido a errores del usuario, pérdida de claves privadas, o acceso no autorizado a la wallet del usuario.\n- Daños indirectos, incidentales, especiales o consecuentes derivados del uso o la imposibilidad de uso de la plataforma.\n- Pérdidas causadas por errores del contrato inteligente, bugs, o vulnerabilidades.\n- Pérdidas causadas por eventos de fuerza mayor, incluyendo pero no limitado a ataques cibernéticos, desastres naturales, o cambios regulatorios.\n- El uso que terceros hagan de la información pública almacenada en la blockchain.\n\nEl capital aportado a proyectos siempre es recuperable al finalizar el proyecto, sujeto a las condiciones establecidas en el contrato inteligente.",
+    "s6Title": "6. Jurisdicción y Legislación Aplicable",
+    "s6Body": "Estos Términos y Condiciones se rigen por las leyes de los Estados Unidos Mexicanos. Cualquier controversia relacionada con el uso de la plataforma será sometida a la jurisdicción de los tribunales competentes en la Ciudad de México, renunciando el usuario a cualquier otra jurisdicción que pudiera corresponderle.\n\nPara consultas o controversias, contacta a: legal@bimex.app"
+  },
+  "privacidad": {
+    "title": "Aviso de Privacidad",
+    "updated": "Última actualización: mayo 2026",
+    "back": "Volver",
+    "backAria": "Volver a la página anterior",
+    "s1Title": "1. Datos que Recopilamos",
+    "s1Body": "Bimex recopila los siguientes datos personales:\n\n- Dirección de wallet Stellar: obtenida cuando conectas tu wallet Freighter a la plataforma.\n- Correo electrónico: proporcionado voluntariamente al activar notificaciones por correo.\n- Datos de transacciones: Bimex indexa y almacena eventos públicos de la blockchain de Stellar relacionados con el contrato inteligente.\n\nBimex NO recopila nombre, dirección física, fecha de nacimiento, CURP, RFC, ni ningún documento de identificación. Los documentos subidos durante la creación de proyectos (INE, plan, presupuesto) se procesan localmente y solo se almacena una huella digital SHA-256 en la blockchain.",
+    "s2Title": "2. Uso de la Información",
+    "s2Body": "Los datos recopilados se utilizan para:\n\n- Facilitar la conexión con tu wallet y mostrar tu información en la plataforma.\n- Enviar notificaciones por correo electrónico (si activaste esta opción) sobre el estado de tus proyectos.\n- Mostrar estadísticas agregadas y datos de transparencia pública.\n- Mejorar la plataforma y diagnosticar problemas técnicos.\n\nLos correos electrónicos se almacenan en Supabase, nuestro proveedor de base de datos y autenticación. Las direcciones de wallet y datos de transacciones son públicos por naturaleza al estar registrados en la blockchain de Stellar.",
+    "s3Title": "3. Naturaleza Pública de la Blockchain",
+    "s3Body": "Todas las transacciones realizadas a través del contrato inteligente de Bimex son registradas en la blockchain de Stellar, que es un libro contable público y descentralizado. Esto significa que:\n\n- Tu dirección de wallet y el historial de transacciones con Bimex son visibles públicamente.\n- No es posible eliminar o modificar datos una vez confirmados en la blockchain.\n- Cualquier persona puede consultar el historial de transacciones del contrato inteligente mediante un explorador de bloques.\n\nAl usar Bimex, aceptas que esta información sea pública.",
+    "s4Title": "4. Derechos ARCO (Acceso, Rectificación, Cancelación y Oposición)",
+    "s4Body": "En términos de la Ley Federal de Protección de Datos Personales en Posesión de los Particulares (LFPDPPP), tienes derecho a:\n\n- Acceso: Solicitar la información que Bimex tiene sobre ti.\n- Rectificación: Solicitar la corrección de datos inexactos o incompletos.\n- Cancelación: Solicitar la eliminación de tus datos personales cuando ya no sean necesarios para las finalidades establecidas.\n- Oposición: Oponerte al tratamiento de tus datos para fines específicos.\n\nPara ejercer tus derechos ARCO, contacta a privacidad@bimex.app. Atenderemos tu solicitud en un plazo máximo de 20 días hábiles conforme a la LFPDPPP.\n\nImportante: Los datos registrados en la blockchain de Stellar no pueden ser modificados ni eliminados debido a la naturaleza inmutable de la tecnología de libro contable distribuido.",
+    "s5Title": "5. Contacto del Responsable",
+    "s5Body": "El responsable del tratamiento de los datos personales es:\n\nBimex Plataforma\nCorreo: privacidad@bimex.app\nCDMX, México\n\nPara cualquier duda sobre este aviso de privacidad, el tratamiento de tus datos, o para ejercer tus derechos ARCO, contáctanos a privacidad@bimex.app."
+  },
   "recompensas": {
     "label": "Tus recompensas",
     "level": "Nivel",
