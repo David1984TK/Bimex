@@ -9,7 +9,9 @@ import {
   stroopsAMXNe,
 } from "../stellar/contrato";
 
-const supabase = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY);
+const supabase = import.meta.env.VITE_SUPABASE_URL
+  ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY)
+  : null;
 
 // ─── Config de estado ─────────────────────────────────────────────────────────
 
@@ -36,6 +38,22 @@ function pct(aportado, meta) {
 
 function puedeRetirar(estado) {
   return estado === "Liberado" || estado === "Abandonado";
+}
+
+function sanitizar(valor) {
+  const texto = String(valor ?? "");
+  return /^[=+\-@]/.test(texto) ? `'${texto}` : texto;
+}
+
+function escaparCSV(valor) {
+  return `"${String(valor).replace(/"/g, '""')}"`;
+}
+
+function stroopsADecimal(stroops, decimales) {
+  const n = BigInt(stroops ?? 0);
+  const entero = n / 10_000_000n;
+  const resto = n % 10_000_000n;
+  return `${entero}.${String(resto).padStart(7, "0").slice(0, decimales)}`;
 }
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -229,13 +247,13 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
   function exportarCSV(contribuciones) {
     const encabezado = ["Proyecto", "Monto (MXNe)", "Fecha", "Yield acumulado (MXNe)", "Estado"];
     const filas = contribuciones.map((c) => [
-      c.proyecto?.nombre ?? "",
-      (Number(c.aportacion) / 1e7).toFixed(2),
+      sanitizar(c.proyecto?.nombre ?? ""),
+      stroopsADecimal(c.aportacion, 2),
       new Intl.DateTimeFormat("es-MX").format(new Date((c.proyecto?.timestamp_inicio ?? 0) * 1000)),
-      (Number(c.yieldAcum) / 1e7).toFixed(4),
-      c.proyecto?.estado ?? "",
+      stroopsADecimal(c.yieldAcum, 4),
+      sanitizar(c.proyecto?.estado ?? ""),
     ]);
-    const csv = [encabezado, ...filas].map((fila) => fila.join(",")).join("\n");
+    const csv = [encabezado, ...filas].map((fila) => fila.map(escaparCSV).join(",")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -287,21 +305,25 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
     );
   }
 
+  const encabezadoContribuciones = (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
+      <h3 style={{ fontSize: "1.05rem", fontWeight: 800, color: "var(--text)", margin: 0 }}>
+        {t("cuenta.myContributions")}
+      </h3>
+      <button
+        onClick={() => exportarCSV(contribuciones)}
+        className="btn-outline"
+        disabled={contribuciones.length === 0}
+      >
+        ↓ {t("descargarCSV", "Descargar CSV")}
+      </button>
+    </div>
+  );
+
   if (contribuciones.length === 0) {
     return (
       <div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
-          <h3 style={{ fontSize: "1.05rem", fontWeight: 800, color: "var(--text)", margin: 0 }}>
-            {t("cuenta.myContributions")}
-          </h3>
-          <button
-            onClick={() => exportarCSV(contribuciones)}
-            className="btn-outline"
-            disabled={contribuciones.length === 0}
-          >
-            ↓ {t("descargarCSV", "Descargar CSV")}
-          </button>
-        </div>
+        {encabezadoContribuciones}
         <div style={estilos.empty}>
           <IconInbox />
           <p style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--text)", marginTop: 16 }}>
@@ -317,18 +339,7 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
-        <h3 style={{ fontSize: "1.05rem", fontWeight: 800, color: "var(--text)", margin: 0 }}>
-          {t("cuenta.myContributions")}
-        </h3>
-        <button
-          onClick={() => exportarCSV(contribuciones)}
-          className="btn-outline"
-          disabled={contribuciones.length === 0}
-        >
-          ↓ {t("descargarCSV", "Descargar CSV")}
-        </button>
-      </div>
+      {encabezadoContribuciones}
       <div style={{ overflowX: "auto" }}>
         <table style={estilos.table}>
           <thead>
