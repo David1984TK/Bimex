@@ -14,7 +14,8 @@ import Terminos         from "./components/Terminos";
 import Privacidad       from "./components/Privacidad";
 import { getStorage }   from "./utils/storage";
 import { parsearError } from "./utils/errores";
-import { obtenerTodosLosProyectos, stroopsAMXNe, mintearMXNePrueba } from "./stellar/contrato";
+import { aplicarMeta, crearMetaProyecto, leerProyectoIdDesdePath } from "./utils/metaTags";
+import { obtenerTodosLosProyectos, obtenerProyecto, stroopsAMXNe, mintearMXNePrueba } from "./stellar/contrato";
 import { useCetesRate } from "./hooks/useCetesRate";
 import "./i18n/index.js";
 import "./index.css";
@@ -244,6 +245,24 @@ export default function App() {
 
   const esAdmin = direccion === ADMIN_ADDRESS;
 
+  useEffect(() => {
+    aplicarMeta(crearMetaProyecto(proyectoActivo));
+  }, [proyectoActivo]);
+
+  useEffect(() => {
+    if (!direccion || proyectoActivo) return;
+    const proyectoId = leerProyectoIdDesdePath();
+    if (proyectoId === null) return;
+
+    obtenerProyecto(proyectoId)
+      .then((proyecto) => {
+        if (!proyecto) return;
+        setProyectoActivo(proyecto);
+        setVistaActual("proyectos");
+      })
+      .catch(() => {});
+  }, [direccion, proyectoActivo]);
+
   function formatearDir(dir) {
     if (!dir) return "";
     return `${dir.slice(0, 5)}...${dir.slice(-4)}`;
@@ -281,6 +300,18 @@ export default function App() {
   }, []);
 
   function refrescarLista() { setRefrescar(r => r + 1); }
+
+  function abrirProyecto(proyecto) {
+    setProyectoActivo(proyecto);
+    setVistaActual("proyectos");
+    window.history.replaceState({}, "", `/proyectos/${proyecto.id}`);
+  }
+
+  function cerrarProyectoActivo() {
+    setProyectoActivo(null);
+    window.history.replaceState({}, "", "/");
+    refrescarLista();
+  }
 
   if (mostrandoTransparencia) {
     return <Transparencia onVolver={() => setMostrandoTransparencia(false)} />;
@@ -390,7 +421,7 @@ export default function App() {
           <DetalleProyecto
             proyecto={proyectoActivo}
             direccion={direccion}
-            onCerrar={() => { setProyectoActivo(null); refrescarLista(); }}
+            onCerrar={cerrarProyectoActivo}
             onError={mostrarError}
             onToast={(msg) => agregarToast(msg, "success")}
           />
@@ -398,7 +429,7 @@ export default function App() {
           <>
             {vistaActual === "proyectos" && (
               <ListaProyectos
-                onSeleccionar={setProyectoActivo}
+                onSeleccionar={abrirProyecto}
                 onCrear={() => setModalCrear(true)}
                 refrescar={refrescar}
                 onError={mostrarError}
@@ -413,7 +444,7 @@ export default function App() {
             {vistaActual === "micuenta" && (
               <MiCuenta
                 direccion={direccion}
-                onVerProyecto={p => { setProyectoActivo(p); setVistaActual("proyectos"); }}
+                onVerProyecto={abrirProyecto}
                 onTotalInvertido={setTotalInvertido}
                 onError={mostrarError}
               />
