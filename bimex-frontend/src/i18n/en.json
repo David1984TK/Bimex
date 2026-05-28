@@ -215,6 +215,7 @@
     "colEstado": "Status",
     "colCierre": "Close date"
   },
+  "descargarCSV": "Download CSV",
   "admin": {
     "title": "Admin Panel",
     "pending": "{{count}} projects pending review",

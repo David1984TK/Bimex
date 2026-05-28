@@ -9,9 +9,7 @@ import {
   stroopsAMXNe,
 } from "../stellar/contrato";
 
-const supabase = import.meta.env.VITE_SUPABASE_URL
-  ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY)
-  : null;
+const supabase = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY);
 
 // ─── Config de estado ─────────────────────────────────────────────────────────
 
@@ -228,6 +226,27 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
   const [cargando, setCargando] = useState(true);
   const [errorContrib, setErrorContrib] = useState(null);
 
+  function exportarCSV(contribuciones) {
+    const encabezado = ["Proyecto", "Monto (MXNe)", "Fecha", "Yield acumulado (MXNe)", "Estado"];
+    const filas = contribuciones.map((c) => [
+      c.proyecto?.nombre ?? "",
+      (Number(c.aportacion) / 1e7).toFixed(2),
+      new Intl.DateTimeFormat("es-MX").format(new Date((c.proyecto?.timestamp_inicio ?? 0) * 1000)),
+      (Number(c.yieldAcum) / 1e7).toFixed(4),
+      c.proyecto?.estado ?? "",
+    ]);
+    const csv = [encabezado, ...filas].map((fila) => fila.join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `bimex-historial-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   useEffect(() => {
     if (proyectos.length === 0) {
       setCargando(false);
@@ -270,85 +289,113 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
 
   if (contribuciones.length === 0) {
     return (
-      <div style={estilos.empty}>
-        <IconInbox />
-        <p style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--text)", marginTop: 16 }}>
-          {t("cuenta.noContributions")}
-        </p>
-        <p style={{ fontSize: "0.86rem", color: "var(--muted)", marginTop: 6 }}>
-          {t("cuenta.noContributionsHint")}
-        </p>
+      <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
+          <h3 style={{ fontSize: "1.05rem", fontWeight: 800, color: "var(--text)", margin: 0 }}>
+            {t("cuenta.myContributions")}
+          </h3>
+          <button
+            onClick={() => exportarCSV(contribuciones)}
+            className="btn-outline"
+            disabled={contribuciones.length === 0}
+          >
+            ↓ {t("descargarCSV", "Descargar CSV")}
+          </button>
+        </div>
+        <div style={estilos.empty}>
+          <IconInbox />
+          <p style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--text)", marginTop: 16 }}>
+            {t("cuenta.noContributions")}
+          </p>
+          <p style={{ fontSize: "0.86rem", color: "var(--muted)", marginTop: 6 }}>
+            {t("cuenta.noContributionsHint")}
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={estilos.table}>
-        <thead>
-          <tr>
-            <th style={estilos.th}>{t("cuenta.colProyecto")}</th>
-            <th style={estilos.th}>{t("cuenta.colModo")}</th>
-            <th style={{ ...estilos.th, textAlign: "right" }}>{t("cuenta.colCapital")}</th>
-            <th style={{ ...estilos.th, textAlign: "right" }}>{t("cuenta.colRendimiento")}</th>
-            <th style={estilos.th}>{t("cuenta.colEstado")}</th>
-            <th style={estilos.th}>{t("cuenta.colCierre")}</th>
-            <th style={estilos.th} />
-          </tr>
-        </thead>
-        <tbody>
-          {contribuciones.map(({ proyecto, aportacion, yieldAcum }) => {
-            const puedeRet = puedeRetirar(proyecto.estado);
-            const modo = proyecto.modo ?? "Inversor";
-            return (
-              <tr key={proyecto.id} style={estilos.tr}>
-                <td style={estilos.td}>
-                  <span style={{ fontWeight: 600, color: "var(--text)" }}>{proyecto.nombre}</span>
-                </td>
-                <td style={estilos.td}>
-                  <span className={modo === "Mecenas" ? "badge badge-teal" : "badge badge-navy"}>
-                    {modo}
-                  </span>
-                </td>
-                <td style={{ ...estilos.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                  {stroopsAMXNe(aportacion)}
-                </td>
-                <td style={{ ...estilos.td, textAlign: "right", color: "var(--green)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                  {stroopsAMXNe(yieldAcum)}
-                </td>
-                <td style={estilos.td}>
-                  <EstadoBadge estado={proyecto.estado} />
-                </td>
-                <td style={{ ...estilos.td, color: "var(--muted)", fontSize: "0.83rem" }}>
-                  {proyecto.fecha_cierre ?? "—"}
-                </td>
-                <td style={{ ...estilos.td, textAlign: "right" }}>
-                  <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                    <button
-                      className="btn btn-secondary"
-                      style={{ padding: "6px 12px", fontSize: "0.8rem" }}
-                      onClick={() => onVerProyecto(proyecto)}
-                      aria-label={`${t("cuenta.viewDetailsShort")} ${proyecto.nombre}`}
-                    >
-                      <IconFile />
-                    </button>
-                    {puedeRet && (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
+        <h3 style={{ fontSize: "1.05rem", fontWeight: 800, color: "var(--text)", margin: 0 }}>
+          {t("cuenta.myContributions")}
+        </h3>
+        <button
+          onClick={() => exportarCSV(contribuciones)}
+          className="btn-outline"
+          disabled={contribuciones.length === 0}
+        >
+          ↓ {t("descargarCSV", "Descargar CSV")}
+        </button>
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table style={estilos.table}>
+          <thead>
+            <tr>
+              <th style={estilos.th}>{t("cuenta.colProyecto")}</th>
+              <th style={estilos.th}>{t("cuenta.colModo")}</th>
+              <th style={{ ...estilos.th, textAlign: "right" }}>{t("cuenta.colCapital")}</th>
+              <th style={{ ...estilos.th, textAlign: "right" }}>{t("cuenta.colRendimiento")}</th>
+              <th style={estilos.th}>{t("cuenta.colEstado")}</th>
+              <th style={estilos.th}>{t("cuenta.colCierre")}</th>
+              <th style={estilos.th} />
+            </tr>
+          </thead>
+          <tbody>
+            {contribuciones.map(({ proyecto, aportacion, yieldAcum }) => {
+              const puedeRet = puedeRetirar(proyecto.estado);
+              const modo = proyecto.modo ?? "Inversor";
+              return (
+                <tr key={proyecto.id} style={estilos.tr}>
+                  <td style={estilos.td}>
+                    <span style={{ fontWeight: 600, color: "var(--text)" }}>{proyecto.nombre}</span>
+                  </td>
+                  <td style={estilos.td}>
+                    <span className={modo === "Mecenas" ? "badge badge-teal" : "badge badge-navy"}>
+                      {modo}
+                    </span>
+                  </td>
+                  <td style={{ ...estilos.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                    {stroopsAMXNe(aportacion)}
+                  </td>
+                  <td style={{ ...estilos.td, textAlign: "right", color: "var(--green)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                    {stroopsAMXNe(yieldAcum)}
+                  </td>
+                  <td style={estilos.td}>
+                    <EstadoBadge estado={proyecto.estado} />
+                  </td>
+                  <td style={{ ...estilos.td, color: "var(--muted)", fontSize: "0.83rem" }}>
+                    {proyecto.fecha_cierre ?? "—"}
+                  </td>
+                  <td style={{ ...estilos.td, textAlign: "right" }}>
+                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                       <button
-                        className="btn btn-amber"
+                        className="btn btn-secondary"
                         style={{ padding: "6px 12px", fontSize: "0.8rem" }}
                         onClick={() => onVerProyecto(proyecto)}
-                        aria-label={`${t("cuenta.withdraw")} ${proyecto.nombre}`}
+                        aria-label={`${t("cuenta.viewDetailsShort")} ${proyecto.nombre}`}
                       >
-                        {t("cuenta.withdraw")}
+                        <IconFile />
                       </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                      {puedeRet && (
+                        <button
+                          className="btn btn-amber"
+                          style={{ padding: "6px 12px", fontSize: "0.8rem" }}
+                          onClick={() => onVerProyecto(proyecto)}
+                          aria-label={`${t("cuenta.withdraw")} ${proyecto.nombre}`}
+                        >
+                          {t("cuenta.withdraw")}
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -535,7 +582,6 @@ export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido })
 
   return (
     <div className="cuenta-contenedor" style={estilos.contenedor}>
-
       {/* Header */}
       <div style={estilos.header}>
         <div>
