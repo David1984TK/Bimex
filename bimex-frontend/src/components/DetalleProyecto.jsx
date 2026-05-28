@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate, useParams } from "react-router-dom";
 import { parsearError } from "../utils/errores.js";
 import {
   contribuir as contribuirContrato,
@@ -16,6 +17,7 @@ import {
   stroopsAMXNe,
   CONFIG,
 } from "../stellar/contrato";
+import { aplicarMeta, crearMetaProyecto, DEFAULT_META } from "../utils/metaTags.js";
 
 const ESTADO_CONFIG = {
   EtapaInicial: { labelKey: "status.EtapaInicial", clase: "badge-muted" },
@@ -114,11 +116,32 @@ function SkeletonInvestPanel() {
   );
 }
 
-export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, onCerrar, onError, onToast }) {
+export default function DetalleProyecto({ direccion, onCerrar, onError, onToast }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { id } = useParams();
   const montadoRef = useRef(true);
   useEffect(() => () => { montadoRef.current = false; }, []);
-  const [proyecto,          setProyecto]          = useState(proyectoInicial);
+  const proyectoId = Number(id);
+  const proyectoBase = {
+    id: proyectoId,
+    nombre: "",
+    estado: "EtapaInicial",
+    dueno: "",
+    aportado: 0n,
+    meta: 0n,
+    yield_entregado: 0n,
+    capital_en_cetes: 0n,
+    capital_en_amm: 0n,
+    yield_cetes_acumulado: 0n,
+    yield_amm_acumulado: 0n,
+    timestamp_inicio: 0,
+    timestamp_vencimiento: 0,
+    tiempo_meses: 0,
+    doc_hash: "",
+    motivo_rechazo: "",
+  };
+  const [proyecto,          setProyecto]          = useState(proyectoBase);
   const [cantidad,          setCantidad]          = useState("");
   const [cargando,          setCargando]          = useState(false);
   const [cargandoInicial,   setCargandoInicial]   = useState(true);
@@ -158,29 +181,45 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
     ? proyecto.doc_hash.split("|").filter(Boolean)
     : [];
 
+  useEffect(() => {
+    if (!proyecto?.id) return () => aplicarMeta(DEFAULT_META);
+    aplicarMeta(crearMetaProyecto(proyecto));
+    return () => aplicarMeta(DEFAULT_META);
+  }, [proyecto]);
+
   const refrescar = useCallback(async () => {
-    if (!direccion || proyecto.id == null) {
+    if (!Number.isFinite(proyectoId)) {
       setCargandoInicial(false);
       return;
     }
     try {
-      const [proyActualizado, aport, yld, bal] = await Promise.all([
-        obtenerProyecto(proyecto.id).catch(() => null),
-        obtenerAportacion(proyecto.id, direccion).catch(() => BigInt(0)),
-        calcularYield(proyecto.id, direccion).catch(() => BigInt(0)),
-        obtenerBalanceMXNe(direccion).catch(() => null),
-      ]);
+      const proyActualizado = await obtenerProyecto(proyectoId).catch(() => null);
+      const [aport, yld, bal] = direccion
+        ? await Promise.all([
+            obtenerAportacion(proyectoId, direccion).catch(() => BigInt(0)),
+            calcularYield(proyectoId, direccion).catch(() => BigInt(0)),
+            obtenerBalanceMXNe(direccion).catch(() => null),
+          ])
+        : [BigInt(0), BigInt(0), null];
       if (!montadoRef.current) return;
-      if (proyActualizado) setProyecto(proyActualizado);
+      if (!proyActualizado) {
+        onError?.(new Error(t("detalle.errContract")));
+        onCerrar?.();
+        return;
+      }
+      setProyecto(proyActualizado);
       setMiAportacion(aport);
       setMiYield(yld);
       setBalanceMXNe(bal);
     } catch (e) {
-      if (montadoRef.current) onError?.(parsearError(e));
+      if (montadoRef.current) {
+        onError?.(parsearError(e));
+        onCerrar?.();
+      }
     } finally {
       setCargandoInicial(false);
     }
-  }, [proyecto.id, direccion, onError, setCargandoInicial]);
+  }, [proyectoId, direccion, onError, onCerrar, t]);
 
   useEffect(() => { refrescar(); }, [refrescar]);
 
@@ -215,7 +254,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
   const proyeccion = calcProyeccion(cantidadNum, 12, modoInversion);
 
   async function manejarContribuir() {
-    if (!cantidadValida || superaBalance) return;
+    if (!direccion || !cantidadValida || superaBalance) return;
     setCargando(true);
     try {
       await contribuirContrato(direccion, proyecto.id, mxneAStroops(Number(cantidad)));
@@ -229,6 +268,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
   }
 
   async function manejarRetirar() {
+    if (!direccion) return;
     setCargando(true);
     try {
       await retirarPrincipalContrato(direccion, proyecto.id);
@@ -244,6 +284,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
   }
 
   async function manejarReclamarYield() {
+    if (!direccion) return;
     if (estado !== "Liberado") { onError?.(t("detalle.errYieldOnly")); return; }
     if (miYield === BigInt(0)) { onError?.(t("detalle.errNoYield")); return; }
     setCargando(true);
@@ -258,6 +299,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
   }
 
   async function manejarAbandonar() {
+    if (!direccion) return;
     setConfirmarAbandonar(false);
     setCargando(true);
     try {
@@ -271,6 +313,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
   }
 
   async function manejarRetiroAnticipado() {
+    if (!direccion) return;
     setCargando(true);
     try {
       await retiroAnticipadoContrato(direccion, proyecto.id);
@@ -285,6 +328,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
   }
 
   async function manejarSolicitarContinuar() {
+    if (!direccion) return;
     setCargando(true);
     try {
       await solicitarContinuarContrato(direccion, proyecto.id);
@@ -301,7 +345,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
       <div className="detail-page">
 
         {/* Back link */}
-        <button className="back-link" onClick={onCerrar}>
+        <button className="back-link" onClick={() => navigate("/proyectos")}>
           <IconArrowLeft />
           {t("detalle.backToProjects")}
         </button>
@@ -603,7 +647,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
                     <button
                       className="invest-btn"
                       onClick={manejarContribuir}
-                      disabled={cargando || !cantidadValida || !!errorCantidad}
+                      disabled={cargando || !direccion || !cantidadValida || !!errorCantidad}
                     >
                       {cargando ? t("detalle.processing") : t("detalle.confirmContribute")}
                     </button>
@@ -630,7 +674,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
                         className="btn btn-ghost"
                         style={{ width: "100%", justifyContent: "center", marginTop: 8, fontSize: "0.82rem", color: "var(--muted)" }}
                         onClick={manejarRetiroAnticipado}
-                        disabled={cargando}
+                        disabled={cargando || !direccion}
                         title={t("detalle.earlyWithdrawTitle")}
                       >
                         {cargando ? t("detalle.processing") : t("detalle.earlyWithdraw")}
@@ -650,7 +694,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
                         className="btn btn-amber"
                         style={{ width: "100%", justifyContent: "center", marginTop: aceptaFondos ? 0 : 4 }}
                         onClick={() => setVistaRetirar(true)}
-                        disabled={cargando}
+                        disabled={cargando || !direccion}
                       >
                         {t("detalle.withdraw")}
                       </button>
@@ -671,7 +715,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
                             className="btn btn-amber"
                             style={{ flex: 2, justifyContent: "center" }}
                             onClick={manejarRetirar}
-                            disabled={cargando}
+                            disabled={cargando || !direccion}
                           >
                             {cargando ? t("detalle.processing") : t("detalle.confirmWithdraw")}
                           </button>
@@ -687,7 +731,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
                     className="btn btn-secondary"
                     style={{ width: "100%", justifyContent: "center", marginTop: 8 }}
                     onClick={manejarReclamarYield}
-                    disabled={cargando || miYield === BigInt(0)}
+                    disabled={cargando || !direccion || miYield === BigInt(0)}
                     title={miYield === BigInt(0) ? t("detalle.waitYield") : ""}
                   >
                     {cargando ? t("detalle.processing") : t("detalle.claimYield")}
@@ -700,7 +744,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
                     className="invest-btn"
                     style={{ marginTop: 8 }}
                     onClick={manejarSolicitarContinuar}
-                    disabled={cargando}
+                    disabled={cargando || !direccion}
                   >
                     {cargando ? t("detalle.processing") : t("detalle.takeControl")}
                   </button>

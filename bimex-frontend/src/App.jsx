@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { setAllowed } from "@stellar/freighter-api";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import ConectarWallet   from "./components/ConectarWallet";
 import ListaProyectos   from "./components/ListaProyectos";
 import CrearProyecto    from "./components/CrearProyecto";
@@ -14,8 +15,7 @@ import Terminos         from "./components/Terminos";
 import Privacidad       from "./components/Privacidad";
 import { getStorage }   from "./utils/storage";
 import { parsearError } from "./utils/errores";
-import { aplicarMeta, crearMetaProyecto, leerProyectoIdDesdePath } from "./utils/metaTags";
-import { obtenerTodosLosProyectos, obtenerProyecto, stroopsAMXNe, mintearMXNePrueba } from "./stellar/contrato";
+import { obtenerTodosLosProyectos, stroopsAMXNe, mintearMXNePrueba } from "./stellar/contrato";
 import { useCetesRate } from "./hooks/useCetesRate";
 import "./i18n/index.js";
 import "./index.css";
@@ -211,16 +211,11 @@ function ToastContainer({ toasts, onRemove }) {
 // ── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [refrescar,      setRefrescar]      = useState(0);
   const [direccion,      setDireccion]      = useState(null);
-  const [proyectoActivo, setProyectoActivo] = useState(null);
   const [modalCrear,     setModalCrear]     = useState(false);
-  const [vistaActual,    setVistaActual]    = useState("proyectos");
-  const [mostrandoTransparencia, setMostrandoTransparencia] = useState(false);
-  const [mostrandoChangelog,     setMostrandoChangelog]     = useState(false);
-  const [mostrandoTerminos,      setMostrandoTerminos]      = useState(false);
-  const [mostrandoPrivacidad,    setMostrandoPrivacidad]    = useState(false);
-  const [adminPanel,     setAdminPanel]     = useState(false);
   const [autoConectar,   setAutoConectar]   = useState(leerAutoConectarInicial);
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
   const [totalInvertido, setTotalInvertido] = useState(null);
@@ -244,39 +239,23 @@ export default function App() {
   }, [agregarToast]);
 
   const esAdmin = direccion === ADMIN_ADDRESS;
-
-  useEffect(() => {
-    aplicarMeta(crearMetaProyecto(proyectoActivo));
-  }, [proyectoActivo]);
-
-  useEffect(() => {
-    if (!direccion || proyectoActivo) return;
-    const proyectoId = leerProyectoIdDesdePath();
-    if (proyectoId === null) return;
-
-    obtenerProyecto(proyectoId)
-      .then((proyecto) => {
-        if (!proyecto) return;
-        setProyectoActivo(proyecto);
-        setVistaActual("proyectos");
-      })
-      .catch(() => {});
-  }, [direccion, proyectoActivo]);
+  const pathname = location.pathname;
+  const esRutaProyectos = pathname === "/" || pathname === "/proyectos" || pathname.startsWith("/proyectos/");
+  const esRutaCuenta = pathname === "/cuenta";
+  const esRutaTransparencia = pathname === "/transparencia";
 
   function formatearDir(dir) {
     if (!dir) return "";
     return `${dir.slice(0, 5)}...${dir.slice(-4)}`;
   }
 
-  function desconectarLocal() {
+  const desconectarLocal = useCallback(() => {
     storageSesion.removeItem(KEY_SESION_WALLET);
     setAutoConectar(false);
     setDireccion(null);
-    setProyectoActivo(null);
     setModalCrear(false);
-    setVistaActual("proyectos");
-    setAdminPanel(false);
-  }
+    navigate("/", { replace: true });
+  }, [navigate]);
 
   async function cerrarSesionWallet() {
     setCerrandoSesion(true);
@@ -285,7 +264,9 @@ export default function App() {
         setAllowed(false),
         new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 4000)),
       ]);
-    } catch {}
+    } catch (err) {
+      void err;
+    }
     finally { desconectarLocal(); setCerrandoSesion(false); }
   }
 
@@ -294,200 +275,203 @@ export default function App() {
       storageSesion.setItem(KEY_SESION_WALLET, "1");
       setDireccion(addr);
       setAutoConectar(true);
+      navigate("/proyectos", { replace: true });
     } else {
       desconectarLocal();
     }
-  }, []);
+  }, [navigate, desconectarLocal]);
 
   function refrescarLista() { setRefrescar(r => r + 1); }
-
-  function abrirProyecto(proyecto) {
-    setProyectoActivo(proyecto);
-    setVistaActual("proyectos");
-    window.history.replaceState({}, "", `/proyectos/${proyecto.id}`);
-  }
-
-  function cerrarProyectoActivo() {
-    setProyectoActivo(null);
-    window.history.replaceState({}, "", "/");
-    refrescarLista();
-  }
-
-  if (mostrandoTransparencia) {
-    return <Transparencia onVolver={() => setMostrandoTransparencia(false)} />;
-  }
-  if (mostrandoChangelog) {
-    return (
-      <div>
-        <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)" }}>
-          <button className="btn btn-ghost" onClick={() => setMostrandoChangelog(false)} style={{ fontSize: "0.84rem" }}>
-            ← Volver
-          </button>
-        </div>
-        <Changelog />
-      </div>
-    );
-  }
-  if (mostrandoTerminos) {
-    return <Terminos onVolver={() => setMostrandoTerminos(false)} />;
-  }
-  if (mostrandoPrivacidad) {
-    return <Privacidad onVolver={() => setMostrandoPrivacidad(false)} />;
-  }
-  if (!direccion) {
-    return <Landing autoConectar={autoConectar} onConectado={manejarConectado} onTransparencia={() => setMostrandoTransparencia(true)} onChangelog={() => setMostrandoChangelog(true)} onTerminos={() => setMostrandoTerminos(true)} onPrivacidad={() => setMostrandoPrivacidad(true)} />;
-  }
 
   return (
     <div>
       <ToastContainer toasts={toasts} onRemove={quitarToast} />
-      <nav className="navbar" aria-label="Navegación principal">
-        {/* Logo + Nav tabs agrupados a la izquierda */}
-        <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 9, marginRight: 24 }}>
-            <LogoSVG size={22} />
-            <span className="navbar-logo">Bimex</span>
+      {pathname !== "/" && (
+        <nav className="navbar" aria-label="Navegación principal">
+          {/* Logo + Nav tabs agrupados a la izquierda */}
+          <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 9, marginRight: 24 }}>
+              <LogoSVG size={22} />
+              <span className="navbar-logo">Bimex</span>
+            </div>
+
+            <div style={{ display: "flex", gap: 2, height: "100%", alignItems: "stretch" }}>
+              <button
+                onClick={() => navigate("/proyectos")}
+                style={{
+                  ...st.navTab,
+                  color: esRutaProyectos ? "var(--navy)" : "var(--muted)",
+                  borderBottom: esRutaProyectos ? "2px solid var(--navy)" : "2px solid transparent",
+                }}
+              >
+                {t("nav.projects")}
+              </button>
+              <button
+                onClick={() => navigate("/cuenta")}
+                style={{
+                  ...st.navTab,
+                  color: esRutaCuenta ? "var(--navy)" : "var(--muted)",
+                  borderBottom: esRutaCuenta ? "2px solid var(--navy)" : "2px solid transparent",
+                }}
+              >
+                {t("nav.myAccount")}
+              </button>
+              <button
+                onClick={() => navigate("/transparencia")}
+                style={{
+                  ...st.navTab,
+                  color: esRutaTransparencia ? "var(--navy)" : "var(--muted)",
+                  borderBottom: esRutaTransparencia ? "2px solid var(--navy)" : "2px solid transparent",
+                }}
+              >
+                {t("nav.transparency")}
+              </button>
+            </div>
           </div>
 
-          <div style={{ display: "flex", gap: 2, height: "100%", alignItems: "stretch" }}>
-            <button
-              onClick={() => { setProyectoActivo(null); setVistaActual("proyectos"); }}
-              style={{
-                ...st.navTab,
-                color: (vistaActual === "proyectos" || proyectoActivo) ? "var(--navy)" : "var(--muted)",
-                borderBottom: (vistaActual === "proyectos" || proyectoActivo) ? "2px solid var(--navy)" : "2px solid transparent",
-              }}
-            >
-              {t("nav.projects")}
-            </button>
-            <button
-              onClick={() => { setProyectoActivo(null); setVistaActual("micuenta"); }}
-              style={{
-                ...st.navTab,
-                color: vistaActual === "micuenta" && !proyectoActivo ? "var(--navy)" : "var(--muted)",
-                borderBottom: vistaActual === "micuenta" && !proyectoActivo ? "2px solid var(--navy)" : "2px solid transparent",
-              }}
-            >
-              {t("nav.myAccount")}
-            </button>
-            <button
-              onClick={() => { setProyectoActivo(null); setVistaActual("transparencia"); }}
-              style={{
-                ...st.navTab,
-                color: vistaActual === "transparencia" && !proyectoActivo ? "var(--navy)" : "var(--muted)",
-                borderBottom: vistaActual === "transparencia" && !proyectoActivo ? "2px solid var(--navy)" : "2px solid transparent",
-              }}
-            >
-              {t("nav.transparency")}
-            </button>
-          </div>
-        </div>
+          {direccion && (
+            <div className="navbar-actions">
+              <span className="navbar-hide-tablet" style={st.testnetBadge}>Testnet</span>
 
-        {/* Actions */}
-        <div className="navbar-actions">
-          <span className="navbar-hide-tablet" style={st.testnetBadge}>Testnet</span>
+              <BtnFaucet direccion={direccion} />
 
-          <BtnFaucet direccion={direccion} />
+              <button
+                onClick={() => i18n.changeLanguage(i18n.language === "es" ? "en" : "es")}
+                style={st.langBtn}
+                aria-label="Switch language"
+              >
+                {t("lang.toggle")}
+              </button>
 
-          <button
-            onClick={() => i18n.changeLanguage(i18n.language === "es" ? "en" : "es")}
-            style={st.langBtn}
-            aria-label="Switch language"
-          >
-            {t("lang.toggle")}
-          </button>
+              {esAdmin && (
+                <button className="navbar-btn-admin" onClick={() => navigate("/admin") }>
+                  {t("nav.admin")}
+                </button>
+              )}
 
-          {esAdmin && (
-            <button className="navbar-btn-admin" onClick={() => setAdminPanel(true)}>
-              {t("nav.admin")}
-            </button>
+              <Recompensas direccion={direccion} refrescar={refrescar} totalInvertido={totalInvertido} />
+
+              <div className="wallet-chip">
+                <span className="wallet-dot" aria-hidden="true" />
+                <span aria-label={`Wallet: ${direccion}`}>{formatearDir(direccion)}</span>
+              </div>
+
+              <button className="navbar-btn-salir" onClick={cerrarSesionWallet} disabled={cerrandoSesion}>
+                {cerrandoSesion ? t("nav.loggingOut") : t("nav.logout")}
+              </button>
+            </div>
           )}
-
-          <Recompensas direccion={direccion} refrescar={refrescar} totalInvertido={totalInvertido} />
-
-          <div className="wallet-chip">
-            <span className="wallet-dot" aria-hidden="true" />
-            <span aria-label={`Wallet: ${direccion}`}>{formatearDir(direccion)}</span>
-          </div>
-
-          <button className="navbar-btn-salir" onClick={cerrarSesionWallet} disabled={cerrandoSesion}>
-            {cerrandoSesion ? t("nav.loggingOut") : t("nav.logout")}
-          </button>
-        </div>
-      </nav>
+        </nav>
+      )}
 
       <main id="contenido-principal">
-        {proyectoActivo ? (
-          <DetalleProyecto
-            proyecto={proyectoActivo}
-            direccion={direccion}
-            onCerrar={cerrarProyectoActivo}
-            onError={mostrarError}
-            onToast={(msg) => agregarToast(msg, "success")}
+        <Routes>
+          <Route
+            path="/"
+            element={
+              direccion ? (
+                <Navigate to="/proyectos" replace />
+              ) : (
+                <Landing
+                  autoConectar={autoConectar}
+                  onConectado={manejarConectado}
+                  onTransparencia={() => navigate("/transparencia")}
+                  onChangelog={() => navigate("/novedades")}
+                  onTerminos={() => navigate("/terminos")}
+                  onPrivacidad={() => navigate("/privacidad")}
+                />
+              )
+            }
           />
-        ) : (
-          <>
-            {vistaActual === "proyectos" && (
+          <Route
+            path="/proyectos"
+            element={
               <ListaProyectos
-                onSeleccionar={abrirProyecto}
                 onCrear={() => setModalCrear(true)}
                 refrescar={refrescar}
                 onError={mostrarError}
               />
-            )}
-            {vistaActual === "transparencia" && (
-              <Transparencia />
-            )}
-            {vistaActual === "changelog" && (
-              <Changelog />
-            )}
-            {vistaActual === "micuenta" && (
-              <MiCuenta
+            }
+          />
+          <Route
+            path="/proyectos/:id"
+            element={
+              <DetalleProyecto
                 direccion={direccion}
-                onVerProyecto={abrirProyecto}
-                onTotalInvertido={setTotalInvertido}
+                onCerrar={() => navigate("/proyectos")}
                 onError={mostrarError}
+                onToast={(msg) => agregarToast(msg, "success")}
               />
-            )}
-            {modalCrear && (
-              <CrearProyecto
-                direccion={direccion}
-                onCerrar={() => setModalCrear(false)}
-                onCreado={() => { setModalCrear(false); refrescarLista(); }}
-                onError={mostrarError}
-              />
-            )}
-            {adminPanel && (
-              <AdminPanel
-                direccion={direccion}
-                adminAddress={ADMIN_ADDRESS}
-                onCerrar={() => { setAdminPanel(false); refrescarLista(); }}
-                onError={mostrarError}
-              />
-            )}
-          </>
+            }
+          />
+          <Route
+            path="/cuenta"
+            element={
+              direccion ? (
+                <MiCuenta
+                  direccion={direccion}
+                  onVerProyecto={(proyecto) => navigate(`/proyectos/${proyecto.id}`)}
+                  onTotalInvertido={setTotalInvertido}
+                  onError={mostrarError}
+                />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
+          <Route path="/transparencia" element={<Transparencia onVolver={() => navigate(direccion ? "/proyectos" : "/")} />} />
+          <Route path="/novedades" element={<div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)" }}><button className="btn btn-ghost" onClick={() => navigate(direccion ? "/proyectos" : "/")} style={{ fontSize: "0.84rem" }}>← Volver</button><Changelog /></div>} />
+          <Route path="/terminos" element={<Terminos onVolver={() => navigate(direccion ? "/proyectos" : "/")} />} />
+          <Route path="/privacidad" element={<Privacidad onVolver={() => navigate(direccion ? "/proyectos" : "/")} />} />
+          <Route
+            path="/admin"
+            element={
+              direccion && esAdmin ? (
+                <AdminPanel
+                  direccion={direccion}
+                  adminAddress={ADMIN_ADDRESS}
+                  onCerrar={() => navigate("/proyectos")}
+                  onError={mostrarError}
+                />
+              ) : (
+                <Navigate to={direccion ? "/proyectos" : "/"} replace />
+              )
+            }
+          />
+          <Route path="*" element={<Navigate to={direccion ? "/proyectos" : "/"} replace />} />
+        </Routes>
+
+        {modalCrear && esRutaProyectos && (
+          <CrearProyecto
+            direccion={direccion}
+            onCerrar={() => setModalCrear(false)}
+            onCreado={() => { setModalCrear(false); refrescarLista(); }}
+            onError={mostrarError}
+          />
         )}
       </main>
-      <footer style={{ ...st.footer, padding: "16px 40px" }}>
-        <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={() => { setProyectoActivo(null); setVistaActual("changelog"); }}
-            style={st.footerLink}>
-            Novedades
-          </button>
-          <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
-          <button onClick={() => { setMostrandoTerminos(true); setProyectoActivo(null); }}
-            style={st.footerLink}>
-            {t("footer.terms")}
-          </button>
-          <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
-          <button onClick={() => { setMostrandoPrivacidad(true); setProyectoActivo(null); }}
-            style={st.footerLink}>
-            {t("footer.privacy")}
-          </button>
-          <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
-          <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.78rem" }}>Bimex · Stellar Testnet</span>
-        </div>
-      </footer>
+      {pathname !== "/" && (
+        <footer style={{ ...st.footer, padding: "16px 40px" }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
+            <button onClick={() => navigate("/novedades")}
+              style={st.footerLink}>
+              Novedades
+            </button>
+            <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
+            <button onClick={() => navigate("/terminos")}
+              style={st.footerLink}>
+              {t("footer.terms")}
+            </button>
+            <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
+            <button onClick={() => navigate("/privacidad")}
+              style={st.footerLink}>
+              {t("footer.privacy")}
+            </button>
+            <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
+            <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.78rem" }}>Bimex · Stellar Testnet</span>
+          </div>
+        </footer>
+      )}
     </div>
   );
 }

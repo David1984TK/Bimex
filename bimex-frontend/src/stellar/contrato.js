@@ -17,7 +17,7 @@ const _network = import.meta.env.VITE_NETWORK ?? "testnet";
 const _isMainnet = _network === "mainnet";
 
 export const CONFIG = {
-  CONTRACT_ID: (import.meta.env.VITE_CONTRACT_ID ?? "CC5WJJMGXIGJLDTAM4F5WFA6PHREJP2ARB5Y5IGZJKIWYCFJ36SDD43J").trim(),
+  CONTRACT_ID: (import.meta.env.VITE_CONTRACT_ID ?? "CDFFTEQLNIG2RAUONFXSQX2YS2UTQTCBEUAPK6S42XFNIOQEYPBJVH5T").trim(),
   RPC_URL: import.meta.env.VITE_RPC_URL ?? "https://soroban-testnet.stellar.org",
   NETWORK_PASSPHRASE: _isMainnet ? Networks.PUBLIC : Networks.TESTNET,
   NETWORK: _network,

@@ -9,8 +9,10 @@ import {
   stroopsAMXNe,
 } from "../stellar/contrato";
 
-const supabase = import.meta.env.VITE_SUPABASE_URL
-  ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
+const supabase = supabaseUrl && supabaseAnonKey && !supabaseUrl.includes("placeholder.supabase.co") && supabaseAnonKey !== "placeholder"
+  ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
 // ─── Config de estado ─────────────────────────────────────────────────────────
