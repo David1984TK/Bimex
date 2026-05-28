@@ -40,20 +40,20 @@ function puedeRetirar(estado) {
   return estado === "Liberado" || estado === "Abandonado";
 }
 
-function sanitizar(valor) {
-  const texto = String(valor ?? "");
-  return /^[=+\-@]/.test(texto) ? `'${texto}` : texto;
-}
-
 function escaparCSV(valor) {
-  return `"${String(valor).replace(/"/g, '""')}"`;
+  const texto = String(valor ?? "").trim();
+  const sanitizado = /^[=+\-@]/.test(texto) ? `'${texto}` : texto;
+  return `"${sanitizado.replace(/"/g, '""')}"`;
 }
 
 function stroopsADecimal(stroops, decimales) {
   const n = BigInt(stroops ?? 0);
-  const entero = n / 10_000_000n;
-  const resto = n % 10_000_000n;
-  return `${entero}.${String(resto).padStart(7, "0").slice(0, decimales)}`;
+  const esNegativo = n < 0n;
+  const absoluto = esNegativo ? -n : n;
+  const entero = absoluto / 10_000_000n;
+  const resto = absoluto % 10_000_000n;
+  const signo = esNegativo ? "-" : "";
+  return `${signo}${entero}.${String(resto).padStart(7, "0").slice(0, decimales)}`;
 }
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -243,17 +243,18 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
   const [contribuciones, setContribuciones] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [errorContrib, setErrorContrib] = useState(null);
+  const dateFormatter = new Intl.DateTimeFormat("es-MX");
 
   function exportarCSV(contribuciones) {
     const encabezado = ["Proyecto", "Monto (MXNe)", "Fecha", "Yield acumulado (MXNe)", "Estado"];
     const filas = contribuciones.map((c) => [
-      sanitizar(c.proyecto?.nombre ?? ""),
-      stroopsADecimal(c.aportacion, 2),
-      new Intl.DateTimeFormat("es-MX").format(new Date((c.proyecto?.timestamp_inicio ?? 0) * 1000)),
-      stroopsADecimal(c.yieldAcum, 4),
-      sanitizar(c.proyecto?.estado ?? ""),
+      escaparCSV(c.proyecto?.nombre ?? ""),
+      escaparCSV(stroopsADecimal(c.aportacion, 2)),
+      escaparCSV(dateFormatter.format(new Date((c.proyecto?.timestamp_inicio ?? 0) * 1000))),
+      escaparCSV(stroopsADecimal(c.yieldAcum, 4)),
+      escaparCSV(c.proyecto?.estado ?? ""),
     ]);
-    const csv = [encabezado, ...filas].map((fila) => fila.map(escaparCSV).join(",")).join("\n");
+    const csv = [encabezado, ...filas].map((fila) => fila.join(",")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -315,7 +316,7 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
         className="btn-outline"
         disabled={contribuciones.length === 0}
       >
-        ↓ {t("descargarCSV", "Descargar CSV")}
+        ↓ {t("cuenta.descargarCSV", "Descargar CSV")}
       </button>
     </div>
   );
