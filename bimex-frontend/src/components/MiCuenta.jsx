@@ -247,19 +247,30 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
   const [errorContrib, setErrorContrib] = useState(null);
 
   function exportarCSV(rows) {
-    const encabezado = ["Proyecto", "Monto (MXNe)", "Fecha", "Yield acumulado (MXNe)", "Estado"];
+    const encabezado = [
+      t("cuenta.colProyecto"),
+      t("cuenta.colModo"),
+      t("cuenta.colCapital"),
+      t("cuenta.colRendimiento"),
+      t("cuenta.colEstado"),
+      t("cuenta.colCierre"),
+    ];
     const dateFormatter = new Intl.DateTimeFormat("es-MX");
     const filas = rows.map((c) => {
-      const fecha = c.proyecto?.timestamp_inicio
+      const fechaInicio = c.proyecto?.timestamp_inicio
         ? dateFormatter.format(new Date(c.proyecto.timestamp_inicio * 1000))
         : "";
+      const fechaCierre = c.proyecto?.fecha_cierre ?? "";
+      const modoRaw = c.proyecto?.modo ?? "";
+      const modo = modoRaw === "Mecenas" ? t("detalle.modeMecenas") : modoRaw === "Inversor" ? t("detalle.modeInversor") : modoRaw;
 
       return [
-      escaparCSV(c.proyecto?.nombre ?? ""),
-      escaparCSV(stroopsADecimal(c.aportacion, 2)),
-      escaparCSV(fecha),
-      escaparCSV(stroopsADecimal(c.yieldAcum, 4)),
-      escaparCSV(c.proyecto?.estado ?? ""),
+        escaparCSV(c.proyecto?.nombre ?? ""),
+        escaparCSV(modo),
+        escaparCSV(stroopsADecimal(c.aportacion, 2)),
+        escaparCSV(stroopsADecimal(c.yieldAcum, 4)),
+        escaparCSV(c.proyecto?.estado ?? ""),
+        escaparCSV(fechaCierre || fechaInicio),
       ];
     });
     const csv = [encabezado, ...filas].map((fila) => fila.join(",")).join("\n");
@@ -271,7 +282,7 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 0);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
   }
 
   useEffect(() => {
