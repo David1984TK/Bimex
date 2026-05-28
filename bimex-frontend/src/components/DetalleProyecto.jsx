@@ -122,6 +122,16 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
   const { id } = useParams();
   const montadoRef = useRef(true);
   useEffect(() => () => { montadoRef.current = false; }, []);
+
+  // Redirect invalid route params like /proyectos/abc to the project list.
+  useEffect(() => {
+    if (id === undefined || id === null || id === "") return;
+    const proyectoIdNum = Number(id);
+    if (!Number.isFinite(proyectoIdNum)) {
+      navigate("/proyectos", { replace: true });
+    }
+  }, [id, navigate]);
+
   const proyectoId = Number(id);
   const proyectoBase = {
     id: proyectoId,
