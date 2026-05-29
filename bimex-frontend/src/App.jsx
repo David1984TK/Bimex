@@ -243,6 +243,99 @@ export default function App() {
     agregarToast(parsearError(err), "error");
   }, [agregarToast]);
 
+  const desconectarLocal = useCallback(() => {
+    storageSesion.removeItem(KEY_SESION_WALLET);
+    setAutoConectar(false);
+    setDireccion(null);
+    setProyectoActivo(null);
+    setModalCrear(false);
+    setVistaActual("proyectos");
+    setAdminPanel(false);
+  }, []);
+
+  const manejarConectado = useCallback((addr) => {
+    if (addr) {
+      storageSesion.setItem(KEY_SESION_WALLET, "1");
+      setDireccion(addr);
+      setAutoConectar(true);
+    } else {
+      desconectarLocal();
+    }
+  }, [desconectarLocal]);
+
+  const refrescarLista = useCallback(() => {
+    setRefrescar((valorActual) => valorActual + 1);
+  }, []);
+
+  const abrirProyecto = useCallback((proyecto) => {
+    setProyectoActivo(proyecto);
+    setVistaActual("proyectos");
+    window.history.replaceState({}, "", `/proyectos/${proyecto.id}`);
+  }, []);
+
+  const cerrarProyectoActivo = useCallback(() => {
+    setProyectoActivo(null);
+    window.history.replaceState({}, "", "/");
+    refrescarLista();
+  }, [refrescarLista]);
+
+  const abrirCrear = useCallback(() => {
+    setModalCrear(true);
+  }, []);
+
+  const cerrarCrear = useCallback(() => {
+    setModalCrear(false);
+  }, []);
+
+  const aceptarCreacion = useCallback(() => {
+    setModalCrear(false);
+    refrescarLista();
+  }, [refrescarLista]);
+
+  const cerrarAdmin = useCallback(() => {
+    setAdminPanel(false);
+    refrescarLista();
+  }, [refrescarLista]);
+
+  const notificarExito = useCallback((msg) => {
+    agregarToast(msg, "success");
+  }, [agregarToast]);
+
+  const irALista = useCallback(() => {
+    setProyectoActivo(null);
+    setVistaActual("proyectos");
+  }, []);
+
+  const irAMiCuenta = useCallback(() => {
+    setProyectoActivo(null);
+    setVistaActual("micuenta");
+  }, []);
+
+  const irATransparencia = useCallback(() => {
+    setProyectoActivo(null);
+    setVistaActual("transparencia");
+  }, []);
+
+  const mostrarTransparencia = useCallback(() => {
+    setMostrandoTransparencia(true);
+  }, []);
+
+  const mostrarChangelog = useCallback(() => {
+    setMostrandoChangelog(true);
+  }, []);
+
+  const mostrarTerminos = useCallback(() => {
+    setMostrandoTerminos(true);
+  }, []);
+
+  const mostrarPrivacidad = useCallback(() => {
+    setMostrandoPrivacidad(true);
+  }, []);
+
+  const cambiarIdioma = useCallback(() => {
+    i18n.changeLanguage(i18n.language === "es" ? "en" : "es");
+  }, [i18n]);
+
   const esAdmin = direccion === ADMIN_ADDRESS;
 
   useEffect(() => {
@@ -268,17 +361,7 @@ export default function App() {
     return `${dir.slice(0, 5)}...${dir.slice(-4)}`;
   }
 
-  function desconectarLocal() {
-    storageSesion.removeItem(KEY_SESION_WALLET);
-    setAutoConectar(false);
-    setDireccion(null);
-    setProyectoActivo(null);
-    setModalCrear(false);
-    setVistaActual("proyectos");
-    setAdminPanel(false);
-  }
-
-  async function cerrarSesionWallet() {
+  const cerrarSesionWallet = useCallback(async () => {
     setCerrandoSesion(true);
     try {
       await Promise.race([
@@ -287,31 +370,8 @@ export default function App() {
       ]);
     } catch {}
     finally { desconectarLocal(); setCerrandoSesion(false); }
-  }
+  }, [desconectarLocal]);
 
-  const manejarConectado = useCallback((addr) => {
-    if (addr) {
-      storageSesion.setItem(KEY_SESION_WALLET, "1");
-      setDireccion(addr);
-      setAutoConectar(true);
-    } else {
-      desconectarLocal();
-    }
-  }, []);
-
-  function refrescarLista() { setRefrescar(r => r + 1); }
-
-  function abrirProyecto(proyecto) {
-    setProyectoActivo(proyecto);
-    setVistaActual("proyectos");
-    window.history.replaceState({}, "", `/proyectos/${proyecto.id}`);
-  }
-
-  function cerrarProyectoActivo() {
-    setProyectoActivo(null);
-    window.history.replaceState({}, "", "/");
-    refrescarLista();
-  }
 
   if (mostrandoTransparencia) {
     return <Transparencia onVolver={() => setMostrandoTransparencia(false)} />;
@@ -335,7 +395,7 @@ export default function App() {
     return <Privacidad onVolver={() => setMostrandoPrivacidad(false)} />;
   }
   if (!direccion) {
-    return <Landing autoConectar={autoConectar} onConectado={manejarConectado} onTransparencia={() => setMostrandoTransparencia(true)} onChangelog={() => setMostrandoChangelog(true)} onTerminos={() => setMostrandoTerminos(true)} onPrivacidad={() => setMostrandoPrivacidad(true)} />;
+    return <Landing autoConectar={autoConectar} onConectado={manejarConectado} onTransparencia={mostrarTransparencia} onChangelog={mostrarChangelog} onTerminos={mostrarTerminos} onPrivacidad={mostrarPrivacidad} />;
   }
 
   return (
@@ -351,7 +411,7 @@ export default function App() {
 
           <div style={{ display: "flex", gap: 2, height: "100%", alignItems: "stretch" }}>
             <button
-              onClick={() => { setProyectoActivo(null); setVistaActual("proyectos"); }}
+              onClick={irALista}
               style={{
                 ...st.navTab,
                 color: (vistaActual === "proyectos" || proyectoActivo) ? "var(--navy)" : "var(--muted)",
@@ -361,7 +421,7 @@ export default function App() {
               {t("nav.projects")}
             </button>
             <button
-              onClick={() => { setProyectoActivo(null); setVistaActual("micuenta"); }}
+              onClick={irAMiCuenta}
               style={{
                 ...st.navTab,
                 color: vistaActual === "micuenta" && !proyectoActivo ? "var(--navy)" : "var(--muted)",
@@ -371,7 +431,7 @@ export default function App() {
               {t("nav.myAccount")}
             </button>
             <button
-              onClick={() => { setProyectoActivo(null); setVistaActual("transparencia"); }}
+              onClick={irATransparencia}
               style={{
                 ...st.navTab,
                 color: vistaActual === "transparencia" && !proyectoActivo ? "var(--navy)" : "var(--muted)",
@@ -390,7 +450,7 @@ export default function App() {
           <BtnFaucet direccion={direccion} />
 
           <button
-            onClick={() => i18n.changeLanguage(i18n.language === "es" ? "en" : "es")}
+            onClick={cambiarIdioma}
             style={st.langBtn}
             aria-label="Switch language"
           >
@@ -423,14 +483,14 @@ export default function App() {
             direccion={direccion}
             onCerrar={cerrarProyectoActivo}
             onError={mostrarError}
-            onToast={(msg) => agregarToast(msg, "success")}
+            onToast={notificarExito}
           />
         ) : (
           <>
             {vistaActual === "proyectos" && (
               <ListaProyectos
                 onSeleccionar={abrirProyecto}
-                onCrear={() => setModalCrear(true)}
+                onCrear={abrirCrear}
                 refrescar={refrescar}
                 onError={mostrarError}
               />
@@ -452,8 +512,8 @@ export default function App() {
             {modalCrear && (
               <CrearProyecto
                 direccion={direccion}
-                onCerrar={() => setModalCrear(false)}
-                onCreado={() => { setModalCrear(false); refrescarLista(); }}
+                onCerrar={cerrarCrear}
+                onCreado={aceptarCreacion}
                 onError={mostrarError}
               />
             )}
@@ -461,7 +521,7 @@ export default function App() {
               <AdminPanel
                 direccion={direccion}
                 adminAddress={ADMIN_ADDRESS}
-                onCerrar={() => { setAdminPanel(false); refrescarLista(); }}
+                onCerrar={cerrarAdmin}
                 onError={mostrarError}
               />
             )}

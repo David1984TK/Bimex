@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, memo } from "react";
 import { useTranslation } from "react-i18next";
 import { obtenerTodosLosProyectos, stroopsAMXNe } from "../stellar/contrato";
 import { parsearError } from "../utils/errores.js";
@@ -24,7 +24,7 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
     { key: "Abandonado",   label: t("filters.abandoned"),  dot: "var(--error)"  },
   ];
 
-  async function cargar() {
+  const cargar = useCallback(async () => {
     if (cargandoRef.current) return;
     cargandoRef.current = true;
     setCargando(true);
@@ -38,9 +38,9 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
       setCargando(false);
       cargandoRef.current = false;
     }
-  }
+  }, []);
 
-  useEffect(() => { cargar(); }, [refrescar]);
+  useEffect(() => { cargar(); }, [cargar, refrescar]);
   useEffect(() => { setVisibles(12); }, [filtro]);
   useEffect(() => {
     const timer = setTimeout(() => setBusquedaDebounced(textoBusqueda), 300);
@@ -58,7 +58,7 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
     es.addEventListener('yield_reclamado', recargar);
     es.onerror = () => es.close();
     return () => es.close();
-  }, []);
+  }, [cargar]);
 
   const proyectosPublicos = useMemo(
     () => proyectos.filter(p => !ESTADOS_OCULTOS.has(p.estado)),
@@ -85,6 +85,18 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
       return nombre.includes(busquedaNormalizada) || descripcion.includes(busquedaNormalizada);
     });
   }, [busquedaNormalizada, filtro, proyectosPublicos]);
+
+  const manejarSeleccionProyecto = useCallback((proyecto) => {
+    onSeleccionar(proyecto);
+  }, [onSeleccionar]);
+
+  const limpiarBusqueda = useCallback(() => {
+    setTextoBusqueda("");
+  }, []);
+
+  const cargarMas = useCallback(() => {
+    setVisibles((valorActual) => valorActual + 12);
+  }, []);
 
   return (
     <div className="lista-contenedor" style={estilos.contenedor}>
@@ -153,7 +165,7 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
               <button
                 type="button"
                 className="btn btn-ghost"
-                onClick={() => setTextoBusqueda("")}
+                onClick={limpiarBusqueda}
                 aria-label={t("lista.limpiarBusqueda")}
                 style={estilos.busquedaClear}
               >
@@ -253,14 +265,14 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
         <>
           <div className="grid-proyectos" style={estilos.grid} role="list" aria-label={t("lista.ariaList")}>
             {proyectosFiltrados.slice(0, visibles).map((p) => (
-              <CardProyecto key={p.id} proyecto={p} onClick={() => onSeleccionar(p)} />
+              <CardProyecto key={p.id} proyecto={p} onClick={manejarSeleccionProyecto} />
             ))}
           </div>
           {proyectosFiltrados.length > visibles && (
             <div style={{ display: "flex", justifyContent: "center", marginTop: 24 }}>
               <button
                 className="btn btn-ghost"
-                onClick={() => setVisibles(v => v + 12)}
+                onClick={cargarMas}
               >
                 {t("lista.loadMore")} ({proyectosFiltrados.length - visibles} {t("lista.remaining")})
               </button>
@@ -318,7 +330,7 @@ const ESTADO_CFG = {
 };
 
 // ── Card ─────────────────────────────────────────────────────────────────────
-function CardProyecto({ proyecto, onClick }) {
+const CardProyecto = memo(function CardProyecto({ proyecto, onClick }) {
   const { t } = useTranslation();
   const meta     = Number(proyecto.meta);
   const aportado = Number(proyecto.aportado);
@@ -332,7 +344,7 @@ function CardProyecto({ proyecto, onClick }) {
       className="card"
       role="listitem"
       style={{ ...estilos.card, opacity: estado === "Abandonado" ? 0.75 : 1 }}
-      onClick={onClick}
+      onClick={() => onClick(proyecto)}
       aria-label={`${proyecto.nombre}, ${t(`status.${estado}`)}, ${pct.toFixed(0)}%`}
     >
       {/* Estado + verificado */}
@@ -390,14 +402,14 @@ function CardProyecto({ proyecto, onClick }) {
       <button
         className={`btn ${cfg.btnClass}`}
         style={{ width: "100%", marginTop: 16, justifyContent: "center" }}
-        onClick={(e) => { e.stopPropagation(); onClick(); }}
+        onClick={(e) => { e.stopPropagation(); onClick(proyecto); }}
         aria-label={`${btnLabel} ${proyecto.nombre}`}
       >
         {btnLabel}
       </button>
     </article>
   );
-}
+});
 
 function StatItem({ label, valor, muted }) {
   return (

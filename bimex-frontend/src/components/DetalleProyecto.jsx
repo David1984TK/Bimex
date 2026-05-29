@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { crearThrottle } from "../utils/throttle.js";
 import { parsearError } from "../utils/errores.js";
@@ -152,7 +152,17 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
   const meta       = Number(proyecto.meta ?? 0);
   const porcentaje = meta > 0 ? Math.min((aportado / meta) * 100, 100) : 0;
 
-  const yieldDueno = esDueno ? estimarYieldDueno(proyecto) : BigInt(0);
+  const yieldDueno = useMemo(() => (
+    esDueno
+      ? estimarYieldDueno(proyecto)
+      : BigInt(0)
+  ), [
+    esDueno,
+    proyecto.aportado,
+    proyecto.capital_en_cetes,
+    proyecto.capital_en_amm,
+    proyecto.timestamp_inicio,
+  ]);
 
   // Documentos IPFS: "CID1|CID2|CID3" → array
   const DOC_LABELS = [
@@ -160,9 +170,11 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
     t("detalle.docPlan"),
     t("detalle.docPresupuesto"),
   ];
-  const docs = proyecto.doc_hash
-    ? proyecto.doc_hash.split("|").filter(Boolean)
-    : [];
+  const docs = useMemo(() => (
+    proyecto.doc_hash
+      ? proyecto.doc_hash.split("|").filter(Boolean)
+      : []
+  ), [proyecto.doc_hash]);
 
   const refrescar = useCallback(async () => {
     if (!direccion || proyecto.id == null) {
@@ -218,9 +230,9 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
     ? t("detalle.errBalance", { balance: stroopsAMXNe(balanceMXNe) })
     : null;
 
-  const proyeccion = calcProyeccion(cantidadNum, 12, modoInversion);
+  const proyeccion = useMemo(() => calcProyeccion(cantidadNum, 12, modoInversion), [cantidadNum, modoInversion]);
 
-  async function manejarContribuir() {
+  const manejarContribuir = useCallback(async () => {
     if (!cantidadValida || superaBalance) return;
     try {
       await throttleContribuir.ejecutar(async () => {
@@ -238,9 +250,9 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
       }
     }
     setCargando(false);
-  }
+  }, [balanceMXNe, cantidad, direccion, onError, onToast, proyecto.id, refrescar, t, throttleContribuir]);
 
-  async function manejarRetirar() {
+  const manejarRetirar = useCallback(async () => {
     try {
       await throttleRetirar.ejecutar(async () => {
         setCargando(true);
@@ -259,9 +271,9 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
       }
     }
     setCargando(false);
-  }
+  }, [direccion, miAportacion, onError, onToast, proyecto.id, refrescar, t, throttleRetirar]);
 
-  async function manejarReclamarYield() {
+  const manejarReclamarYield = useCallback(async () => {
     if (estado !== "Liberado") { onError?.(t("detalle.errYieldOnly")); return; }
     if (miYield === BigInt(0)) { onError?.(t("detalle.errNoYield")); return; }
     try {
@@ -279,9 +291,9 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
       }
     }
     setCargando(false);
-  }
+  }, [direccion, miYield, onError, onToast, proyecto.id, refrescar, estado, t, throttleReclamar]);
 
-  async function manejarAbandonar() {
+  const manejarAbandonar = useCallback(async () => {
     setConfirmarAbandonar(false);
     try {
       await throttleAbandonar.ejecutar(async () => {
@@ -298,9 +310,9 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
       }
     }
     setCargando(false);
-  }
+  }, [direccion, onError, onToast, proyecto.id, refrescar, t, throttleAbandonar]);
 
-  async function manejarRetiroAnticipado() {
+  const manejarRetiroAnticipado = useCallback(async () => {
     try {
       await throttleRetirar.ejecutar(async () => {
         setCargando(true);
@@ -318,9 +330,9 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
       }
     }
     setCargando(false);
-  }
+  }, [direccion, miAportacion, onError, onToast, proyecto.id, refrescar, t, throttleRetirar]);
 
-  async function manejarSolicitarContinuar() {
+  const manejarSolicitarContinuar = useCallback(async () => {
     setCargando(true);
     try {
       await solicitarContinuarContrato(direccion, proyecto.id);
@@ -330,7 +342,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
       onError?.(err);
     }
     setCargando(false);
-  }
+  }, [direccion, onError, onToast, proyecto.id, refrescar, t]);
 
   return (
     <>

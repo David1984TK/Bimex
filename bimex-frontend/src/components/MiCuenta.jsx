@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { useTranslation } from "react-i18next";
 import { createClient } from "@supabase/supabase-js";
 import { parsearError } from "../utils/errores.js";
@@ -158,7 +158,7 @@ function MetricCard({ icon, label, value, accent }) {
 
 // ─── Pestaña: Mis proyectos ───────────────────────────────────────────────────
 
-function CardMiProyecto({ proyecto, onVerProyecto }) {
+const CardMiProyecto = memo(function CardMiProyecto({ proyecto, onVerProyecto }) {
   const { t } = useTranslation();
   const progreso = pct(proyecto.aportado, proyecto.meta);
 
@@ -209,11 +209,11 @@ function CardMiProyecto({ proyecto, onVerProyecto }) {
       </button>
     </article>
   );
-}
+});
 
 function TabMisProyectos({ proyectos, direccion, onVerProyecto }) {
   const { t } = useTranslation();
-  const misProyectos = proyectos.filter((p) => p.dueno === direccion);
+  const misProyectos = useMemo(() => proyectos.filter((p) => p.dueno === direccion), [proyectos, direccion]);
 
   if (misProyectos.length === 0) {
     return (
@@ -245,6 +245,22 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
   const [contribuciones, setContribuciones] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [errorContrib, setErrorContrib] = useState(null);
+
+  const verProyecto = useCallback((proyecto) => {
+    onVerProyecto(proyecto);
+  }, [onVerProyecto]);
+
+  const filasContribuciones = useMemo(() => (
+    contribuciones.map(({ proyecto, aportacion, yieldAcum }) => ({
+      proyecto,
+      modo: proyecto.modo ?? "Inversor",
+      capital: stroopsAMXNe(aportacion),
+      rendimiento: stroopsAMXNe(yieldAcum),
+      estado: proyecto.estado,
+      cierre: proyecto.fecha_cierre ?? "—",
+      puedeRetirar: puedeRetirar(proyecto.estado),
+    }))
+  ), [contribuciones]);
 
   useEffect(() => {
     if (proyectos.length === 0) {
@@ -321,56 +337,52 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
           </tr>
         </thead>
         <tbody>
-          {contribuciones.map(({ proyecto, aportacion, yieldAcum }) => {
-            const puedeRet = puedeRetirar(proyecto.estado);
-            const modo = proyecto.modo ?? "Inversor";
-            return (
-              <tr key={proyecto.id} style={estilos.tr}>
-                <td style={estilos.td}>
-                  <span style={{ fontWeight: 600, color: "var(--text)" }}>{proyecto.nombre}</span>
-                </td>
-                <td style={estilos.td}>
-                  <span className={modo === "Mecenas" ? "badge badge-teal" : "badge badge-navy"}>
-                    {modo}
-                  </span>
-                </td>
-                <td style={{ ...estilos.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                  {stroopsAMXNe(aportacion)}
-                </td>
-                <td style={{ ...estilos.td, textAlign: "right", color: "var(--green)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                  {stroopsAMXNe(yieldAcum)}
-                </td>
-                <td style={estilos.td}>
-                  <EstadoBadge estado={proyecto.estado} />
-                </td>
-                <td style={{ ...estilos.td, color: "var(--muted)", fontSize: "0.83rem" }}>
-                  {proyecto.fecha_cierre ?? "—"}
-                </td>
-                <td style={{ ...estilos.td, textAlign: "right" }}>
-                  <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+          {filasContribuciones.map((fila) => (
+            <tr key={fila.proyecto.id} style={estilos.tr}>
+              <td style={estilos.td}>
+                <span style={{ fontWeight: 600, color: "var(--text)" }}>{fila.proyecto.nombre}</span>
+              </td>
+              <td style={estilos.td}>
+                <span className={fila.modo === "Mecenas" ? "badge badge-teal" : "badge badge-navy"}>
+                  {fila.modo}
+                </span>
+              </td>
+              <td style={{ ...estilos.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                {fila.capital}
+              </td>
+              <td style={{ ...estilos.td, textAlign: "right", color: "var(--green)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                {fila.rendimiento}
+              </td>
+              <td style={estilos.td}>
+                <EstadoBadge estado={fila.estado} />
+              </td>
+              <td style={{ ...estilos.td, color: "var(--muted)", fontSize: "0.83rem" }}>
+                {fila.cierre}
+              </td>
+              <td style={{ ...estilos.td, textAlign: "right" }}>
+                <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ padding: "6px 12px", fontSize: "0.8rem" }}
+                    onClick={() => verProyecto(fila.proyecto)}
+                    aria-label={`${t("cuenta.viewDetailsShort")} ${fila.proyecto.nombre}`}
+                  >
+                    <IconFile />
+                  </button>
+                  {fila.puedeRetirar && (
                     <button
-                      className="btn btn-secondary"
+                      className="btn btn-amber"
                       style={{ padding: "6px 12px", fontSize: "0.8rem" }}
-                      onClick={() => onVerProyecto(proyecto)}
-                      aria-label={`${t("cuenta.viewDetailsShort")} ${proyecto.nombre}`}
+                      onClick={() => verProyecto(fila.proyecto)}
+                      aria-label={`${t("cuenta.withdraw")} ${fila.proyecto.nombre}`}
                     >
-                      <IconFile />
+                      {t("cuenta.withdraw")}
                     </button>
-                    {puedeRet && (
-                      <button
-                        className="btn btn-amber"
-                        style={{ padding: "6px 12px", fontSize: "0.8rem" }}
-                        onClick={() => onVerProyecto(proyecto)}
-                        aria-label={`${t("cuenta.withdraw")} ${proyecto.nombre}`}
-                      >
-                        {t("cuenta.withdraw")}
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
+                  )}
+                </div>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
@@ -504,7 +516,7 @@ export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido })
     cargar();
   }, [direccion]);
 
-  const numCreados = proyectos.filter((p) => p.dueno === direccion).length;
+  const numCreados = useMemo(() => proyectos.filter((p) => p.dueno === direccion).length, [proyectos, direccion]);
 
   const [numApoyados,   setNumApoyados]   = useState(null);
   const [totalInvertido, setTotalInvertido] = useState(null);
