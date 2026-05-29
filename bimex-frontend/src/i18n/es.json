@@ -112,6 +112,15 @@
     "abandonedBanner": "Este proyecto fue abandonado. Puedes tomar el control y continuarlo.",
     "releasedBanner": "Meta alcanzada. Puedes retirar tu capital.",
     "back": "Atrás",
+    "compartir": {
+      "boton": "Compartir",
+      "abrir": "Compartir proyecto",
+      "titulo": "Compartir proyecto",
+      "copiar": "Copiar link",
+      "copiado": "¡Link copiado!",
+      "nativo": "Compartir via...",
+      "cerrar": "Cerrar"
+    },
     "errAmount": "Ingresa una cantidad mayor a 0",
     "errBalance": "Saldo insuficiente — tienes {{balance}} disponibles",
     "errYieldOnly": "El yield solo se puede reclamar cuando el proyecto está liberado.",

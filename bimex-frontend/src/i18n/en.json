@@ -112,6 +112,15 @@
     "abandonedBanner": "This project was abandoned. You can take control and continue it.",
     "releasedBanner": "Goal reached. You can withdraw your capital.",
     "back": "Back",
+    "compartir": {
+      "boton": "Share",
+      "abrir": "Share project",
+      "titulo": "Share project",
+      "copiar": "Copy link",
+      "copiado": "Link copied!",
+      "nativo": "Share via...",
+      "cerrar": "Close"
+    },
     "errAmount": "Enter an amount greater than 0",
     "errBalance": "Insufficient balance — you have {{balance}} available",
     "errYieldOnly": "Yield can only be claimed when the project is released.",

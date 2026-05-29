@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { obtenerTodosLosProyectos, stroopsAMXNe } from "../stellar/contrato";
 import { parsearError } from "../utils/errores.js";
 
 const ESTADOS_OCULTOS = new Set(["EnRevision", "Rechazado"]);
 
-export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
+export default function ListaProyectos({ onCrear, refrescar }) {
   const { t } = useTranslation();
   const [proyectos, setProyectos] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -253,7 +254,7 @@ export default function ListaProyectos({ onSeleccionar, onCrear, refrescar }) {
         <>
           <div className="grid-proyectos" style={estilos.grid} role="list" aria-label={t("lista.ariaList")}>
             {proyectosFiltrados.slice(0, visibles).map((p) => (
-              <CardProyecto key={p.id} proyecto={p} onClick={() => onSeleccionar(p)} />
+              <CardProyecto key={p.id} proyecto={p} />
             ))}
           </div>
           {proyectosFiltrados.length > visibles && (
@@ -318,8 +319,9 @@ const ESTADO_CFG = {
 };
 
 // ── Card ─────────────────────────────────────────────────────────────────────
-function CardProyecto({ proyecto, onClick }) {
+function CardProyecto({ proyecto }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const meta     = Number(proyecto.meta);
   const aportado = Number(proyecto.aportado);
   const pct      = meta > 0 ? Math.min((aportado / meta) * 100, 100) : 0;
@@ -332,7 +334,7 @@ function CardProyecto({ proyecto, onClick }) {
       className="card"
       role="listitem"
       style={{ ...estilos.card, opacity: estado === "Abandonado" ? 0.75 : 1 }}
-      onClick={onClick}
+      onClick={() => navigate(`/proyectos/${proyecto.id}`)}
       aria-label={`${proyecto.nombre}, ${t(`status.${estado}`)}, ${pct.toFixed(0)}%`}
     >
       {/* Estado + verificado */}
@@ -390,7 +392,7 @@ function CardProyecto({ proyecto, onClick }) {
       <button
         className={`btn ${cfg.btnClass}`}
         style={{ width: "100%", marginTop: 16, justifyContent: "center" }}
-        onClick={(e) => { e.stopPropagation(); onClick(); }}
+        onClick={(e) => { e.stopPropagation(); navigate(`/proyectos/${proyecto.id}`); }}
         aria-label={`${btnLabel} ${proyecto.nombre}`}
       >
         {btnLabel}
