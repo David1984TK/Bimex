@@ -29,7 +29,7 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
   const [cargando,   setCargando]   = useState(true);
   const [toast,      setToast]      = useState(null);
   const modalRef      = useRef(null);
-  const botonAbrioRef = useRef(document.activeElement);
+  const botonAbrioRef = useRef(null);
 
   async function cargarPendientes() {
     setCargando(true);
@@ -47,6 +47,8 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
   useEffect(() => {
     const modal = modalRef.current;
     if (!modal) return;
+    // Capture the element that opened the panel at the moment the panel becomes active
+    botonAbrioRef.current = document.activeElement;
     modal.focus();
     function onKeyDown(e) {
       if (e.key === "Escape") { onCerrar(); return; }

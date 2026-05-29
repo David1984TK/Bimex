@@ -27,7 +27,7 @@ export default function ProyectoCardPublico({ proyecto }) {
           <span className="badge-dot" />
           {t(`status.${estado}`)}
         </span>
-        {proyecto.doc_hash && (
+        {proyecto.doc_cid && (
           <span style={{
             background: "var(--green-dim)", border: "1px solid rgba(22,163,74,0.20)",
             color: "var(--green)", fontSize: "0.7rem", fontWeight: 600,

@@ -78,7 +78,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
   const estadoCfg = ESTADO_CONFIG[estado] ?? ESTADO_CONFIG.EtapaInicial;
 
   const DOC_LABELS = [t("detalle.docINE"), t("detalle.docPlan"), t("detalle.docPresupuesto")];
-  const docs = proyecto.doc_hash ? proyecto.doc_hash.split("|").filter(Boolean) : [];
+  const docs = proyecto.doc_cid ? proyecto.doc_cid.split("|").filter(Boolean) : [];
 
   return (
     <>

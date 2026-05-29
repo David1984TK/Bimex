@@ -1,22 +1,22 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { stroopsAMXNe } from "../stellar/contrato";
+import { parsearError } from "../utils/errores.js";
 
 function acortarDireccion(dir) {
   if (!dir || dir.length < 10) return dir;
   return `${dir.slice(0, 6)}…${dir.slice(-4)}`;
 }
 
-function docHashHex(docHash) {
-  if (!docHash) return null;
-  const bytes =
-    docHash instanceof Uint8Array
-      ? docHash
-      : new Uint8Array(Object.values(docHash));
-  const hex = Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  return hex.slice(0, 16) + "…";
+function acortarCid(cid) {
+  if (!cid) return null;
+  try {
+    const s = cid.toString();
+    if (s.length <= 24) return s;
+    return `${s.slice(0, 12)}…${s.slice(-6)}`;
+  } catch {
+    return null;
+  }
 }
 
 const IconFileText = () => (
@@ -42,15 +42,22 @@ export default function TarjetaProyecto({ proyecto, onAprobar, onRechazar }) {
   const [motivo, setMotivo] = useState("");
   const [enviando, setEnviando] = useState(false);
 
-  const fingerprint = docHashHex(proyecto.doc_hash);
+  const fingerprint = proyecto.doc_cid ? acortarCid(proyecto.doc_cid) : null;
 
   async function handleConfirmarRechazo() {
     if (!motivo.trim()) return;
     setEnviando(true);
-    await onRechazar(proyecto.id, motivo);
-    setRechazando(false);
-    setMotivo("");
-    setEnviando(false);
+    try {
+      await onRechazar(proyecto.id, motivo);
+      setRechazando(false);
+      setMotivo("");
+      setEnviando(false);
+    } catch (err) {
+      setEnviando(false);
+      const msg = parsearError(err);
+      window.alert(msg);
+      // keep the reject form open so admin can retry or edit
+    }
   }
 
   return (
