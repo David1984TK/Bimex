@@ -824,6 +824,17 @@ fn test_admin_cambiar_admin_no_autorizado() {
 }
 
 #[test]
+fn test_admin_cambiar_admin_emite_evento() {
+    let (env, cliente, admin, _dueno, _backer) = setup();
+    let nuevo_admin = Address::generate(&env);
+
+    cliente.admin_cambiar_admin(&admin, &nuevo_admin);
+
+    let eventos = env.events().all();
+    assert_eq!(eventos.len(), 1);
+}
+
+#[test]
 #[should_panic(expected = "El nuevo admin debe ser diferente")]
 fn test_admin_cambiar_admin_mismo_admin_falla() {
     let (_env, cliente, admin, _dueno, _backer) = setup();
