@@ -225,7 +225,8 @@
     "colCapital": "Capital",
     "colRendimiento": "Yield",
     "colEstado": "Status",
-    "colCierre": "Close date"
+    "colCierre": "Close date",
+    "descargarCSV": "Download CSV"
   },
   "admin": {
     "title": "Admin Panel",
