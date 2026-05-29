@@ -769,13 +769,6 @@ fn test_yield_no_es_demo_exagerado() {
 fn test_extend_ttl() {
     let (env, cliente, _admin, dueno, backer) = setup();
 
-    // El contrato inicialmente extiende el TTL de la instancia en inicializar().
-    // Podemos verificar que la instancia existe.
-    env.as_contract(&cliente.address, || {
-        assert!(env.storage().instance().has(&Clave::Admin));
-    });
-
-    // Crear un proyecto extiende TTL de instancia y proyecto
     let id = cliente.crear_proyecto(
         &dueno,
         &String::from_str(&env, "Proyecto TTL"),
@@ -784,19 +777,21 @@ fn test_extend_ttl() {
         &6u32,
     );
 
-    // Contribuir extiende TTL de instancia, proyecto y aportación
     cliente.admin_aprobar(&id);
     cliente.contribuir(&backer, &id, &10_000_000i128);
 
-    // Verificar que las entradas existen después de las operaciones
-    env.as_contract(&cliente.address, || {
-        assert!(env.storage().persistent().has(&Clave::Proyecto(id)));
-        assert!(env.storage().persistent().has(&Clave::Aportacion(id, backer)));
-    });
+    // Avanzamos la secuencia del ledger más allá del umbral de expiración.
+    // Si los TTL no se extendieran, los datos del proyecto y la aportación se
+    // perderían y las lecturas fallarían.
+    env.ledger().with_mut(|l| l.sequence_number = 17_281);
 
-    // Nota: El entorno de tests de Soroban no permite verificar el valor exacto del TTL
-    // fácilmente sin usar APIs internas experimentales, pero el hecho de que las
-    // llamadas no fallen y el estado se mantenga es la verificación básica.
+    assert_eq!(cliente.total_proyectos(), 1);
+
+    let proyecto = cliente.obtener_proyecto(&id);
+    assert_eq!(proyecto.nombre, String::from_str(&env, "Proyecto TTL"));
+
+    let aportacion = cliente.obtener_aportacion(&id, &backer);
+    assert_eq!(aportacion.cantidad, 10_000_000i128);
 }
 
 // ============================================================

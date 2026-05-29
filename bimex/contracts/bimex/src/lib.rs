@@ -111,9 +111,36 @@ const DEFAULT_AMM_BPS:   u32 = 400;  // 4.00 % anual (liquidez AMM)
 // Segundos por mes (30 días)
 const SEGUNDOS_POR_MES: u64 = 30 * 24 * 3_600;
 
+// TTL en ledgers (~1 ledger = 5 segundos)
+const INSTANCE_LIFETIME_THRESHOLD: u32 = 17_280;    // ~1 día
+const INSTANCE_BUMP_AMOUNT: u32 = 518_400;           // ~30 días
+
+const PERSISTENT_LIFETIME_THRESHOLD: u32 = 17_280;   // ~1 día
+const PERSISTENT_BUMP_AMOUNT: u32 = 2_592_000;       // ~6 meses
+
 // ============================================================
 //  HELPERS
 // ============================================================
+
+fn extender_ttl_instancia(env: &Env) {
+    env.storage().instance().extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
+}
+
+fn extender_ttl_proyecto(env: &Env, id: u32) {
+    env.storage().persistent().extend_ttl(
+        &Clave::Proyecto(id),
+        PERSISTENT_LIFETIME_THRESHOLD,
+        PERSISTENT_BUMP_AMOUNT,
+    );
+}
+
+fn extender_ttl_aportacion(env: &Env, id: u32, backer: &Address) {
+    env.storage().persistent().extend_ttl(
+        &Clave::Aportacion(id, backer.clone()),
+        PERSISTENT_LIFETIME_THRESHOLD,
+        PERSISTENT_BUMP_AMOUNT,
+    );
+}
 
 /// Overflow-safe yield calculation.
 ///
@@ -160,6 +187,7 @@ impl BimexContrato {
         env.storage().instance().set(&Clave::YieldCetesBps, &yield_cetes_bps);
         env.storage().instance().set(&Clave::YieldAmmBps, &yield_amm_bps);
         env.storage().instance().set(&Clave::ContadorProyectos, &0u32);
+        extender_ttl_instancia(&env);
     }
 
     /// Crea un nuevo proyecto en estado EnRevision.
@@ -205,6 +233,8 @@ impl BimexContrato {
 
         env.storage().persistent().set(&Clave::Proyecto(id), &proyecto);
         env.storage().instance().set(&Clave::ContadorProyectos, &(id + 1));
+        extender_ttl_instancia(&env);
+        extender_ttl_proyecto(&env, id);
         id
     }
 
@@ -270,6 +300,9 @@ impl BimexContrato {
         }
 
         env.storage().persistent().set(&Clave::Proyecto(id_proyecto), &proyecto);
+        extender_ttl_instancia(&env);
+        extender_ttl_proyecto(&env, id_proyecto);
+        extender_ttl_aportacion(&env, id_proyecto, &backer);
 
         // INTERACTION last
         token.transfer(&backer, &env.current_contract_address(), &cantidad);
@@ -292,6 +325,9 @@ impl BimexContrato {
         let yield_cetes = calcular_yield_seguro(mitad, cetes_bps, minutos);
         let yield_amm   = calcular_yield_seguro(aportacion.cantidad - mitad, amm_bps, minutos);
 
+        extender_ttl_instancia(&env);
+        extender_ttl_aportacion(&env, id_proyecto, &backer);
+
         yield_cetes + yield_amm
     }
 
@@ -310,6 +346,9 @@ impl BimexContrato {
         let yield_cetes = calcular_yield_seguro(proyecto.capital_en_cetes, cetes_bps, minutos);
         let yield_amm   = calcular_yield_seguro(proyecto.capital_en_amm,   amm_bps,   minutos);
 
+        extender_ttl_instancia(&env);
+        extender_ttl_proyecto(&env, id_proyecto);
+
         YieldDetallado { cetes: yield_cetes, amm: yield_amm, total: yield_cetes + yield_amm }
     }
 
@@ -318,6 +357,8 @@ impl BimexContrato {
         let proyecto: Proyecto = env
             .storage().persistent().get(&Clave::Proyecto(id_proyecto))
             .expect("Proyecto no existe");
+
+        extender_ttl_proyecto(&env, id_proyecto);
 
         CapitalEstado {
             en_cetes: proyecto.capital_en_cetes,
@@ -366,6 +407,8 @@ impl BimexContrato {
         proyecto.yield_amm_acumulado   += yield_amm;
         proyecto.timestamp_inicio       = ahora;
         env.storage().persistent().set(&Clave::Proyecto(id_proyecto), &proyecto);
+        extender_ttl_instancia(&env);
+        extender_ttl_proyecto(&env, id_proyecto);
 
         // INTERACTION last
         let token_mxne: Address = env.storage().instance().get(&Clave::TokenMXNe).unwrap();
@@ -414,6 +457,9 @@ impl BimexContrato {
         let monto = aportacion.cantidad;
 
         // EFFECTS first
+        extender_ttl_instancia(&env);
+        extender_ttl_proyecto(&env, id_proyecto);
+        extender_ttl_aportacion(&env, id_proyecto, &backer);
         env.storage().persistent().remove(&Clave::Aportacion(id_proyecto, backer.clone()));
         proyecto.total_aportado -= monto;
 
@@ -475,6 +521,9 @@ impl BimexContrato {
         let monto = aportacion.cantidad;
 
         // EFFECTS first — yield acumulado se queda en el proyecto
+        extender_ttl_instancia(&env);
+        extender_ttl_proyecto(&env, id_proyecto);
+        extender_ttl_aportacion(&env, id_proyecto, &backer);
         env.storage().persistent().remove(&Clave::Aportacion(id_proyecto, backer.clone()));
         proyecto.total_aportado -= monto;
 
@@ -516,6 +565,8 @@ impl BimexContrato {
 
         proyecto.estado = EstadoProyecto::Abandonado;
         env.storage().persistent().set(&Clave::Proyecto(id_proyecto), &proyecto);
+        extender_ttl_instancia(&env);
+        extender_ttl_proyecto(&env, id_proyecto);
     }
 
     /// Permite a un nuevo dueño retomar un proyecto Abandonado.
@@ -546,6 +597,8 @@ impl BimexContrato {
         };
 
         env.storage().persistent().set(&Clave::Proyecto(id_proyecto), &proyecto);
+        extender_ttl_instancia(&env);
+        extender_ttl_proyecto(&env, id_proyecto);
     }
 
     /// Aprueba un proyecto en revisión. Solo el admin puede llamarlo.
@@ -566,6 +619,8 @@ impl BimexContrato {
 
         proyecto.estado = EstadoProyecto::EtapaInicial;
         env.storage().persistent().set(&Clave::Proyecto(id_proyecto), &proyecto);
+        extender_ttl_instancia(&env);
+        extender_ttl_proyecto(&env, id_proyecto);
     }
 
     /// Rechaza un proyecto en revisión. Solo el admin puede llamarlo.
@@ -587,6 +642,8 @@ impl BimexContrato {
         proyecto.estado = EstadoProyecto::Rechazado;
         proyecto.motivo_rechazo = motivo;
         env.storage().persistent().set(&Clave::Proyecto(id_proyecto), &proyecto);
+        extender_ttl_instancia(&env);
+        extender_ttl_proyecto(&env, id_proyecto);
     }
 
     /// Transfiere el rol de administrador a una nueva dirección.
@@ -609,15 +666,21 @@ impl BimexContrato {
     }
 
     pub fn obtener_proyecto(env: Env, id: u32) -> Proyecto {
-        env.storage().persistent().get(&Clave::Proyecto(id)).expect("Proyecto no existe")
+        let proyecto: Proyecto = env.storage().persistent().get(&Clave::Proyecto(id)).expect("Proyecto no existe");
+        extender_ttl_proyecto(&env, id);
+        proyecto
     }
 
     pub fn obtener_aportacion(env: Env, id_proyecto: u32, backer: Address) -> Aportacion {
-        env.storage().persistent().get(&Clave::Aportacion(id_proyecto, backer)).expect("Sin aportacion")
+        let aportacion: Aportacion = env.storage().persistent().get(&Clave::Aportacion(id_proyecto, backer.clone())).expect("Sin aportacion");
+        extender_ttl_aportacion(&env, id_proyecto, &backer);
+        aportacion
     }
 
     pub fn total_proyectos(env: Env) -> u32 {
-        env.storage().instance().get(&Clave::ContadorProyectos).unwrap_or(0)
+        let total = env.storage().instance().get(&Clave::ContadorProyectos).unwrap_or(0);
+        extender_ttl_instancia(&env);
+        total
     }
 }
 
