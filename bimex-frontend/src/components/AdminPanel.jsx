@@ -145,7 +145,7 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
         await cargarPendientes();
       });
     } catch (err) {
-      if (err.message.includes("espera")) {
+      if (String(err?.message ?? "").toLowerCase().includes("espera")) {
         mostrarToast(err.message, "info");
       } else {
         mostrarToast(parsearError(err), "error");
@@ -191,7 +191,7 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
         await cargarPendientes();
       });
     } catch (err) {
-      if (err.message.includes("espera")) {
+      if (String(err?.message ?? "").toLowerCase().includes("espera")) {
         mostrarToast(err.message, "info");
       } else {
         mostrarToast(parsearError(err), "error");

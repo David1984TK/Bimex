@@ -231,7 +231,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
         await refrescar();
       });
     } catch (err) {
-      if (err.message.includes("espera")) {
+      if (String(err?.message ?? "").toLowerCase().includes("espera")) {
         onToast?.(err.message, "info");
       } else {
         onError?.(err);
@@ -252,7 +252,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
         await refrescar();
       });
     } catch (err) {
-      if (err.message.includes("espera")) {
+      if (String(err?.message ?? "").toLowerCase().includes("espera")) {
         onToast?.(err.message, "info");
       } else {
         onError?.(err);
@@ -272,7 +272,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
         await refrescar();
       });
     } catch (err) {
-      if (err.message.includes("espera")) {
+      if (String(err?.message ?? "").toLowerCase().includes("espera")) {
         onToast?.(err.message, "info");
       } else {
         onError?.(err);
@@ -291,7 +291,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
         await refrescar();
       });
     } catch (err) {
-      if (err.message.includes("espera")) {
+      if (String(err?.message ?? "").toLowerCase().includes("espera")) {
         onToast?.(err.message, "info");
       } else {
         onError?.(err);
@@ -311,7 +311,7 @@ export default function DetalleProyecto({ proyecto: proyectoInicial, direccion, 
         await refrescar();
       });
     } catch (err) {
-      if (err.message.includes("espera")) {
+      if (String(err?.message ?? "").toLowerCase().includes("espera")) {
         onToast?.(err.message, "info");
       } else {
         onError?.(err);

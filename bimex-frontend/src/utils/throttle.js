@@ -1,6 +1,5 @@
 export function crearThrottle(delayMs = 3000) {
   let ultimaLlamada = 0;
-  let tiempoRestante = 0;
 
   return {
     ejecutar: function (fn) {
@@ -8,8 +7,8 @@ export function crearThrottle(delayMs = 3000) {
       const diferencia = ahora - ultimaLlamada;
 
       if (diferencia < delayMs) {
-        tiempoRestante = Math.ceil((delayMs - diferencia) / 1000);
-        return Promise.reject(new Error(`Espera ${tiempoRestante} segundos antes de intentar de nuevo`));
+        const segundosRestantes = Math.max(1, Math.ceil((delayMs - diferencia) / 1000));
+        return Promise.reject(new Error(`Espera ${segundosRestantes} segundos antes de intentar de nuevo`));
       }
 
       ultimaLlamada = ahora;

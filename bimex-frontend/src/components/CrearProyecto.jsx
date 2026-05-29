@@ -275,7 +275,8 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
         onCreado();
       });
     } catch (err) {
-      setError(parsearError(err));
+      const mensaje = String(err?.message ?? "");
+      setError(mensaje.toLowerCase().includes("espera") ? mensaje : parsearError(err));
       onError?.(err);
     }
     setCargando(false);
