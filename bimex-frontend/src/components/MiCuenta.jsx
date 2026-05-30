@@ -9,8 +9,10 @@ import {
   stroopsAMXNe,
 } from "../stellar/contrato";
 
-const supabase = import.meta.env.VITE_SUPABASE_URL
-  ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
+const supabase = supabaseUrl && supabaseAnonKey && !supabaseUrl.includes("placeholder.supabase.co") && supabaseAnonKey !== "placeholder"
+  ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
 // ─── Config de estado ─────────────────────────────────────────────────────────
@@ -38,6 +40,24 @@ function pct(aportado, meta) {
 
 function puedeRetirar(estado) {
   return estado === "Liberado" || estado === "Abandonado";
+}
+
+function escaparCSV(valor) {
+  const texto = String(valor ?? "");
+  const sanitizado = /^\s*[=+\-@]/.test(texto) ? `'${texto}` : texto;
+  return `"${sanitizado.replace(/"/g, '""')}"`;
+}
+
+function stroopsADecimal(stroops, decimales) {
+  const n = BigInt(stroops ?? 0);
+  const esNegativo = n < 0n;
+  const absoluto = esNegativo ? -n : n;
+  const entero = absoluto / 10_000_000n;
+  const resto = absoluto % 10_000_000n;
+  const signo = esNegativo ? "-" : "";
+  const decimalesNorm = Math.max(0, Math.min(7, Math.trunc(Number(decimales) || 0)));
+  if (decimalesNorm === 0) return `${signo}${entero}`;
+  return `${signo}${entero}.${String(resto).padStart(7, "0").slice(0, decimalesNorm)}`;
 }
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -246,6 +266,45 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
   const [cargando, setCargando] = useState(true);
   const [errorContrib, setErrorContrib] = useState(null);
 
+  function exportarCSV(rows) {
+    const encabezado = [
+      t("cuenta.colProyecto"),
+      t("cuenta.colModo"),
+      t("cuenta.colCapital"),
+      t("cuenta.colRendimiento"),
+      t("cuenta.colEstado"),
+      t("cuenta.colCierre"),
+    ];
+    const dateFormatter = new Intl.DateTimeFormat("es-MX");
+    const filas = rows.map((c) => {
+      const fechaInicio = c.proyecto?.timestamp_inicio
+        ? dateFormatter.format(new Date(c.proyecto.timestamp_inicio * 1000))
+        : "";
+      const fechaCierre = c.proyecto?.fecha_cierre ?? "";
+      const modoRaw = c.proyecto?.modo ?? "";
+      const modo = modoRaw === "Mecenas" ? t("detalle.modeMecenas") : modoRaw === "Inversor" ? t("detalle.modeInversor") : modoRaw;
+
+      return [
+        escaparCSV(c.proyecto?.nombre ?? ""),
+        escaparCSV(modo),
+        escaparCSV(stroopsADecimal(c.aportacion, 2)),
+        escaparCSV(stroopsADecimal(c.yieldAcum, 4)),
+        escaparCSV(c.proyecto?.estado ?? ""),
+        escaparCSV(fechaCierre || fechaInicio),
+      ];
+    });
+    const csv = [encabezado, ...filas].map((fila) => fila.join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `bimex-historial-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  }
+
   useEffect(() => {
     if (proyectos.length === 0) {
       setCargando(false);
@@ -292,87 +351,108 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
     );
   }
 
+  const encabezadoContribuciones = (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
+      <h3 style={{ fontSize: "1.05rem", fontWeight: 800, color: "var(--text)", margin: 0 }}>
+        {t("cuenta.myContributions")}
+      </h3>
+      <button
+        onClick={() => exportarCSV(contribuciones)}
+        className="btn-outline"
+        disabled={contribuciones.length === 0}
+      >
+        ↓ {t("cuenta.descargarCSV", "Descargar CSV")}
+      </button>
+    </div>
+  );
+
   if (contribuciones.length === 0) {
     return (
-      <div style={estilos.empty}>
-        <IconInbox />
-        <p style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--text)", marginTop: 16 }}>
-          {t("cuenta.noContributions")}
-        </p>
-        <p style={{ fontSize: "0.86rem", color: "var(--muted)", marginTop: 6 }}>
-          {t("cuenta.noContributionsHint")}
-        </p>
+      <div>
+        {encabezadoContribuciones}
+        <div style={estilos.empty}>
+          <IconInbox />
+          <p style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--text)", marginTop: 16 }}>
+            {t("cuenta.noContributions")}
+          </p>
+          <p style={{ fontSize: "0.86rem", color: "var(--muted)", marginTop: 6 }}>
+            {t("cuenta.noContributionsHint")}
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={estilos.table}>
-        <thead>
-          <tr>
-            <th style={estilos.th}>{t("cuenta.colProyecto")}</th>
-            <th style={estilos.th}>{t("cuenta.colModo")}</th>
-            <th style={{ ...estilos.th, textAlign: "right" }}>{t("cuenta.colCapital")}</th>
-            <th style={{ ...estilos.th, textAlign: "right" }}>{t("cuenta.colRendimiento")}</th>
-            <th style={estilos.th}>{t("cuenta.colEstado")}</th>
-            <th style={estilos.th}>{t("cuenta.colCierre")}</th>
-            <th style={estilos.th} />
-          </tr>
-        </thead>
-        <tbody>
-          {contribuciones.map(({ proyecto, aportacion, yieldAcum }) => {
-            const puedeRet = puedeRetirar(proyecto.estado);
-            const modo = proyecto.modo ?? "Inversor";
-            return (
-              <tr key={proyecto.id} style={estilos.tr}>
-                <td style={estilos.td}>
-                  <span style={{ fontWeight: 600, color: "var(--text)" }}>{proyecto.nombre}</span>
-                </td>
-                <td style={estilos.td}>
-                  <span className={modo === "Mecenas" ? "badge badge-teal" : "badge badge-navy"}>
-                    {modo}
-                  </span>
-                </td>
-                <td style={{ ...estilos.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                  {stroopsAMXNe(aportacion)}
-                </td>
-                <td style={{ ...estilos.td, textAlign: "right", color: "var(--green)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                  {stroopsAMXNe(yieldAcum)}
-                </td>
-                <td style={estilos.td}>
-                  <EstadoBadge estado={proyecto.estado} />
-                </td>
-                <td style={{ ...estilos.td, color: "var(--muted)", fontSize: "0.83rem" }}>
-                  {proyecto.fecha_cierre ?? "—"}
-                </td>
-                <td style={{ ...estilos.td, textAlign: "right" }}>
-                  <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                    <button
-                      className="btn btn-secondary"
-                      style={{ padding: "6px 12px", fontSize: "0.8rem" }}
-                      onClick={() => onVerProyecto(proyecto)}
-                      aria-label={`${t("cuenta.viewDetailsShort")} ${proyecto.nombre}`}
-                    >
-                      <IconFile />
-                    </button>
-                    {puedeRet && (
+    <div>
+      {encabezadoContribuciones}
+      <div style={{ overflowX: "auto" }}>
+        <table style={estilos.table}>
+          <thead>
+            <tr>
+              <th style={estilos.th}>{t("cuenta.colProyecto")}</th>
+              <th style={estilos.th}>{t("cuenta.colModo")}</th>
+              <th style={{ ...estilos.th, textAlign: "right" }}>{t("cuenta.colCapital")}</th>
+              <th style={{ ...estilos.th, textAlign: "right" }}>{t("cuenta.colRendimiento")}</th>
+              <th style={estilos.th}>{t("cuenta.colEstado")}</th>
+              <th style={estilos.th}>{t("cuenta.colCierre")}</th>
+              <th style={estilos.th} />
+            </tr>
+          </thead>
+          <tbody>
+            {contribuciones.map(({ proyecto, aportacion, yieldAcum }) => {
+              const puedeRet = puedeRetirar(proyecto.estado);
+              const modo = proyecto.modo ?? "Inversor";
+              return (
+                <tr key={proyecto.id} style={estilos.tr}>
+                  <td style={estilos.td}>
+                    <span style={{ fontWeight: 600, color: "var(--text)" }}>{proyecto.nombre}</span>
+                  </td>
+                  <td style={estilos.td}>
+                    <span className={modo === "Mecenas" ? "badge badge-teal" : "badge badge-navy"}>
+                      {modo}
+                    </span>
+                  </td>
+                  <td style={{ ...estilos.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                    {stroopsAMXNe(aportacion)}
+                  </td>
+                  <td style={{ ...estilos.td, textAlign: "right", color: "var(--green)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                    {stroopsAMXNe(yieldAcum)}
+                  </td>
+                  <td style={estilos.td}>
+                    <EstadoBadge estado={proyecto.estado} />
+                  </td>
+                  <td style={{ ...estilos.td, color: "var(--muted)", fontSize: "0.83rem" }}>
+                    {proyecto.fecha_cierre ?? "—"}
+                  </td>
+                  <td style={{ ...estilos.td, textAlign: "right" }}>
+                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                       <button
-                        className="btn btn-amber"
+                        className="btn btn-secondary"
                         style={{ padding: "6px 12px", fontSize: "0.8rem" }}
                         onClick={() => onVerProyecto(proyecto)}
-                        aria-label={`${t("cuenta.withdraw")} ${proyecto.nombre}`}
+                        aria-label={`${t("cuenta.viewDetailsShort")} ${proyecto.nombre}`}
                       >
-                        {t("cuenta.withdraw")}
+                        <IconFile />
                       </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                      {puedeRet && (
+                        <button
+                          className="btn btn-amber"
+                          style={{ padding: "6px 12px", fontSize: "0.8rem" }}
+                          onClick={() => onVerProyecto(proyecto)}
+                          aria-label={`${t("cuenta.withdraw")} ${proyecto.nombre}`}
+                        >
+                          {t("cuenta.withdraw")}
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -559,7 +639,6 @@ export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido })
 
   return (
     <div className="cuenta-contenedor" style={estilos.contenedor}>
-
       {/* Header */}
       <div style={estilos.header}>
         <div>
