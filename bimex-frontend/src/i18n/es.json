@@ -271,6 +271,20 @@
     "funding": "Financiamiento",
     "goal": "Meta",
     "locked": "Bloqueado"
+    ,"contributionsTitle": "Historial de aportaciones",
+    "colProject": "Proyecto",
+    "colContributor": "Contribuidor",
+    "colAmount": "Monto",
+    "colWhen": "Fecha"
+  },
+
+  "pagination": {
+    "aria": "Paginación",
+    "prev": "Anterior",
+    "next": "Siguiente",
+    "pageOf": "Página {{page}} de {{total}}",
+    "prevAria": "Página anterior",
+    "nextAria": "Página siguiente"
   },
   "footer": {
     "terms": "Términos",

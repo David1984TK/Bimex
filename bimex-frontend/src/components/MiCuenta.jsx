@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { createClient } from "@supabase/supabase-js";
 import { parsearError } from "../utils/errores.js";
+import usePaginacion from "../hooks/usePaginacion";
+import Paginacion from "./Paginacion";
 import {
   obtenerTodosLosProyectos,
   obtenerAportacion,
@@ -265,6 +267,7 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
   const [contribuciones, setContribuciones] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [errorContrib, setErrorContrib] = useState(null);
+  const tableTopRef = useRef(null);
 
   function exportarCSV(rows) {
     const encabezado = [
@@ -305,15 +308,29 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
     setTimeout(() => URL.revokeObjectURL(url), 100);
   }
 
-  useEffect(() => {
-    if (proyectos.length === 0) {
-      setCargando(false);
-      return;
-    }
+  // If Supabase is configured we use paginated query from the aportaciones table.
+  const useSupabasePagination = !!supabase && !!direccion;
 
-    async function cargarContribuciones() {
-      setCargando(true);
-      setErrorContrib(null);
+  const paginacion = usePaginacion(
+    (desde, hasta) => {
+      if (!useSupabasePagination) return Promise.resolve({ data: [], count: 0 });
+      return supabase
+        .from("aportaciones")
+        .select("proyecto_id, contribuidor, monto, retirado, timestamp", { count: "exact" })
+        .eq("contribuidor", direccion)
+        .order("timestamp", { ascending: false })
+        .range(desde, hasta);
+    },
+    [direccion]
+  );
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadFallback() {
+      // fallback to previous behavior (on-chain lookups) when Supabase is not available
+      if (useSupabasePagination) return;
+      if (proyectos.length === 0) { setCargando(false); return; }
+      setCargando(true); setErrorContrib(null);
       try {
         const resultados = await Promise.all(
           proyectos.map(async (p) => {
@@ -324,22 +341,22 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
             return { proyecto: p, aportacion, yieldAcum };
           })
         );
+        if (!mounted) return;
         setContribuciones(resultados.filter((r) => r.aportacion > BigInt(0)));
       } catch (e) {
+        if (!mounted) return;
         setErrorContrib(parsearError(e));
-      } finally {
-        setCargando(false);
-      }
+      } finally { if (mounted) setCargando(false); }
     }
-
-    cargarContribuciones();
-  }, [proyectos, direccion]);
+    loadFallback();
+    return () => { mounted = false; };
+  }, [proyectos, direccion, useSupabasePagination]);
 
   if (cargando) {
     return (
-      <div role="status" aria-live="polite" aria-label={t("cuenta.loading")}>
+      <div role="status" aria-live="polite" aria-label={t("cuenta.loading")}>{
         <SkeletonTableRows count={5} />
-      </div>
+      }</div>
     );
   }
 
@@ -366,7 +383,11 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
     </div>
   );
 
-  if (contribuciones.length === 0) {
+  // If using Supabase pagination, show table driven by paginacion.datos
+  const usingSupabase = useSupabasePagination;
+  const rows = usingSupabase ? paginacion.datos : contribuciones;
+
+  if (!usingSupabase && contribuciones.length === 0) {
     return (
       <div>
         {encabezadoContribuciones}
@@ -382,10 +403,10 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
       </div>
     );
   }
-
   return (
     <div>
       {encabezadoContribuciones}
+      <div ref={tableTopRef} />
       <div style={{ overflowX: "auto" }}>
         <table style={estilos.table}>
           <thead>
@@ -400,59 +421,66 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
             </tr>
           </thead>
           <tbody>
-            {contribuciones.map(({ proyecto, aportacion, yieldAcum }) => {
-              const puedeRet = puedeRetirar(proyecto.estado);
-              const modo = proyecto.modo ?? "Inversor";
-              return (
-                <tr key={proyecto.id} style={estilos.tr}>
-                  <td style={estilos.td}>
-                    <span style={{ fontWeight: 600, color: "var(--text)" }}>{proyecto.nombre}</span>
-                  </td>
-                  <td style={estilos.td}>
-                    <span className={modo === "Mecenas" ? "badge badge-teal" : "badge badge-navy"}>
-                      {modo}
-                    </span>
-                  </td>
-                  <td style={{ ...estilos.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                    {stroopsAMXNe(aportacion)}
-                  </td>
-                  <td style={{ ...estilos.td, textAlign: "right", color: "var(--green)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                    {stroopsAMXNe(yieldAcum)}
-                  </td>
-                  <td style={estilos.td}>
-                    <EstadoBadge estado={proyecto.estado} />
-                  </td>
-                  <td style={{ ...estilos.td, color: "var(--muted)", fontSize: "0.83rem" }}>
-                    {proyecto.fecha_cierre ?? "—"}
-                  </td>
-                  <td style={{ ...estilos.td, textAlign: "right" }}>
-                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                      <button
-                        className="btn btn-secondary"
-                        style={{ padding: "6px 12px", fontSize: "0.8rem" }}
-                        onClick={() => onVerProyecto(proyecto)}
-                        aria-label={`${t("cuenta.viewDetailsShort")} ${proyecto.nombre}`}
-                      >
-                        <IconFile />
-                      </button>
-                      {puedeRet && (
-                        <button
-                          className="btn btn-amber"
-                          style={{ padding: "6px 12px", fontSize: "0.8rem" }}
-                          onClick={() => onVerProyecto(proyecto)}
-                          aria-label={`${t("cuenta.withdraw")} ${proyecto.nombre}`}
-                        >
-                          {t("cuenta.withdraw")}
+            {usingSupabase ? (
+              paginacion.cargando ? (
+                <tr><td colSpan={7}><SkeletonTableRows count={5} /></td></tr>
+              ) : (
+                rows.map((r) => {
+                  const proyecto = proyectos.find((p) => Number(p.id) === Number(r.proyecto_id)) || { id: r.proyecto_id, nombre: `#${r.proyecto_id}`, estado: "EtapaInicial" };
+                  const modo = proyecto.modo ?? "Inversor";
+                  return (
+                    <tr key={`${r.proyecto_id}_${r.timestamp}`} style={estilos.tr}>
+                      <td style={estilos.td}><span style={{ fontWeight: 600, color: "var(--text)" }}>{proyecto.nombre}</span></td>
+                      <td style={estilos.td}><span className={modo === "Mecenas" ? "badge badge-teal" : "badge badge-navy"}>{modo}</span></td>
+                      <td style={{ ...estilos.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{stroopsAMXNe(r.monto)}</td>
+                      <td style={{ ...estilos.td, textAlign: "right", color: "var(--green)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>—</td>
+                      <td style={estilos.td}><EstadoBadge estado={proyecto.estado} /></td>
+                      <td style={{ ...estilos.td, color: "var(--muted)", fontSize: "0.83rem" }}>{r.timestamp ? new Date(r.timestamp).toLocaleString() : "—"}</td>
+                      <td style={{ ...estilos.td, textAlign: "right" }}>
+                        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                          <button className="btn btn-secondary" style={{ padding: "6px 12px", fontSize: "0.8rem" }} onClick={() => onVerProyecto(proyecto)} aria-label={`${t("cuenta.viewDetailsShort")} ${proyecto.nombre}`}>
+                            <IconFile />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )
+            ) : (
+              rows.map(({ proyecto, aportacion, yieldAcum }) => {
+                const puedeRet = puedeRetirar(proyecto.estado);
+                const modo = proyecto.modo ?? "Inversor";
+                return (
+                  <tr key={proyecto.id} style={estilos.tr}>
+                    <td style={estilos.td}><span style={{ fontWeight: 600, color: "var(--text)" }}>{proyecto.nombre}</span></td>
+                    <td style={estilos.td}><span className={modo === "Mecenas" ? "badge badge-teal" : "badge badge-navy"}>{modo}</span></td>
+                    <td style={{ ...estilos.td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{stroopsAMXNe(aportacion)}</td>
+                    <td style={{ ...estilos.td, textAlign: "right", color: "var(--green)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{stroopsAMXNe(yieldAcum)}</td>
+                    <td style={estilos.td}><EstadoBadge estado={proyecto.estado} /></td>
+                    <td style={{ ...estilos.td, color: "var(--muted)", fontSize: "0.83rem" }}>{proyecto.fecha_cierre ?? "—"}</td>
+                    <td style={{ ...estilos.td, textAlign: "right" }}>
+                      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                        <button className="btn btn-secondary" style={{ padding: "6px 12px", fontSize: "0.8rem" }} onClick={() => onVerProyecto(proyecto)} aria-label={`${t("cuenta.viewDetailsShort")} ${proyecto.nombre}`}>
+                          <IconFile />
                         </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
+                        {puedeRet && (
+                          <button className="btn btn-amber" style={{ padding: "6px 12px", fontSize: "0.8rem" }} onClick={() => onVerProyecto(proyecto)} aria-label={`${t("cuenta.withdraw")} ${proyecto.nombre}`}>
+                            {t("cuenta.withdraw")}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
+      {usingSupabase && (
+        <Paginacion pagina={paginacion.pagina} totalPaginas={paginacion.totalPaginas} onChange={(p) => { paginacion.setPagina(p); tableTopRef.current?.scrollIntoView({ behavior: "auto", block: "start" }); }} />
+      )}
     </div>
   );
 }

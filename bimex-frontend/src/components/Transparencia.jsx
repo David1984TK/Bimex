@@ -1,7 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { obtenerTodosLosProyectos, calcularYieldDetallado, stroopsAMXNe } from "../stellar/contrato";
 import { parsearError } from "../utils/errores.js";
+import { createClient } from "@supabase/supabase-js";
+import usePaginacion from "../hooks/usePaginacion";
+import Paginacion from "./Paginacion";
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
+const supabase = supabaseUrl && supabaseAnonKey && !supabaseUrl.includes("placeholder.supabase.co") && supabaseAnonKey !== "placeholder"
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;
 
 const ESTADOS_OCULTOS = new Set(["EnRevision", "Rechazado"]);
 
@@ -36,6 +45,7 @@ export default function Transparencia({ onVolver }) {
   const [errorCarga, setErrorCarga] = useState(null);
   const [filtro, setFiltro] = useState("Todos");
   const [totalYield, setTotalYield] = useState(BigInt(0));
+  const contribTopRef = useRef(null);
 
   const FILTROS = [
     { key: "Todos",        label: t("filters.all")        },
@@ -68,6 +78,19 @@ export default function Transparencia({ onVolver }) {
   }
 
   useEffect(() => { cargar(); }, []);
+
+  // Paginated contributions across platform (Supabase)
+  const contribPaginacion = usePaginacion(
+    (desde, hasta) => {
+      if (!supabase) return Promise.resolve({ data: [], count: 0 });
+      return supabase
+        .from("aportaciones")
+        .select("proyecto_id, contribuidor, monto, retirado, timestamp", { count: "exact" })
+        .order("timestamp", { ascending: false })
+        .range(desde, hasta);
+    },
+    [/* no extra deps */ filtro]
+  );
 
   const totalBloqueado = proyectos.reduce((s, p) => {
     try { return s + BigInt(p.aportado ?? 0); } catch { return s; }
@@ -251,6 +274,41 @@ export default function Transparencia({ onVolver }) {
               ))}
             </div>
           )}
+          {/* Paginated contributions table */}
+          <div style={{ marginTop: 28 }}>
+            <h2 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: 8 }}>{t("transp.contributionsTitle")}</h2>
+            <div ref={contribTopRef} />
+            <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: "8px" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left", padding: 12 }}>{t("transp.colProject")}</th>
+                    <th style={{ textAlign: "left", padding: 12 }}>{t("transp.colContributor")}</th>
+                    <th style={{ textAlign: "right", padding: 12 }}>{t("transp.colAmount")}</th>
+                    <th style={{ textAlign: "right", padding: 12 }}>{t("transp.colWhen")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {contribPaginacion.cargando ? (
+                    <tr><td colSpan={4}><div style={{ padding: 12 }}><div className="skeleton" style={{ height: 140 }} /></div></td></tr>
+                  ) : (
+                    contribPaginacion.datos.map((r) => {
+                      const proyecto = proyectos.find((p) => Number(p.id) === Number(r.proyecto_id)) || { nombre: `#${r.proyecto_id}` };
+                      return (
+                        <tr key={`${r.proyecto_id}_${r.contribuidor}_${r.timestamp}`}>
+                          <td style={{ padding: 12 }}>{proyecto.nombre}</td>
+                          <td style={{ padding: 12, fontFamily: "monospace" }}>{r.contribuidor}</td>
+                          <td style={{ padding: 12, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{stroopsAMXNe(r.monto)}</td>
+                          <td style={{ padding: 12, textAlign: "right" }}>{r.timestamp ? new Date(r.timestamp).toLocaleString() : "—"}</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <Paginacion pagina={contribPaginacion.pagina} totalPaginas={contribPaginacion.totalPaginas} onChange={(p) => { contribPaginacion.setPagina(p); contribTopRef.current?.scrollIntoView({ behavior: "auto", block: "start" }); }} />
+          </div>
         </>
       )}
     </div>
