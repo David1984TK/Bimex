@@ -1,11 +1,16 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { obtenerTodosLosProyectos, calcularYieldDetallado, stroopsAMXNe } from "../stellar/contrato";
 import { parsearError } from "../utils/errores.js";
-import { usePaginacion, ControlPagina } from "../hooks/usePaginacion.jsx";
-import ProyectoCardPublico from "./ProyectoCardPublico";
 
 const ESTADOS_OCULTOS = new Set(["EnRevision", "Rechazado"]);
+
+const ESTADO_CFG = {
+  EtapaInicial: { badge: "badge-muted" },
+  EnProgreso:   { badge: "badge-teal"  },
+  Liberado:     { badge: "badge-amber" },
+  Abandonado:   { badge: "badge-red"   },
+};
 
 function StatStrip({ label, valor, mono, highlight }) {
   return (
@@ -31,7 +36,6 @@ export default function Transparencia({ onVolver }) {
   const [errorCarga, setErrorCarga] = useState(null);
   const [filtro, setFiltro] = useState("Todos");
   const [totalYield, setTotalYield] = useState(BigInt(0));
-  const gridRef = useRef(null);
 
   const FILTROS = [
     { key: "Todos",        label: t("filters.all")        },
@@ -73,22 +77,6 @@ export default function Transparencia({ onVolver }) {
   const proyectosFiltrados = filtro === "Todos"
     ? proyectos
     : proyectos.filter(p => p.estado === filtro);
-
-  const {
-    datosPagina,
-    pagina,
-    setPagina,
-    totalPaginas,
-    total: totalFiltrados,
-    cargandoPagina,
-  } = usePaginacion(proyectosFiltrados, [filtro]);
-
-  const handlePaginaChange = (nuevaPagina) => {
-    setPagina(nuevaPagina);
-    if (gridRef.current) {
-      gridRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  };
 
   return (
     <div style={{ maxWidth: "1140px", margin: "0 auto", padding: "40px 24px" }}>
@@ -253,43 +241,15 @@ export default function Transparencia({ onVolver }) {
               </button>
             </div>
           ) : (
-            <>
-              <div ref={gridRef} className="grid-proyectos" style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(285px, 1fr))",
-                gap: 16,
-                opacity: cargandoPagina ? 0.5 : 1,
-                transition: "opacity 0.15s",
-              }} role="list" aria-label={t("transp.title")}>
-                {cargandoPagina
-                  ? Array.from({ length: Math.min(8, datosPagina.length || 8) }).map((_, i) => (
-                      <div key={`skeleton-${i}`} style={{
-                        borderRadius: "var(--radius)",
-                        border: "1px solid var(--border)",
-                        padding: 20,
-                        display: "flex", flexDirection: "column", gap: 12,
-                      }}>
-                        <div className="skeleton" style={{ height: 14, width: 80, borderRadius: 4 }} />
-                        <div className="skeleton" style={{ height: 18, width: "80%", borderRadius: 4 }} />
-                        <div className="skeleton" style={{ height: 8, width: "100%", borderRadius: 4, marginTop: 14 }} />
-                        <div style={{ display: "flex", gap: 16, marginTop: 14 }}>
-                          <div className="skeleton" style={{ height: 16, width: 60, borderRadius: 4 }} />
-                          <div className="skeleton" style={{ height: 16, width: 60, borderRadius: 4 }} />
-                        </div>
-                      </div>
-                    ))
-                  : datosPagina.map(p => (
-                      <ProyectoCardPublico key={p.id} proyecto={p} />
-                    ))
-                }
-              </div>
-              <ControlPagina
-                pagina={pagina}
-                totalPaginas={totalPaginas}
-                onChange={handlePaginaChange}
-                t={t}
-              />
-            </>
+            <div className="grid-proyectos" style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(285px, 1fr))",
+              gap: 16,
+            }} role="list" aria-label={t("transp.title")}>
+              {proyectosFiltrados.map(p => (
+                <ProyectoCard key={p.id} proyecto={p} />
+              ))}
+            </div>
           )}
         </>
       )}
@@ -297,3 +257,77 @@ export default function Transparencia({ onVolver }) {
   );
 }
 
+function ProyectoCard({ proyecto }) {
+  const { t } = useTranslation();
+  const meta     = Number(proyecto.meta);
+  const aportado = Number(proyecto.aportado);
+  const pct      = meta > 0 ? Math.min((aportado / meta) * 100, 100) : 0;
+  const estado   = proyecto.estado ?? "EtapaInicial";
+  const cfg      = ESTADO_CFG[estado] ?? ESTADO_CFG.EtapaInicial;
+
+  return (
+    <article
+      className="card"
+      role="listitem"
+      style={{ display: "flex", flexDirection: "column", opacity: estado === "Abandonado" ? 0.75 : 1 }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <span className={`badge ${cfg.badge}`}>
+          <span className="badge-dot" />
+          {t(`status.${estado}`)}
+        </span>
+        {proyecto.doc_hash && (
+          <span style={{
+            background: "var(--green-dim)", border: "1px solid rgba(22,163,74,0.20)",
+            color: "var(--green)", fontSize: "0.7rem", fontWeight: 600,
+            padding: "2px 8px", borderRadius: "99px",
+          }}>
+            {t("transp.verified")}
+          </span>
+        )}
+      </div>
+
+      <h3 style={{ fontSize: "0.98rem", fontWeight: 600, marginBottom: 4, lineHeight: 1.4, color: "var(--text)" }}>
+        {proyecto.nombre}
+      </h3>
+
+      <div style={{ marginTop: 18 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+          <span style={{ fontSize: "0.78rem", color: "var(--muted)" }}>{t("transp.funding")}</span>
+          <span style={{ fontSize: "0.78rem", color: "var(--green)", fontWeight: 700 }}>
+            {pct.toFixed(0)}%
+          </span>
+        </div>
+        <div
+          className="progress-track"
+          role="progressbar"
+          aria-valuenow={Math.round(pct)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuetext={`${pct.toFixed(0)}%`}
+        >
+          <div className="progress-fill" style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "0.7rem", color: "var(--subtle)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>
+            {t("transp.locked")}
+          </div>
+          <div style={{ fontFamily: "'SFMono-Regular','Consolas',monospace", fontSize: "0.82rem", color: "var(--text2)", marginTop: 3, fontWeight: 600 }}>
+            {stroopsAMXNe(proyecto.aportado)}
+          </div>
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "0.7rem", color: "var(--subtle)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>
+            {t("transp.goal")}
+          </div>
+          <div style={{ fontFamily: "'SFMono-Regular','Consolas',monospace", fontSize: "0.82rem", color: "var(--muted)", marginTop: 3, fontWeight: 600 }}>
+            {stroopsAMXNe(proyecto.meta)}
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}

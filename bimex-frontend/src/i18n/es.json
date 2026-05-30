@@ -259,14 +259,6 @@
     "goal": "Meta",
     "locked": "Bloqueado"
   },
-  "pagination": {
-    "prevShort": "Anterior",
-    "nextShort": "Siguiente",
-    "prev": "Página anterior",
-    "next": "Página siguiente",
-    "pageOf": "Página {{current}} de {{total}}",
-    "ariaLabel": "Paginación"
-  },
   "recompensas": {
     "label": "Tus recompensas",
     "level": "Nivel",
