@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { SorobanRpc } from '@stellar/stellar-sdk';
+import { rpc } from '@stellar/stellar-sdk';
 import { parseTx } from './eventParser.js';
 import { upsertProyecto, upsertAportacion, insertEvento, getLastIndexedLedger } from './database.js';
 import { notificarClientes } from './sse.js';
@@ -10,18 +10,18 @@ const CONTRACT_ID     = process.env.CONTRACT_ID;
 const START_LEDGER    = parseInt(process.env.START_LEDGER ?? '0', 10);
 const POLL_INTERVAL   = parseInt(process.env.POLL_INTERVAL_MS ?? '10000', 10);
 
-const rpc = new SorobanRpc.Server(RPC_URL, { allowHttp: false });
+const soroban = new rpc.Server(RPC_URL, { allowHttp: false });
 
 async function getStartLedger() {
   if (START_LEDGER > 0) return START_LEDGER;
   const last = await getLastIndexedLedger();
   if (last) return last + 1;
-  const latest = await rpc.getLatestLedger();
+  const latest = await soroban.getLatestLedger();
   return latest.sequence;
 }
 
 async function processBatch(startLedger) {
-  const resp = await rpc.getTransactions({
+  const resp = await soroban.getTransactions({
     startLedger,
     pagination: { limit: 200 },
   });
