@@ -7,7 +7,7 @@ import {
   hashearDocumentos,
   CONFIG,
 } from "../stellar/contrato";
-import { subirConFallback } from "../utils/ipfs";
+import { subirConFallback, validarArchivo } from "../utils/ipfs";
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -93,6 +93,52 @@ function IconIPFS() {
       <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
       <circle cx="12" cy="10" r="3"/>
     </svg>
+  );
+}
+
+// ─── Preview de Archivo ───────────────────────────────────────────────────────
+
+function PreviewArchivo({ archivo, onEliminar }) {
+  const esPdf = archivo.type === "application/pdf";
+  const esImagen = archivo.type.startsWith("image/");
+  const tamanoMB = (archivo.size / 1024 / 1024).toFixed(2);
+  const [previewUrl, setPreviewUrl] = useState(null);
+
+  useEffect(() => {
+    let url = null;
+    if (esImagen && archivo) {
+      url = URL.createObjectURL(archivo);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPreviewUrl(url);
+    }
+    return () => {
+      if (url) {
+        URL.revokeObjectURL(url);
+      }
+    };
+  }, [archivo, esImagen]);
+
+  return (
+    <div className="archivo-preview" style={estilos.archivoPreview}>
+      {esImagen && previewUrl && (
+        <img src={previewUrl} alt="preview" className="archivo-thumb" style={estilos.archivoThumb} />
+      )}
+      {esPdf && <span className="archivo-icon" style={estilos.archivoIcon}>📄</span>}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p className="archivo-nombre" style={estilos.archivoNombre}>{archivo.name}</p>
+        <p className="archivo-tamano" style={estilos.archivoTamano}>{tamanoMB} MB</p>
+      </div>
+      <button
+        type="button"
+        onClick={onEliminar}
+        aria-label="Eliminar archivo"
+        style={estilos.btnEliminar}
+        onMouseEnter={e => { e.target.style.color = "#DC2626"; }}
+        onMouseLeave={e => { e.target.style.color = "var(--muted)"; }}
+      >
+        ✕
+      </button>
+    </div>
   );
 }
 
@@ -186,6 +232,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
 
   // ── Paso 2: documentos
   const [docs, setDocs] = useState({ ine: null, plan: null, presupuesto: null });
+  const [docErrores, setDocErrores] = useState({ ine: null, plan: null, presupuesto: null });
 
   // ── Paso 3: CID del documento (IPFS o hex del hash como fallback)
   const [docCid,   setDocCid]   = useState(null);
@@ -213,8 +260,9 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
     ? Number(forma.meta).toLocaleString("es-MX")
     : "";
 
-  function setDoc(campo, archivo) {
+  function setDoc(campo, archivo, errorDoc) {
     setDocs(d => ({ ...d, [campo]: archivo ?? null }));
+    setDocErrores(e => ({ ...e, [campo]: errorDoc ?? null }));
   }
 
   function avanzarAPaso2() {
@@ -447,10 +495,11 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
                 id="doc-ine"
                 label={t("crear.docIneLabel")}
                 descripcion={t("crear.docIneDesc")}
-                accept=".pdf,image/jpeg,image/png,image/webp"
+                accept=".pdf,image/jpeg,image/png"
                 icono={<IconID />}
                 archivo={docs.ine}
-                onChange={f => setDoc("ine", f)}
+                error={docErrores.ine}
+                onChange={(f, err) => setDoc("ine", f, err)}
                 selectLabel={t("crear.selectFile")}
                 maxSizeLabel={t("crear.maxSize")}
               />
@@ -462,7 +511,8 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
                 accept=".pdf"
                 icono={<IconFileText />}
                 archivo={docs.plan}
-                onChange={f => setDoc("plan", f)}
+                error={docErrores.plan}
+                onChange={(f, err) => setDoc("plan", f, err)}
                 selectLabel={t("crear.selectFile")}
                 maxSizeLabel={t("crear.maxSize")}
               />
@@ -474,7 +524,8 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
                 accept=".pdf"
                 icono={<IconBriefcase />}
                 archivo={docs.presupuesto}
-                onChange={f => setDoc("presupuesto", f)}
+                error={docErrores.presupuesto}
+                onChange={(f, err) => setDoc("presupuesto", f, err)}
                 selectLabel={t("crear.selectFile")}
                 maxSizeLabel={t("crear.maxSize")}
               />
@@ -496,7 +547,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
                   type="button"
                   className="btn btn-primary"
                   onClick={avanzarAPaso3}
-                  disabled={hasheando}
+                  disabled={hasheando || !!docErrores.ine || !!docErrores.plan || !!docErrores.presupuesto || !docs.ine || !docs.plan || !docs.presupuesto}
                   style={{ flex: 2, justifyContent: "center" }}
                 >
                   {hasheando ? t("crear.processing") : t("crear.generateHash")}
@@ -598,51 +649,48 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
 }
 
 // ── Componente: Campo de documento ───────────────────────────────────────────
-function CampoDocumento({ id, label, descripcion, accept, icono, archivo, onChange, selectLabel, maxSizeLabel }) {
-  const [sizeError, setSizeError] = useState(false);
+function CampoDocumento({ id, label, descripcion, accept, icono, archivo, error, onChange, selectLabel, maxSizeLabel }) {
   return (
     <div style={estilos.campoDoc}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
         <div style={estilos.docIcono}>{icono}</div>
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <label htmlFor={id} style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--text2)", display: "block", marginBottom: 2 }}>
             {label} <span style={{ color: "#DC2626" }}>*</span>
           </label>
           <p style={{ fontSize: "0.74rem", color: "var(--muted)", marginBottom: 8 }}>{descripcion}</p>
-          <label htmlFor={id} className="file-label-touch" style={estilos.fileLabel}>
-            {archivo ? (
-              <>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-                <span style={{ fontSize: "0.78rem", color: "var(--green)", fontWeight: 600, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {archivo.name}
-                </span>
-                <span style={{ fontSize: "0.7rem", color: "var(--muted)" }}>
-                  ({(archivo.size / 1024).toFixed(0)} KB)
-                </span>
-              </>
-            ) : (
-              <>
-                <IconPaperclip />
-                <span style={{ fontSize: "0.8rem", color: "var(--navy)", fontWeight: 600 }}>{selectLabel}</span>
-                <span style={{ fontSize: "0.72rem", color: "var(--muted)" }}>{maxSizeLabel}</span>
-              </>
-            )}
-          </label>
+          {archivo ? (
+            <PreviewArchivo archivo={archivo} onEliminar={() => onChange(null, null)} />
+          ) : (
+            <label htmlFor={id} className="file-label-touch" style={estilos.fileLabel}>
+              <IconPaperclip />
+              <span style={{ fontSize: "0.8rem", color: "var(--navy)", fontWeight: 600 }}>{selectLabel}</span>
+              <span style={{ fontSize: "0.72rem", color: "var(--muted)" }}>{maxSizeLabel}</span>
+            </label>
+          )}
           <input
+            key={archivo ? archivo.name : "empty"}
             id={id}
             type="file"
             accept={accept}
             style={{ display: "none" }}
             onChange={e => {
               const f = e.target.files?.[0] ?? null;
-              if (f && f.size > 10_000_000) { e.target.value = ""; setSizeError(true); onChange(null); return; }
-              setSizeError(false);
-              onChange(f);
+              if (!f) {
+                onChange(null, null);
+                return;
+              }
+              const res = validarArchivo(f);
+              if (!res.valido) {
+                onChange(null, res.error);
+              } else {
+                onChange(f, null);
+              }
             }}
           />
-          {sizeError && (
-            <p style={{ fontSize: "0.74rem", color: "#DC2626", marginTop: 6 }}>
-              El archivo supera el límite de 10 MB.
+          {error && (
+            <p className="archivo-error" style={{ fontSize: "0.74rem", color: "#DC2626", marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
+              <span aria-hidden="true">⚠️</span> {error}
             </p>
           )}
         </div>
@@ -741,6 +789,61 @@ const estilos = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+  },
+  archivoPreview: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    background: "#fff",
+    border: "1.5px solid var(--border)",
+    borderRadius: "var(--radius-sm)",
+    padding: "10px 14px",
+    marginTop: 8,
+  },
+  archivoThumb: {
+    width: 40,
+    height: 40,
+    borderRadius: 4,
+    objectFit: "cover",
+    border: "1px solid var(--border2)",
+  },
+  archivoIcon: {
+    fontSize: "1.5rem",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 40,
+    height: 40,
+    background: "var(--bg)",
+    borderRadius: 4,
+  },
+  archivoNombre: {
+    fontSize: "0.82rem",
+    fontWeight: 600,
+    color: "var(--text2)",
+    margin: 0,
+    maxWidth: 240,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  archivoTamano: {
+    fontSize: "0.74rem",
+    color: "var(--muted)",
+    margin: "2px 0 0 0",
+  },
+  btnEliminar: {
+    background: "none",
+    border: "none",
+    fontSize: "1.1rem",
+    color: "var(--muted)",
+    cursor: "pointer",
+    padding: "4px 8px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "color 0.15s",
+    outline: "none",
   },
   fileLabel: {
     display: "inline-flex",
