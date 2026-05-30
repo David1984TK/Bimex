@@ -1006,12 +1006,27 @@ label {
 }
 
 @media (max-width: 768px) {
+  .landing-hero-inner {
+    grid-template-columns: 1fr !important;
+    gap: 32px !important;
+    padding: 72px 20px 48px !important;
+  }
+  .landing-yield-card {
+    width: 100%;
+    max-width: 100%;
+  }
   .landing-stats-bar { padding: 28px 20px; }
   .landing-stats-item { padding: 0 20px; }
   .landing-cetes-row { gap: 8px; font-size: 0.8rem; }
 }
 
 @media (max-width: 480px) {
+  .landing-hero-section {
+    padding-top: 56px !important;
+  }
+  .landing-hero-inner {
+    padding: 64px 16px 40px !important;
+  }
   .landing-stats-bar { padding: 24px 16px; }
   .landing-stats-item { padding: 0 12px; }
   .landing-stats-inner { gap: 8px; }

@@ -1,10 +1,16 @@
 import React from 'react'
 import { Buffer } from 'buffer'
+import { registerSW } from 'virtual:pwa-register'
+
 globalThis.Buffer = Buffer
 
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
+
+registerSW({
+  immediate: true,
+})
 
 createRoot(document.getElementById('root')).render(
   <BrowserRouter>

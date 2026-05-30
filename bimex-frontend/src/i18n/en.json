@@ -42,7 +42,10 @@
     "verified": "✓ Verified",
     "verifiedTitle": "Documents verified on blockchain",
     "loadMore": "Load more",
-    "remaining": "remaining"
+    "remaining": "remaining",
+    "offlineTitle": "Showing saved projects",
+    "offlineDesc": "We could not refresh from Stellar right now. Bimex is still available with the last cached project list.",
+    "offlineUpdated": "Last updated: {{timestamp}}."
   },
   "filters": {
     "all": "All",
@@ -280,6 +283,14 @@
   "footer": {
     "terms": "Terms",
     "privacy": "Privacy"
+  },
+  "pwa": {
+    "title": "Install Bimex",
+    "subtitle": "Save Bimex to your device to launch it like an app and keep quick access to the latest projects.",
+    "install": "Install Bimex",
+    "dismiss": "Not now",
+    "installed": "Bimex is already installed. You can open it from your home screen and keep viewing cached projects.",
+    "installedAction": "Done"
   },
   "terminos": {
     "title": "Terms and Conditions of Use",

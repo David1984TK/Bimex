@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import i18n from "../i18n/index.js";
 import ListaProyectos from "../components/ListaProyectos.jsx";
 import { obtenerTodosLosProyectos } from "../stellar/contrato";
+import { getStorage } from "../utils/storage.js";
 
 vi.mock("../stellar/contrato", () => ({
   obtenerTodosLosProyectos: vi.fn(),
@@ -13,6 +14,8 @@ vi.mock("../stellar/contrato", () => ({
     return `${value.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXNe`;
   }),
 }));
+
+const storageLocal = getStorage("local");
 
 function renderLista(props = {}) {
   return render(
@@ -80,6 +83,8 @@ beforeEach(async () => {
 
 afterEach(() => {
   cleanup();
+  storageLocal.removeItem("bimex.cache.proyectos");
+  storageLocal.removeItem("bimex.cache.proyectos.ts");
 });
 
 describe("ListaProyectos", () => {
@@ -151,6 +156,41 @@ describe("ListaProyectos", () => {
     await waitFor(() => {
       expect(screen.getByText("Proyecto 13")).toBeInTheDocument();
     });
+  });
+
+  it("usa la lista cacheada cuando falla la carga remota", async () => {
+    const timestamp = new Date("2026-06-01T15:30:00Z").getTime();
+    const cache = [
+      proyecto({
+        id: 7,
+        nombre: "Proyecto Offline",
+        descripcion: "Disponible desde cache",
+        estado: "EnProgreso",
+        meta: 150_000_000n,
+        aportado: 45_000_000n,
+      }),
+    ];
+
+    storageLocal.setItem(
+      "bimex.cache.proyectos",
+      JSON.stringify(cache.map((item) => ({
+        ...item,
+        meta: item.meta.toString(),
+        aportado: item.aportado.toString(),
+        yield_entregado: item.yield_entregado.toString(),
+        capital_en_cetes: item.capital_en_cetes.toString(),
+        capital_en_amm: item.capital_en_amm.toString(),
+      }))),
+    );
+    storageLocal.setItem("bimex.cache.proyectos.ts", String(timestamp));
+    obtenerTodosLosProyectos.mockRejectedValueOnce(new Error("offline"));
+
+    renderLista();
+
+    expect(await screen.findByText("Proyecto Offline")).toBeInTheDocument();
+    expect(screen.getByText("Mostrando proyectos guardados")).toBeInTheDocument();
+    expect(screen.getByText(/última actualización/i)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("filtra proyectos por búsqueda con debounce y combina con filtros de estado", async () => {

@@ -42,7 +42,10 @@
     "verified": "✓ Verificado",
     "verifiedTitle": "Documentos verificados en blockchain",
     "loadMore": "Ver más",
-    "remaining": "restantes"
+    "remaining": "restantes",
+    "offlineTitle": "Mostrando proyectos guardados",
+    "offlineDesc": "No pudimos actualizar desde Stellar en este momento. Bimex sigue disponible con la última lista cacheada.",
+    "offlineUpdated": "Última actualización: {{timestamp}}."
   },
   "filters": {
     "all": "Todos",
@@ -280,6 +283,14 @@
   "footer": {
     "terms": "Términos",
     "privacy": "Privacidad"
+  },
+  "pwa": {
+    "title": "Instala Bimex",
+    "subtitle": "Guarda Bimex en tu dispositivo para abrirlo como app y conservar acceso rápido a los últimos proyectos.",
+    "install": "Instalar Bimex",
+    "dismiss": "Ahora no",
+    "installed": "Bimex ya está instalado. Puedes abrirlo desde tu pantalla de inicio y seguir viendo los proyectos cacheados.",
+    "installedAction": "Listo"
   },
   "terminos": {
     "title": "Términos y Condiciones de Uso",
