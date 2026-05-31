@@ -643,6 +643,36 @@ label {
   margin-top: 4px;
 }
 
+.spinner-global,
+.spinner-inline-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.spinner-global {
+  min-height: 120px;
+}
+
+.spinner-inline-wrapper {
+  min-height: 32px;
+  padding: 0 6px;
+  white-space: nowrap;
+}
+
+.spinner-global-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border2);
+  border-top-color: var(--navy);
+  animation: spin 0.75s linear infinite;
+}
+
 /* ─── ANIMACIONES ─────────────────────────────────────────────── */
 @keyframes fadeIn       { from { opacity: 0; }            to { opacity: 1; } }
 @keyframes spin         { to { transform: rotate(360deg); } }

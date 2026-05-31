@@ -1,21 +1,16 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { lazy, Suspense, useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { setAllowed } from "@stellar/freighter-api";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import ConectarWallet   from "./components/ConectarWallet";
 import ListaProyectos   from "./components/ListaProyectos";
-import CrearProyecto    from "./components/CrearProyecto";
 import DetalleProyecto  from "./components/DetalleProyecto";
 import MiCuenta         from "./components/MiCuenta";
-import AdminPanel       from "./components/AdminPanel";
-import Recompensas      from "./components/Recompensas";
-import Transparencia    from "./components/Transparencia";
 import Changelog        from "./components/Changelog";
 import Terminos         from "./components/Terminos";
 import Privacidad       from "./components/Privacidad";
 import { getStorage }   from "./utils/storage";
 import { parsearError } from "./utils/errores";
-import { obtenerTodosLosProyectos, stroopsAMXNe, mintearMXNePrueba } from "./stellar/contrato";
 import { useCetesRate } from "./hooks/useCetesRate";
 import "./i18n/index.js";
 import "./index.css";
@@ -24,8 +19,35 @@ const KEY_SESION_WALLET = "bimex.wallet.session";
 const storageSesion     = getStorage("session");
 const ADMIN_ADDRESS     = import.meta.env.VITE_ADMIN_ADDRESS ?? "GD2FLYXZMEGSSYZGC4LKFGCH6SOZR57UB64ECPEEJ4IEKAT6VZU3SLGS";
 
+const AdminPanel = lazy(() => import("./components/AdminPanel"));
+const CrearProyecto = lazy(() => import("./components/CrearProyecto"));
+const Transparencia = lazy(() => import("./components/Transparencia"));
+const Recompensas = lazy(() => import("./components/Recompensas"));
+
+let contratoFnsPromise = null;
+
+function cargarContratoFns() {
+  if (!contratoFnsPromise) {
+    contratoFnsPromise = import("./stellar/contrato").then((mod) => ({
+      obtenerTodosLosProyectos: mod.obtenerTodosLosProyectos,
+      stroopsAMXNe: mod.stroopsAMXNe,
+      mintearMXNePrueba: mod.mintearMXNePrueba,
+    }));
+  }
+  return contratoFnsPromise;
+}
+
 function leerAutoConectarInicial() {
   return storageSesion.getItem(KEY_SESION_WALLET) === "1";
+}
+
+function Cargando({ inline = false }) {
+  return (
+    <div className={inline ? "spinner-inline-wrapper" : "spinner-global"} aria-live="polite" aria-busy="true">
+      <span className="spinner-global-dot" aria-hidden="true" />
+      <span>Cargando...</span>
+    </div>
+  );
 }
 
 // ── Logo SVG ────────────────────────────────────────────────────────────────
@@ -81,8 +103,9 @@ function useLiveStats() {
       setStats(_statsCache);
       return;
     }
-    obtenerTodosLosProyectos()
-      .then(proyectos => {
+    cargarContratoFns()
+      .then(({ obtenerTodosLosProyectos, stroopsAMXNe }) => obtenerTodosLosProyectos().then((proyectos) => ({ proyectos, stroopsAMXNe })))
+      .then(({ proyectos, stroopsAMXNe }) => {
         const totalBloqueado = proyectos.reduce((s, p) => {
           try { return s + BigInt(p.aportado ?? 0); } catch { return s; }
         }, BigInt(0));
@@ -108,6 +131,7 @@ function BtnFaucet({ direccion }) {
   async function pedir() {
     setEstado("loading");
     try {
+      const { mintearMXNePrueba } = await cargarContratoFns();
       await mintearMXNePrueba(direccion);
       setEstado("ok");
       setTimeout(() => setEstado("idle"), 4000);
@@ -349,7 +373,9 @@ export default function App() {
                 </button>
               )}
 
-              <Recompensas direccion={direccion} refrescar={refrescar} totalInvertido={totalInvertido} />
+              <Suspense fallback={<Cargando inline />}>
+                <Recompensas direccion={direccion} refrescar={refrescar} totalInvertido={totalInvertido} />
+              </Suspense>
 
               <div className="wallet-chip">
                 <span className="wallet-dot" aria-hidden="true" />
@@ -419,7 +445,14 @@ export default function App() {
               )
             }
           />
-          <Route path="/transparencia" element={<Transparencia onVolver={() => navigate(direccion ? "/proyectos" : "/")} />} />
+          <Route
+            path="/transparencia"
+            element={
+              <Suspense fallback={<Cargando />}>
+                <Transparencia onVolver={() => navigate(direccion ? "/proyectos" : "/")} />
+              </Suspense>
+            }
+          />
           <Route path="/novedades" element={<div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)" }}><button className="btn btn-ghost" onClick={() => navigate(direccion ? "/proyectos" : "/")} style={{ fontSize: "0.84rem" }}>← Volver</button><Changelog /></div>} />
           <Route path="/terminos" element={<Terminos onVolver={() => navigate(direccion ? "/proyectos" : "/")} />} />
           <Route path="/privacidad" element={<Privacidad onVolver={() => navigate(direccion ? "/proyectos" : "/")} />} />
@@ -427,12 +460,14 @@ export default function App() {
             path="/admin"
             element={
               direccion && esAdmin ? (
-                <AdminPanel
-                  direccion={direccion}
-                  adminAddress={ADMIN_ADDRESS}
-                  onCerrar={() => navigate("/proyectos")}
-                  onError={mostrarError}
-                />
+                <Suspense fallback={<Cargando />}>
+                  <AdminPanel
+                    direccion={direccion}
+                    adminAddress={ADMIN_ADDRESS}
+                    onCerrar={() => navigate("/proyectos")}
+                    onError={mostrarError}
+                  />
+                </Suspense>
               ) : (
                 <Navigate to={direccion ? "/proyectos" : "/"} replace />
               )
@@ -442,12 +477,14 @@ export default function App() {
         </Routes>
 
         {modalCrear && esRutaProyectos && (
-          <CrearProyecto
-            direccion={direccion}
-            onCerrar={() => setModalCrear(false)}
-            onCreado={() => { setModalCrear(false); refrescarLista(); }}
-            onError={mostrarError}
-          />
+          <Suspense fallback={<Cargando />}>
+            <CrearProyecto
+              direccion={direccion}
+              onCerrar={() => setModalCrear(false)}
+              onCreado={() => { setModalCrear(false); refrescarLista(); }}
+              onError={mostrarError}
+            />
+          </Suspense>
         )}
       </main>
       {pathname !== "/" && (
