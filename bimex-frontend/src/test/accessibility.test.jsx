@@ -33,10 +33,13 @@ import { act } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import App from '../App.jsx';
 import i18n from '../i18n/index.js';
+import { getStorage } from '../utils/storage.js';
+
+const storageLocal = getStorage('local');
 
 describe('Accessibility', () => {
   it('updates html lang when the active language changes', async () => {
-    localStorage.removeItem('i18nextLng');
+    storageLocal.removeItem('i18nextLng');
     await act(async () => {
       await i18n.changeLanguage('es');
     });

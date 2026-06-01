@@ -289,7 +289,7 @@ export default function App() {
   const [autoConectar,   setAutoConectar]   = useState(leerAutoConectarInicial);
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
   const [totalInvertido, setTotalInvertido] = useState(null);
-  const [tema,           setTema]           = useState(() => localStorage.getItem("tema") || "auto");
+  const [tema,           setTema]           = useState(() => storageLocal.getItem("tema") || "auto");
   const [installPromptEvent, setInstallPromptEvent] = useState(null);
   const [mostrarMensajeInstalada, setMostrarMensajeInstalada] = useState(false);
   const [bannerPwaCerrado, setBannerPwaCerrado] = useState(leerBannerPwaInicial);
@@ -298,10 +298,10 @@ export default function App() {
     const docEl = document.documentElement;
     if (tema === "auto") {
       docEl.setAttribute("data-theme", "");
-      localStorage.removeItem("tema");
+      storageLocal.removeItem("tema");
     } else {
       docEl.setAttribute("data-theme", tema);
-      localStorage.setItem("tema", tema);
+      storageLocal.setItem("tema", tema);
     }
   }, [tema]);
 
