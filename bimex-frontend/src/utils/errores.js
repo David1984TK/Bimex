@@ -1,9 +1,20 @@
+import * as Sentry from '@sentry/react';
+
 /**
  * Convierte errores técnicos de Soroban/Stellar/red
  * en mensajes legibles para el usuario.
  */
 export function parsearError(err) {
   const raw = err?.message || String(err) || "Error desconocido";
+
+  if (import.meta.env.VITE_SENTRY_DSN) {
+    Sentry.captureException(err, {
+      tags: {
+        tipo: 'error_parseado',
+        es_conexion: esErrorDeConexion(err) ? 'si' : 'no',
+      },
+    });
+  }
 
   // ── Conectividad / sin internet ───────────────────────────────────────────────
   if (!navigator.onLine || raw.includes("ERR_INTERNET_DISCONNECTED") || raw.includes("net::ERR"))

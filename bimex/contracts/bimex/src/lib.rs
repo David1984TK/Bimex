@@ -2,7 +2,7 @@
 
 use soroban_sdk::{
     contract, contractimpl, contracttype,
-    token, Address, Env, String,
+    symbol_short, token, Address, Env, String,
 };
 
 // ============================================================
@@ -279,6 +279,11 @@ impl BimexContrato {
 
         env.storage().persistent().set(&Clave::Proyecto(id_proyecto), &proyecto);
 
+        env.events().publish(
+            (symbol_short!("contribuir"), backer.clone()),
+            (id_proyecto, cantidad, ahora),
+        );
+
         // INTERACTION last
         token.transfer(&backer, env.current_contract_address(), &cantidad);
     }
@@ -376,6 +381,11 @@ impl BimexContrato {
         proyecto.timestamp_inicio       = ahora;
         env.storage().persistent().set(&Clave::Proyecto(id_proyecto), &proyecto);
 
+        env.events().publish(
+            (symbol_short!("yield"), proyecto.dueno.clone()),
+            (id_proyecto, yield_monto, ahora),
+        );
+
         // INTERACTION last
         let token_mxne: Address = env.storage().instance().get(&Clave::TokenMXNe).unwrap();
         let token = token::Client::new(&env, &token_mxne);
@@ -437,6 +447,11 @@ impl BimexContrato {
         }
 
         env.storage().persistent().set(&Clave::Proyecto(id_proyecto), &proyecto);
+
+        env.events().publish(
+            (symbol_short!("retiro"), backer.clone()),
+            (id_proyecto, monto, ahora),
+        );
 
         // INTERACTION last
         let token_mxne: Address = env.storage().instance().get(&Clave::TokenMXNe).unwrap();
@@ -577,6 +592,11 @@ impl BimexContrato {
 
         proyecto.estado = EstadoProyecto::EtapaInicial;
         env.storage().persistent().set(&Clave::Proyecto(id_proyecto), &proyecto);
+
+        env.events().publish(
+            (symbol_short!("aprobar"), admin.clone()),
+            (id_proyecto, env.ledger().timestamp()),
+        );
     }
 
     /// Rechaza un proyecto en revisión. Solo el admin puede llamarlo.
@@ -595,9 +615,15 @@ impl BimexContrato {
             "Solo se pueden rechazar proyectos en revision"
         );
 
+        let motivo_event = motivo.clone();
         proyecto.estado = EstadoProyecto::Rechazado;
         proyecto.motivo_rechazo = motivo;
         env.storage().persistent().set(&Clave::Proyecto(id_proyecto), &proyecto);
+
+        env.events().publish(
+            (symbol_short!("rechazar"), admin.clone()),
+            (id_proyecto, motivo_event, env.ledger().timestamp()),
+        );
     }
 
     pub fn obtener_proyecto(env: Env, id: u32) -> Proyecto {

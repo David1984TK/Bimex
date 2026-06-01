@@ -19,7 +19,6 @@ import {
   CONFIG,
 } from "../stellar/contrato";
 import { aplicarMeta, crearMetaProyecto, DEFAULT_META } from "../utils/metaTags.js";
-import { formatearFecha, formatearNumero } from "../utils/formato.js";
 
 const ESTADO_CONFIG = {
   EtapaInicial: { labelKey: "status.EtapaInicial", clase: "badge-muted" },
@@ -55,7 +54,9 @@ function calcProyeccion(cantidadMXNe, meses, modo) {
   };
 }
 
-// Removed: fmt() function replaced with formatearNumero() from utils/formato.js
+function fmt(n) {
+  return n.toLocaleString("es-MX", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
 
 // SVG icons
 const IconArrowLeft = () => (
@@ -174,7 +175,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
   const tsVencimiento = proyecto.timestamp_vencimiento ?? 0;
   const plazoVencido  = tsVencimiento > 0 && ahora >= tsVencimiento;
   const fechaVencimiento = tsVencimiento > 0
-    ? formatearFecha(tsVencimiento)
+    ? new Date(tsVencimiento * 1000).toLocaleDateString("es-MX", { year: "numeric", month: "short", day: "numeric" })
     : null;
   const urlProyecto = window.location.href;
 
@@ -666,23 +667,23 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                     <div className="calc-result">
                       <div className="calc-row">
                         <span>{t("detalle.calcCapital")}</span>
-                        <strong>${formatearNumero(cantidadNum || 0)} MXN</strong>
+                        <strong>${fmt(cantidadNum || 0)} MXN</strong>
                       </div>
                       <div className="calc-row">
                         <span>{t("detalle.calcYield", { pct: modoInversion === "inversor" ? "5%" : "0%" })}</span>
                         <strong style={{ color: "var(--navy)" }}>
-                          ${formatearNumero(proyeccion.tuYield)} MXN
+                          ${fmt(proyeccion.tuYield)} MXN
                         </strong>
                       </div>
                       <div className="calc-row">
                         <span>{t("detalle.calcProject")}</span>
                         <strong style={{ color: "var(--green)" }}>
-                          ${formatearNumero(proyeccion.proyectoRecibe)} MXN
+                          ${fmt(proyeccion.proyectoRecibe)} MXN
                         </strong>
                       </div>
                       <div className="calc-row total" style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
                         <span>{t("detalle.calcTotal")}</span>
-                        <strong>${formatearNumero(proyeccion.totalRetiras)} MXN</strong>
+                        <strong>${fmt(proyeccion.totalRetiras)} MXN</strong>
                       </div>
                     </div>
 

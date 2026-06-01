@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import http from 'node:http';
 import { rpc } from '@stellar/stellar-sdk';
-import { parseTx } from './eventParser.js';
+import { parseEvent } from './eventParser.js';
 import { upsertProyecto, upsertAportacion, insertEvento, getLastIndexedLedger, supabaseOk } from './database.js';
 import { notificarClientes } from './sse.js';
 import './api.js'; // start HTTP + SSE server in the same process
@@ -54,18 +54,22 @@ async function getStartLedger() {
 
 async function processBatch(startLedger) {
   const inicioRpc = Date.now();
-  const resp = await soroban.getTransactions({
+  const resp = await soroban.getEvents({
     startLedger,
+    filters: [{
+      contractIds: [CONTRACT_ID],
+      topics: [['contribuir'], ['yield'], ['retiro'], ['aprobar'], ['rechazar']],
+    }],
     pagination: { limit: 200 },
   });
   const finRpc = Date.now();
   estadoIndexer.rpcLatencyMs = finRpc - inicioRpc;
+  const records = resp.records ?? resp.events ?? [];
   estadoIndexer.ultimoLedger = resp.latestLedger || startLedger;
   estadoIndexer.ultimaActualizacion = new Date().toISOString();
 
-  for (const tx of resp.transactions ?? []) {
-    if (tx.status !== 'SUCCESS') continue;
-    const parsed = parseTx(tx, CONTRACT_ID);
+  for (const event of records) {
+    const parsed = parseEvent(event, CONTRACT_ID);
     if (!parsed) continue;
 
     const { evento, proyecto, aportacion } = parsed;
@@ -73,7 +77,7 @@ async function processBatch(startLedger) {
     await insertEvento(evento).catch(console.error);
     if (proyecto)   { await upsertProyecto(proyecto).catch(console.error); notificarClientes('proyecto_actualizado', { id: proyecto.id, estado: proyecto.estado }); }
     if (aportacion) { await upsertAportacion(aportacion).catch(console.error); notificarClientes('nueva_contribucion', { proyectoId: aportacion.proyecto_id, monto: aportacion.monto }); }
-    if (evento.tipo === 'yield_reclamado') notificarClientes('yield_reclamado', { proyectoId: evento.proyecto_id, monto: evento.monto });
+    if (evento.tipo === 'yield_reclamado') notificarClientes('yield_reclamado', { proyectoId: proyecto?.id ?? null, monto: proyecto?.yield_entregado_delta ?? null });
 
     console.log(`[${new Date().toISOString()}] ${evento.tipo} ledger=${evento.ledger} tx=${evento.tx_hash}`);
   }

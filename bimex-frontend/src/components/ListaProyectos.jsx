@@ -3,11 +3,68 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { obtenerTodosLosProyectos, stroopsAMXNe } from "../stellar/contrato";
 import { parsearError } from "../utils/errores.js";
+import { getStorage } from "../utils/storage.js";
 
 const ESTADOS_OCULTOS = new Set(["EnRevision", "Rechazado"]);
+const CACHE_KEY_LISTA = "bimex.cache.proyectos";
+const CACHE_KEY_LISTA_TS = "bimex.cache.proyectos.ts";
+const storageLocal = getStorage("local");
+
+function serializarProyecto(proyecto) {
+  return {
+    ...proyecto,
+    meta: proyecto.meta?.toString?.() ?? "0",
+    aportado: proyecto.aportado?.toString?.() ?? "0",
+    yield_entregado: proyecto.yield_entregado?.toString?.() ?? "0",
+    capital_en_cetes: proyecto.capital_en_cetes?.toString?.() ?? "0",
+    capital_en_amm: proyecto.capital_en_amm?.toString?.() ?? "0",
+    yield_cetes_acumulado: proyecto.yield_cetes_acumulado?.toString?.() ?? "0",
+    yield_amm_acumulado: proyecto.yield_amm_acumulado?.toString?.() ?? "0",
+  };
+}
+
+function hidratarProyecto(proyecto) {
+  return {
+    ...proyecto,
+    meta: BigInt(proyecto.meta ?? 0),
+    aportado: BigInt(proyecto.aportado ?? 0),
+    yield_entregado: BigInt(proyecto.yield_entregado ?? 0),
+    capital_en_cetes: BigInt(proyecto.capital_en_cetes ?? 0),
+    capital_en_amm: BigInt(proyecto.capital_en_amm ?? 0),
+    yield_cetes_acumulado: BigInt(proyecto.yield_cetes_acumulado ?? 0),
+    yield_amm_acumulado: BigInt(proyecto.yield_amm_acumulado ?? 0),
+  };
+}
+
+function guardarCacheProyectos(proyectos) {
+  try {
+    storageLocal.setItem(CACHE_KEY_LISTA, JSON.stringify(proyectos.map(serializarProyecto)));
+    storageLocal.setItem(CACHE_KEY_LISTA_TS, String(Date.now()));
+  } catch {
+    // no-op
+  }
+}
+
+function leerCacheProyectos() {
+  try {
+    const raw = storageLocal.getItem(CACHE_KEY_LISTA);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(hidratarProyecto);
+  } catch {
+    return [];
+  }
+}
+
+function leerCacheTimestamp() {
+  const raw = storageLocal.getItem(CACHE_KEY_LISTA_TS);
+  const value = Number(raw ?? 0);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
 
 export default function ListaProyectos({ onCrear, refrescar }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [proyectos, setProyectos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [filtro, setFiltro] = useState("Todos");
@@ -15,6 +72,8 @@ export default function ListaProyectos({ onCrear, refrescar }) {
   const [busquedaDebounced, setBusquedaDebounced] = useState("");
   const [visibles, setVisibles] = useState(12);
   const [errorCarga, setErrorCarga] = useState(null);
+  const [usandoCacheOffline, setUsandoCacheOffline] = useState(false);
+  const [cacheTimestamp, setCacheTimestamp] = useState(null);
   const cargandoRef = useRef(false);
 
   const FILTROS = [
@@ -31,10 +90,20 @@ export default function ListaProyectos({ onCrear, refrescar }) {
     setCargando(true);
     setErrorCarga(null);
     try {
-      const data = await obtenerTodosLosProyectos();
+      const data = await obtenerTodosLosProyectos({ propagarError: true });
       setProyectos(data);
+      setUsandoCacheOffline(false);
+      setCacheTimestamp(null);
+      guardarCacheProyectos(data);
     } catch (e) {
-      setErrorCarga(parsearError(e));
+      const cache = leerCacheProyectos();
+      if (cache.length > 0) {
+        setProyectos(cache);
+        setUsandoCacheOffline(true);
+        setCacheTimestamp(leerCacheTimestamp());
+      } else {
+        setErrorCarga(parsearError(e));
+      }
     } finally {
       setCargando(false);
       cargandoRef.current = false;
@@ -87,6 +156,18 @@ export default function ListaProyectos({ onCrear, refrescar }) {
     });
   }, [busquedaNormalizada, filtro, proyectosPublicos]);
 
+  const cacheUltimaActualizacion = useMemo(() => {
+    if (!cacheTimestamp) return null;
+    try {
+      return new Intl.DateTimeFormat(i18n.language === "es" ? "es-MX" : "en-US", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(cacheTimestamp);
+    } catch {
+      return null;
+    }
+  }, [cacheTimestamp, i18n.language]);
+
   return (
     <div className="lista-contenedor" style={estilos.contenedor}>
 
@@ -136,6 +217,28 @@ export default function ListaProyectos({ onCrear, refrescar }) {
           {t("lista.howDesc")}
         </p>
       </div>
+
+      {usandoCacheOffline && (
+        <div role="status" aria-live="polite" style={estilos.offlineBanner}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+              <path d="M2 12.5A16 16 0 0 1 22 12"/>
+              <path d="M5 16.5a11 11 0 0 1 14 .2"/>
+              <path d="M8.5 20a6 6 0 0 1 7 0"/>
+              <line x1="2" y1="2" x2="22" y2="22"/>
+            </svg>
+            <div>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: "0.82rem", color: "#92400E" }}>
+                {t("lista.offlineTitle")}
+              </p>
+              <p style={{ margin: "4px 0 0", fontSize: "0.82rem", color: "#9A3412", lineHeight: 1.5 }}>
+                {t("lista.offlineDesc")}
+                {cacheUltimaActualizacion ? ` ${t("lista.offlineUpdated", { timestamp: cacheUltimaActualizacion })}` : ""}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filtros */}
       {proyectosPublicos.length > 0 && (
@@ -418,6 +521,7 @@ const estilos = {
   statsStrip:    { display: "flex", alignItems: "center", background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 24px", marginBottom: 20, boxShadow: "var(--shadow-sm)" },
   statsDivider:  { width: 1, height: 28, background: "var(--border)", flexShrink: 0 },
   banner:        { display: "flex", alignItems: "flex-start", gap: 12, background: "var(--navy-dim)", border: "1px solid rgba(30,58,95,0.12)", borderRadius: "var(--radius)", padding: "12px 16px", marginBottom: 24 },
+  offlineBanner: { background: "rgba(245, 158, 11, 0.12)", border: "1px solid rgba(217,119,6,0.28)", borderRadius: "var(--radius)", padding: "12px 16px", marginBottom: 20, color: "#92400E" },
   grid:          { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(285px, 1fr))", gap: 16 },
   card:          { cursor: "pointer", display: "flex", flexDirection: "column" },
   cardTop:       { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },

@@ -9,6 +9,7 @@ import MiCuenta         from "./components/MiCuenta";
 import Changelog        from "./components/Changelog";
 import Terminos         from "./components/Terminos";
 import Privacidad       from "./components/Privacidad";
+import OnboardingTour, { shouldShowTour } from "./components/OnboardingTour";
 import { getStorage }   from "./utils/storage";
 import { parsearError } from "./utils/errores";
 import { useCetesRate } from "./hooks/useCetesRate";
@@ -16,7 +17,10 @@ import "./i18n/index.js";
 import "./index.css";
 
 const KEY_SESION_WALLET = "bimex.wallet.session";
+const IS_STAGING = import.meta.env.MODE === "staging";
+const KEY_PWA_BANNER_CERRADO = "bimex.pwa.banner.dismissed";
 const storageSesion     = getStorage("session");
+const storageLocal      = getStorage("local");
 const ADMIN_ADDRESS     = import.meta.env.VITE_ADMIN_ADDRESS ?? "GD2FLYXZMEGSSYZGC4LKFGCH6SOZR57UB64ECPEEJ4IEKAT6VZU3SLGS";
 
 const AdminPanel = lazy(() => import("./components/AdminPanel"));
@@ -46,6 +50,41 @@ function Cargando({ inline = false }) {
     <div className={inline ? "spinner-inline-wrapper" : "spinner-global"} aria-live="polite" aria-busy="true">
       <span className="spinner-global-dot" aria-hidden="true" />
       <span>Cargando...</span>
+    </div>
+  );
+}
+
+function leerBannerPwaInicial() {
+  return storageLocal.getItem(KEY_PWA_BANNER_CERRADO) === "1";
+}
+
+function PwaInstallBanner({ visible, onInstall, onClose, onInstalled, installReady, message }) {
+  const { t } = useTranslation();
+
+  if (!visible) return null;
+
+  return (
+    <div style={st.installBannerWrap}>
+      <div role="status" aria-live="polite" style={st.installBanner}>
+        <div>
+          <p style={st.installBannerTitle}>{t("pwa.title")}</p>
+          <p style={st.installBannerText}>{message ?? t("pwa.subtitle")}</p>
+        </div>
+        <div style={st.installBannerActions}>
+          {installReady ? (
+            <button className="btn btn-primary" onClick={onInstall}>
+              {t("pwa.install")}
+            </button>
+          ) : (
+            <button className="btn btn-primary" onClick={onInstalled}>
+              {t("pwa.installedAction")}
+            </button>
+          )}
+          <button className="btn btn-ghost" onClick={onClose}>
+            {t("pwa.dismiss")}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -252,16 +291,20 @@ export default function App() {
   const [autoConectar,   setAutoConectar]   = useState(leerAutoConectarInicial);
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
   const [totalInvertido, setTotalInvertido] = useState(null);
-  const [tema,           setTema]           = useState(() => localStorage.getItem("tema") || "auto");
+  const [tema,           setTema]           = useState(() => storageLocal.getItem("tema") || "auto");
+  const [tourActivo,     setTourActivo]     = useState(false);
+  const [installPromptEvent, setInstallPromptEvent] = useState(null);
+  const [mostrarMensajeInstalada, setMostrarMensajeInstalada] = useState(false);
+  const [bannerPwaCerrado, setBannerPwaCerrado] = useState(leerBannerPwaInicial);
 
   useEffect(() => {
     const docEl = document.documentElement;
     if (tema === "auto") {
       docEl.setAttribute("data-theme", "");
-      localStorage.removeItem("tema");
+      storageLocal.removeItem("tema");
     } else {
       docEl.setAttribute("data-theme", tema);
-      localStorage.setItem("tema", tema);
+      storageLocal.setItem("tema", tema);
     }
   }, [tema]);
 
@@ -325,16 +368,78 @@ export default function App() {
       setDireccion(addr);
       setAutoConectar(true);
       navigate("/proyectos", { replace: true });
+      if (shouldShowTour()) setTimeout(() => setTourActivo(true), 800);
     } else {
       desconectarLocal();
     }
   }, [navigate, desconectarLocal]);
+
+  useEffect(() => {
+    function onBeforeInstallPrompt(event) {
+      event.preventDefault();
+      setInstallPromptEvent(event);
+      setBannerPwaCerrado(false);
+      storageLocal.removeItem(KEY_PWA_BANNER_CERRADO);
+    }
+
+    function onAppInstalled() {
+      setInstallPromptEvent(null);
+      setMostrarMensajeInstalada(true);
+      setBannerPwaCerrado(false);
+      storageLocal.removeItem(KEY_PWA_BANNER_CERRADO);
+    }
+
+    window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+    window.addEventListener("appinstalled", onAppInstalled);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", onAppInstalled);
+    };
+  }, []);
+
+  const cerrarBannerPwa = useCallback(() => {
+    setMostrarMensajeInstalada(false);
+    setBannerPwaCerrado(true);
+    storageLocal.setItem(KEY_PWA_BANNER_CERRADO, "1");
+  }, []);
+
+  const instalarPwa = useCallback(async () => {
+    if (!installPromptEvent) return;
+    await installPromptEvent.prompt();
+    try {
+      await installPromptEvent.userChoice;
+    } catch {
+      // no-op
+    }
+    setInstallPromptEvent(null);
+  }, [installPromptEvent]);
+
+  const activarVistaInstalada = useCallback(() => {
+    setMostrarMensajeInstalada(false);
+    setBannerPwaCerrado(false);
+    storageLocal.removeItem(KEY_PWA_BANNER_CERRADO);
+  }, []);
+
+  const mostrarBannerPwa = !bannerPwaCerrado && (Boolean(installPromptEvent) || mostrarMensajeInstalada);
+  const mensajeBannerPwa = mostrarMensajeInstalada
+    ? t("pwa.installed")
+    : t("pwa.subtitle");
 
   function refrescarLista() { setRefrescar(r => r + 1); }
 
   return (
     <div>
       <ToastContainer toasts={toasts} onRemove={quitarToast} />
+      <OnboardingTour isActive={tourActivo} onComplete={() => setTourActivo(false)} />
+      <PwaInstallBanner
+        visible={mostrarBannerPwa}
+        onInstall={instalarPwa}
+        onClose={cerrarBannerPwa}
+        onInstalled={activarVistaInstalada}
+        installReady={Boolean(installPromptEvent)}
+        message={mensajeBannerPwa}
+      />
       {pathname !== "/" && (
         <nav className="navbar" aria-label="Navegación principal">
           {/* Logo + Nav tabs agrupados a la izquierda */}
@@ -342,6 +447,7 @@ export default function App() {
             <div style={{ display: "flex", alignItems: "center", gap: 9, marginRight: 24 }}>
               <LogoSVG size={22} />
               <span className="navbar-logo">Bimex</span>
+              {IS_STAGING && <span style={st.stagingBadge}>STAGING</span>}
             </div>
 
             <div style={{ display: "flex", gap: 2, height: "100%", alignItems: "stretch" }}>
@@ -448,6 +554,8 @@ export default function App() {
                   onPrivacidad={() => navigate("/privacidad")}
                   tema={tema}
                   setTema={setTema}
+                  onInstallPwa={instalarPwa}
+                  installReady={Boolean(installPromptEvent)}
                 />
               )
             }
@@ -557,7 +665,7 @@ export default function App() {
 }
 
 // ── Landing ──────────────────────────────────────────────────────────────────
-function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTerminos, onPrivacidad, tema, setTema }) {
+function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTerminos, onPrivacidad, tema, setTema, onInstallPwa, installReady }) {
   const { t } = useTranslation();
   const liveStats = useLiveStats();
   const { rate: cetesRate, error: cetesError } = useCetesRate();
@@ -603,10 +711,11 @@ function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTe
       {/* Hero */}
       <section
         id="contenido-principal"
+        className="landing-hero-section"
         aria-labelledby="hero-titulo"
         style={{ background: "var(--card)", borderBottom: "1px solid var(--border)", paddingTop: 60 }}
       >
-        <div style={{ maxWidth: 1120, margin: "0 auto", padding: "80px 40px 72px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }}>
+        <div className="landing-hero-inner" style={{ maxWidth: 1120, margin: "0 auto", padding: "80px 40px 72px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }}>
           <div>
             <div style={st.heroBadge}>
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--green)", display: "inline-block" }} />
@@ -620,7 +729,14 @@ function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTe
               Tu capital genera rendimiento que financia proyectos sociales verificados.
               Al finalizar, recuperas el 100% de lo que depositaste — más tu ganancia.
             </p>
-            <ConectarWallet autoConectar={autoConectar} onConectado={onConectado} />
+            <div style={st.heroActions}>
+              <ConectarWallet autoConectar={autoConectar} onConectado={onConectado} />
+              {installReady && (
+                <button className="btn btn-ghost" onClick={onInstallPwa} style={st.installHeroBtn}>
+                  {t("pwa.install")}
+                </button>
+              )}
+            </div>
             <p style={st.heroNote}>
               Requiere{" "}
               <a href="https://freighter.app" target="_blank" rel="noreferrer" style={{ color: "var(--navy)", fontWeight: 600 }}>
@@ -631,7 +747,7 @@ function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTe
           </div>
 
           {/* Yield card */}
-          <div style={st.yieldCard}>
+          <div className="landing-yield-card" style={st.yieldCard}>
             <div style={st.yieldCardHead}>
               <p style={{ fontSize: "0.78rem", opacity: 0.7, marginBottom: 4 }}>Distribución del rendimiento</p>
               <p style={{ fontWeight: 600, fontSize: "0.98rem" }}>Yield total: ~13.45% anual</p>
@@ -815,6 +931,55 @@ const st = {
     lineHeight: 1.75, marginBottom: 28, maxWidth: 440,
   },
   heroNote: { color: "var(--muted)", fontSize: "0.78rem", marginTop: 14 },
+  heroActions: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 12,
+    alignItems: "center",
+  },
+  installHeroBtn: {
+    minWidth: 170,
+    justifyContent: "center",
+  },
+  installBannerWrap: {
+    position: "sticky",
+    top: 0,
+    zIndex: 10000,
+    padding: "12px 16px 0",
+  },
+  installBanner: {
+    maxWidth: 1120,
+    margin: "0 auto",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 16,
+    flexWrap: "wrap",
+    background: "#0f172a",
+    color: "#fff",
+    border: "1px solid rgba(148,163,184,0.18)",
+    borderRadius: "var(--radius)",
+    boxShadow: "var(--shadow-md)",
+    padding: "14px 18px",
+  },
+  installBannerTitle: {
+    margin: 0,
+    fontWeight: 700,
+    fontSize: "0.95rem",
+  },
+  installBannerText: {
+    margin: "4px 0 0",
+    color: "rgba(255,255,255,0.72)",
+    fontSize: "0.84rem",
+    lineHeight: 1.5,
+    maxWidth: 620,
+  },
+  installBannerActions: {
+    display: "flex",
+    gap: 10,
+    flexWrap: "wrap",
+    alignItems: "center",
+  },
   yieldCard: {
     background: "var(--card)", border: "1px solid var(--border)",
     borderRadius: "var(--radius)", boxShadow: "var(--shadow-md)", overflow: "hidden",
@@ -852,5 +1017,12 @@ const st = {
     background: "none", border: "none", cursor: "pointer",
     color: "rgba(255,255,255,0.75)", fontSize: "0.78rem",
     fontWeight: 500, padding: 0,
+  },
+  stagingBadge: {
+    fontSize: "0.72rem", fontWeight: 700, color: "#8B5CF6",
+    textTransform: "uppercase", letterSpacing: "0.05em",
+    background: "rgba(139,92,246,0.10)", padding: "3px 10px",
+    borderRadius: 99, border: "1px solid rgba(139,92,246,0.25)",
+    whiteSpace: "nowrap",
   },
 };

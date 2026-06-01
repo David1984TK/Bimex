@@ -163,11 +163,12 @@ export async function obtenerBalanceMXNe(direccion) {
   }
 }
 
-export async function obtenerTotalProyectos() {
+export async function obtenerTotalProyectos({ propagarError = false } = {}) {
   try {
     const total = await simularLectura("total_proyectos", []);
     return Number(total);
-  } catch {
+  } catch (error) {
+    if (propagarError) throw error;
     return 0;
   }
 }
@@ -274,14 +275,21 @@ export async function obtenerEstadoCapital(idProyecto) {
   }
 }
 
-export async function obtenerTodosLosProyectos() {
-  const total = await obtenerTotalProyectos();
+export async function obtenerTodosLosProyectos({ propagarError = false } = {}) {
+  const total = await obtenerTotalProyectos({ propagarError });
   if (total === 0) return [];
-  const promesas = Array.from({ length: total }, (_, i) =>
-    obtenerProyecto(i).catch(() => null)
+  const resultados = await Promise.allSettled(
+    Array.from({ length: total }, (_, i) => obtenerProyecto(i))
   );
-  const proyectos = await Promise.all(promesas);
-  return proyectos.filter(Boolean);
+  const proyectos = resultados
+    .filter((resultado) => resultado.status === "fulfilled" && resultado.value)
+    .map((resultado) => resultado.value);
+
+  if (propagarError && proyectos.length === 0 && resultados.some((resultado) => resultado.status === "rejected")) {
+    throw new Error("No se pudieron cargar los proyectos desde Stellar.");
+  }
+
+  return proyectos;
 }
 
 // ─── Funciones de ESCRITURA ───────────────────────────────────────────────────
@@ -447,7 +455,8 @@ import { formatearMXNe as formatearMXNeUtil } from '../utils/formato.js';
 
 export function stroopsAMXNe(stroops) {
   const b = typeof stroops === "bigint" ? stroops : BigInt(stroops ?? 0);
-  return `${formatearMXNeUtil(b)} MXNe`;
+  const valor = Number(b / BigInt(10_000_000)) + Number(b % BigInt(10_000_000)) / 10_000_000;
+  return `${valor.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXNe`;
 }
 
 export function mxneAStroops(mxne) {

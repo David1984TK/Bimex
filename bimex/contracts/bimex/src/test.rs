@@ -171,6 +171,67 @@ fn test_meta_alcanzada() {
 }
 
 #[test]
+fn test_evento_contribucion_emitido() {
+    let (env, cliente, _admin, dueno, backer) = setup();
+
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Evento contribucion"), &100_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.admin_aprobar(&id);
+    cliente.contribuir(&backer, &id, &50_000_000i128);
+
+    let events = env.events().all();
+    assert_eq!(events.len(), 1);
+}
+
+#[test]
+fn test_evento_yield_emitido() {
+    let (env, cliente, _admin, dueno, backer) = setup();
+
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Evento yield"), &100_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.admin_aprobar(&id);
+    cliente.contribuir(&backer, &id, &50_000_000i128);
+    env.ledger().with_mut(|l| l.timestamp = 30 * 60);
+    cliente.reclamar_yield(&id);
+
+    let events = env.events().all();
+    assert!(events.len() >= 2);
+}
+
+#[test]
+fn test_evento_retiro_emitido() {
+    let (env, cliente, _admin, dueno, backer) = setup();
+
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Evento retiro"), &100_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.admin_aprobar(&id);
+    cliente.contribuir(&backer, &id, &50_000_000i128);
+    let _monto = cliente.retirar_principal(&backer, &id);
+
+    let events = env.events().all();
+    assert!(events.len() >= 2);
+}
+
+#[test]
+fn test_evento_admin_aprobar_emitido() {
+    let (env, cliente, _admin, dueno, _backer) = setup();
+
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Evento aprobar"), &100_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.admin_aprobar(&id);
+
+    let events = env.events().all();
+    assert_eq!(events.len(), 1);
+}
+
+#[test]
+fn test_evento_admin_rechazar_emitido() {
+    let (env, cliente, _admin, dueno, _backer) = setup();
+
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Evento rechazar"), &100_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.admin_rechazar(&id, String::from_str(&env, "Motivo de prueba"));
+
+    let events = env.events().all();
+    assert_eq!(events.len(), 1);
+}
+
+#[test]
 fn test_crear_multiples_proyectos() {
     let (env, cliente, _admin, dueno, _backer) = setup();
 

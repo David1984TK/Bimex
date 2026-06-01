@@ -42,7 +42,10 @@
     "verified": "✓ Verified",
     "verifiedTitle": "Documents verified on blockchain",
     "loadMore": "Load more",
-    "remaining": "remaining"
+    "remaining": "remaining",
+    "offlineTitle": "Showing saved projects",
+    "offlineDesc": "We could not refresh from Stellar right now. Bimex is still available with the last cached project list.",
+    "offlineUpdated": "Last updated: {{timestamp}}."
   },
   "filters": {
     "all": "All",
@@ -275,11 +278,33 @@
     "filterLabel": "Filter by status:",
     "funding": "Funding",
     "goal": "Goal",
-    "locked": "Locked"
+    "locked": "Locked",
+    "contributionsTitle": "Contributions history",
+    "colProject": "Project",
+    "colContributor": "Contributor",
+    "colAmount": "Amount",
+    "colWhen": "When"
+  },
+
+  "pagination": {
+    "aria": "Pagination",
+    "prev": "Previous",
+    "next": "Next",
+    "pageOf": "Page {{page}} of {{total}}",
+    "prevAria": "Previous page",
+    "nextAria": "Next page"
   },
   "footer": {
     "terms": "Terms",
     "privacy": "Privacy"
+  },
+  "pwa": {
+    "title": "Install Bimex",
+    "subtitle": "Save Bimex to your device to launch it like an app and keep quick access to the latest projects.",
+    "install": "Install Bimex",
+    "dismiss": "Not now",
+    "installed": "Bimex is already installed. You can open it from your home screen and keep viewing cached projects.",
+    "installedAction": "Done"
   },
   "terminos": {
     "title": "Terms and Conditions of Use",
@@ -334,5 +359,16 @@
     "ariaPanel": "Rewards panel",
     "ariaUnlocked": "View reward: {{name}}",
     "ariaLocked": "Locked reward: {{name}}. Requires {{amount}} MXNe"
+  },
+  "tour": {
+    "step1": { "title": "Your connected wallet", "content": "This is your connected wallet. Your Stellar address appears here securely." },
+    "step2": { "title": "Explore impact projects", "content": "Here you'll find verified social impact projects. Each one shows its goal and real-time progress." },
+    "step3": { "title": "Contribute with MXNe", "content": "Click on a project to see full details and contribute with MXNe. Your capital is always recoverable." },
+    "step4": { "title": "You're on Testnet", "content": "You're on testnet — use the faucet button to get free test MXNe and experiment risk-free." },
+    "step5": { "title": "Your personal account", "content": "Here you can see all your contributions, created projects, and the yield you've generated." },
+    "skip": "Skip",
+    "next": "Next",
+    "finish": "Finish",
+    "restart": "Restart tour"
   }
 }

@@ -30,8 +30,7 @@ vi.mock("../stellar/contrato", () => ({
   mxneAStroops: vi.fn((mxne) => BigInt(Math.round(Number(mxne) * 10_000_000))),
   stroopsAMXNe: vi.fn((stroops) => {
     const value = Number(stroops ?? 0) / 10_000_000;
-    // Use Intl.NumberFormat to match the new implementation
-    return `${new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)} MXNe`;
+    return `${value.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXNe`;
   }),
 }));
 
