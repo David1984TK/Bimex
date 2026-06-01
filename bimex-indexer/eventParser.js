@@ -1,116 +1,102 @@
-import { xdr, scValToNative, Address } from '@stellar/stellar-sdk';
+import { scValToNative } from '@stellar/stellar-sdk';
 
-const CONTRACT_FUNCTIONS = new Set([
-  'crear_proyecto', 'contribuir', 'reclamar_yield',
-  'retirar_principal', 'abandonar_proyecto', 'solicitar_continuar',
-  'admin_aprobar', 'admin_rechazar',
-]);
-
-const FN_TO_EVENT = {
-  crear_proyecto:     'nuevo_proyecto',
-  contribuir:         'nueva_aportacion',
-  reclamar_yield:     'yield_reclamado',
-  retirar_principal:  'retiro_principal',
-  abandonar_proyecto: 'cambio_estado',
-  solicitar_continuar:'cambio_estado',
-  admin_aprobar:      'cambio_estado',
-  admin_rechazar:     'cambio_estado',
+const TOPIC_TO_EVENT = {
+  contribuir: 'nueva_aportacion',
+  yield:      'yield_reclamado',
+  retiro:     'retiro_principal',
+  aprobar:    'cambio_estado',
+  rechazar:   'cambio_estado',
 };
 
-/**
- * Parse a TransactionInfo object from SorobanRpc.getTransactions().
- * The SDK already decodes XDR fields into xdr.* objects.
- * Returns { evento, proyecto, aportacion } or null if not a Bimex tx.
- */
-export function parseTx(tx, contractId) {
+function normalizeArg(arg) {
   try {
-    // envelopeXdr is already an xdr.TransactionEnvelope (SDK-parsed)
-    const envelope = tx.envelopeXdr;
-    const ops = envelope.v1?.tx?.operations() ?? envelope.tx?.operations() ?? [];
-
-    for (const op of ops) {
-      const body = op.body();
-      if (body.switch().name !== 'invokeHostFunction') continue;
-
-      const hostFn = body.invokeHostFunction().hostFunction();
-      if (hostFn.switch().name !== 'hostFunctionTypeInvokeContract') continue;
-
-      const invokeArgs = hostFn.invokeContract();
-
-      // Convert xdr.ScAddress → Strkey string (C...) for comparison
-      const contractStrkey = Address.fromScAddress(
-        invokeArgs.contractAddress()
-      ).toString();
-
-      if (contractStrkey !== contractId) continue;
-
-      const fnName = invokeArgs.functionName().toString();
-      if (!CONTRACT_FUNCTIONS.has(fnName)) continue;
-
-      const args = invokeArgs.args().map(scValToNative);
-      const timestamp = new Date(tx.createdAt * 1000).toISOString();
-
-      const evento = {
-        tipo:        FN_TO_EVENT[fnName],
-        contract_id: contractId,
-        fn_name:     fnName,
-        data:        args,
-        ledger:      tx.ledger,
-        timestamp,
-        tx_hash:     tx.txHash,
-      };
-
-      let proyecto = null;
-      let aportacion = null;
-
-      if (fnName === 'crear_proyecto') {
-        // args: [dueno, nombre, meta, doc_hash]
-        // returnValue is xdr.ScVal (u32 project id), present on SUCCESS
-        const id = tx.returnValue ? scValToNative(tx.returnValue) : null;
-        proyecto = {
-          id,
-          dueno:      String(args[0]),
-          nombre:     String(args[1]),
-          meta:       String(args[2]),
-          estado:     'EnRevision',
-          created_at: timestamp,
-        };
-      } else if (fnName === 'contribuir') {
-        // args: [backer, id_proyecto, cantidad]
-        aportacion = {
-          proyecto_id:  Number(args[1]),
-          contribuidor: String(args[0]),
-          monto:        String(args[2]),
-          timestamp,
-        };
-      } else if (fnName === 'admin_aprobar') {
-        proyecto = { id: Number(args[0]), estado: 'EtapaInicial' };
-      } else if (fnName === 'admin_rechazar') {
-        proyecto = { id: Number(args[0]), estado: 'Rechazado', motivo_rechazo: String(args[1]) };
-      } else if (fnName === 'abandonar_proyecto') {
-        proyecto = { id: Number(args[0]), estado: 'Abandonado' };
-      } else if (fnName === 'solicitar_continuar') {
-        // args: [nuevo_dueno, id_proyecto]
-        proyecto = { id: Number(args[1]), dueno: String(args[0]), estado: 'EnProgreso' };
-      } else if (fnName === 'reclamar_yield') {
-        // args: [id_proyecto]; returnValue is the yield amount claimed
-        const monto = tx.returnValue ? scValToNative(tx.returnValue) : null;
-        proyecto = { id: Number(args[0]), yield_entregado_delta: monto !== null ? String(monto) : null };
-      } else if (fnName === 'retirar_principal') {
-        // args: [backer, id_proyecto]
-        aportacion = {
-          proyecto_id:  Number(args[1]),
-          contribuidor: String(args[0]),
-          monto:        '0',
-          retirado:     true,
-          timestamp,
-        };
-      }
-
-      return { evento, proyecto, aportacion };
-    }
+    return scValToNative(arg);
   } catch {
-    // Malformed or irrelevant tx — skip
+    return arg;
   }
-  return null;
+}
+
+function normalizeArgs(data) {
+  if (data == null) return [];
+  if (Array.isArray(data)) return data.map(normalizeArg);
+  return [normalizeArg(data)];
+}
+
+function getTopicField(event, index) {
+  const topics = event.topics ?? [];
+  const value = topics[index];
+  if (value == null) return null;
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function parseEventRecord(event, contractId) {
+  if (event.contract_id !== contractId) return null;
+
+  const topic = getTopicField(event, 0);
+  const actor = getTopicField(event, 1);
+  if (!topic) return null;
+
+  const createdAt = event.created_at ?? event.createdAt;
+  const timestamp = typeof createdAt === 'string'
+    ? createdAt
+    : createdAt != null
+      ? new Date(createdAt * 1000).toISOString()
+      : null;
+
+  const rawData = event.data ?? event.args ?? event.values;
+  const args = normalizeArgs(rawData);
+
+  const tipo = TOPIC_TO_EVENT[topic] ?? topic;
+  const evento = {
+    tipo,
+    contract_id: contractId,
+    fn_name: topic,
+    data: args,
+    ledger: event.ledger,
+    timestamp,
+    tx_hash: event.transaction_hash || event.tx_hash || event.transactionHash || null,
+  };
+
+  let proyecto = null;
+  let aportacion = null;
+
+  if (topic === 'contribuir') {
+    aportacion = {
+      proyecto_id:  Number(args[0]),
+      contribuidor: String(actor),
+      monto:        String(args[1]),
+      timestamp:    String(args[2] ?? timestamp),
+    };
+  } else if (topic === 'yield') {
+    proyecto = {
+      id: Number(args[0]),
+      yield_entregado_delta: args[1] != null ? String(args[1]) : null,
+    };
+  } else if (topic === 'retiro') {
+    aportacion = {
+      proyecto_id:  Number(args[0]),
+      contribuidor: String(actor),
+      monto:        String(args[1]),
+      retirado:     true,
+      timestamp:    String(args[2] ?? timestamp),
+    };
+  } else if (topic === 'aprobar') {
+    proyecto = { id: Number(args[0]), estado: 'EtapaInicial' };
+  } else if (topic === 'rechazar') {
+    proyecto = { id: Number(args[0]), estado: 'Rechazado', motivo_rechazo: String(args[1]) };
+  }
+
+  return { evento, proyecto, aportacion };
+}
+
+export function parseEvent(event, contractId) {
+  try {
+    return parseEventRecord(event, contractId);
+  } catch {
+    return null;
+  }
+}
+
+export function parseTx(tx, contractId) {
+  return parseEvent(tx, contractId);
 }
