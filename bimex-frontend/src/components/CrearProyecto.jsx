@@ -8,6 +8,7 @@ import {
   CONFIG,
 } from "../stellar/contrato";
 import { subirConFallback, validarArchivo } from "../utils/ipfs";
+import { formatearNumero, formatearNumeroConDecimales } from "../utils/formato.js";
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -257,7 +258,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
 
   // Valor formateado con comas para mostrar en el input
   const metaFormateada = forma.meta
-    ? Number(forma.meta).toLocaleString("es-MX")
+    ? formatearNumero(Number(forma.meta))
     : "";
 
   function setDoc(campo, archivo, errorDoc) {
@@ -329,7 +330,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
 
   const APY_INVERSOR = 0.05; // 5% — rendimiento que recibe el inversor
   const yieldEstimado = forma.meta && forma.tiempoMeses
-    ? (Number(forma.meta) * APY_INVERSOR * (Number(forma.tiempoMeses) / 12)).toLocaleString("es-MX", { maximumFractionDigits: 0 })
+    ? formatearNumero(Number(forma.meta) * APY_INVERSOR * (Number(forma.tiempoMeses) / 12))
     : null;
   const yieldNote = yieldEstimado
     ? `~5% anual sobre tu inversión · durante ${forma.tiempoMeses} mes${Number(forma.tiempoMeses) !== 1 ? "es" : ""}`
@@ -566,7 +567,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
                 <div style={{ marginBottom: 14 }}>
                   <p style={{ fontWeight: 700, fontSize: "1rem", color: "var(--text)" }}>{forma.nombre}</p>
                   <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: 2 }}>
-                    {forma.categoria} · Meta: ${Number(forma.meta).toLocaleString("es-MX")} MXNe
+                    {forma.categoria} · Meta: ${formatearNumero(Number(forma.meta))} MXNe
                   </p>
                 </div>
 

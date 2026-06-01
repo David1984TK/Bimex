@@ -443,10 +443,11 @@ export async function hashearDocumentos(ine, plan, presupuesto) {
 
 // ─── Helpers de formato ───────────────────────────────────────────────────────
 
+import { formatearMXNe as formatearMXNeUtil } from '../utils/formato.js';
+
 export function stroopsAMXNe(stroops) {
   const b = typeof stroops === "bigint" ? stroops : BigInt(stroops ?? 0);
-  const valor = Number(b / BigInt(10_000_000)) + Number(b % BigInt(10_000_000)) / 10_000_000;
-  return `${valor.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXNe`;
+  return `${formatearMXNeUtil(b)} MXNe`;
 }
 
 export function mxneAStroops(mxne) {

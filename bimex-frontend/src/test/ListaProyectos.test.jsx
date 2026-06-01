@@ -10,7 +10,8 @@ vi.mock("../stellar/contrato", () => ({
   obtenerTodosLosProyectos: vi.fn(),
   stroopsAMXNe: vi.fn((stroops) => {
     const value = Number(stroops ?? 0) / 10_000_000;
-    return `${value.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXNe`;
+    // Use Intl.NumberFormat to match the new implementation
+    return `${new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)} MXNe`;
   }),
 }));
 
