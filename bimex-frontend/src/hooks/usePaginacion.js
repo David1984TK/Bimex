@@ -8,6 +8,12 @@ export default function usePaginacion(consultaFn, dependencias = []) {
   const [total, setTotal] = useState(0);
   const [cargando, setCargando] = useState(true);
 
+  // Resetear a página 0 al cambiar dependencias
+  useEffect(() => {
+    setPagina(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, dependencias);
+
   useEffect(() => {
     let activo = true;
     setCargando(true);

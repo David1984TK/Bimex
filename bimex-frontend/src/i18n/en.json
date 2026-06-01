@@ -270,8 +270,8 @@
     "filterLabel": "Filter by status:",
     "funding": "Funding",
     "goal": "Goal",
-    "locked": "Locked"
-    ,"contributionsTitle": "Contributions history",
+    "locked": "Locked",
+    "contributionsTitle": "Contributions history",
     "colProject": "Project",
     "colContributor": "Contributor",
     "colAmount": "Amount",
