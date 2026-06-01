@@ -5,46 +5,75 @@ const supabase = createClient(
   process.env.SUPABASE_KEY
 );
 
-export async function upsertProyecto(proyecto) {
-  // reclamar_yield sends a delta, not an absolute value — increment in DB
-  if (proyecto.yield_entregado_delta != null) {
-    const { id, yield_entregado_delta } = proyecto;
-    const { error } = await supabase.rpc('incrementar_yield_entregado', {
-      p_id: id,
-      p_delta: yield_entregado_delta,
-    });
-    if (error) throw error;
-    return;
+export let supabaseOk = true;
+
+export async function conRetry(fn, maxIntentos = 3, baseDelayMs = 500) {
+  for (let intento = 1; intento <= maxIntentos; intento++) {
+    try {
+      const result = await fn();
+      supabaseOk = true;
+      return result;
+    } catch (err) {
+      if (intento === maxIntentos) {
+        supabaseOk = false;
+        throw err;
+      }
+      const delay = baseDelayMs * Math.pow(2, intento - 1);
+      console.warn(`Intento ${intento} fallido de base de datos, reintentando en ${delay}ms...`, err.message);
+      await new Promise(r => setTimeout(r, delay));
+    }
   }
-  const { error } = await supabase
-    .from('proyectos')
-    .upsert(proyecto, { onConflict: 'id' });
-  if (error) throw error;
+}
+
+export async function upsertProyecto(proyecto) {
+  return conRetry(async () => {
+    // reclamar_yield sends a delta, not an absolute value — increment in DB
+    if (proyecto.yield_entregado_delta != null) {
+      const { id, yield_entregado_delta } = proyecto;
+      const { error } = await supabase.rpc('incrementar_yield_entregado', {
+        p_id: id,
+        p_delta: yield_entregado_delta,
+      });
+      if (error) throw error;
+      return;
+    }
+    const { error } = await supabase
+      .from('proyectos')
+      .upsert(proyecto, { onConflict: 'id' });
+    if (error) throw error;
+  });
 }
 
 export async function upsertAportacion(aportacion) {
-  const { error } = await supabase
-    .from('aportaciones')
-    .upsert(aportacion, { onConflict: 'proyecto_id,contribuidor' });
-  if (error) throw error;
+  return conRetry(async () => {
+    const { error } = await supabase
+      .from('aportaciones')
+      .upsert(aportacion, { onConflict: 'proyecto_id,contribuidor' });
+    if (error) throw error;
+  });
 }
 
 export async function insertEvento(evento) {
-  // Ignore duplicate tx_hash (idempotent re-indexing)
-  const { error } = await supabase
-    .from('eventos')
-    .upsert(evento, { onConflict: 'tx_hash', ignoreDuplicates: true });
-  if (error) throw error;
+  return conRetry(async () => {
+    // Ignore duplicate tx_hash (idempotent re-indexing)
+    const { error } = await supabase
+      .from('eventos')
+      .upsert(evento, { onConflict: 'tx_hash', ignoreDuplicates: true });
+    if (error) throw error;
+  });
 }
 
 export async function getLastIndexedLedger() {
-  const { data, error } = await supabase
-    .from('eventos')
-    .select('ledger')
-    .order('ledger', { ascending: false })
-    .limit(1);
-  if (error || !data?.length) return null;
-  return data[0].ledger;
+  return conRetry(async () => {
+    const { data, error } = await supabase
+      .from('eventos')
+      .select('ledger')
+      .order('ledger', { ascending: false })
+      .limit(1);
+    if (error) throw error;
+    if (!data?.length) return null;
+    return data[0].ledger;
+  });
 }
 
 export default supabase;

@@ -3,7 +3,7 @@ import http from 'node:http';
 import supabase from './database.js';
 import { agregarCliente, eliminarCliente } from './sse.js';
 
-const PORT = parseInt(process.env.API_PORT ?? '3001', 10);
+const PORT = parseInt(process.env.API_PORT ?? '3002', 10);
 
 function json(res, status, data) {
   const body = JSON.stringify(data);
