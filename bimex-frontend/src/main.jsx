@@ -1,3 +1,4 @@
+import React from 'react'
 import { Buffer } from 'buffer'
 globalThis.Buffer = Buffer
 
@@ -10,3 +11,14 @@ createRoot(document.getElementById('root')).render(
     <App />
   </BrowserRouter>,
 )
+
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  Promise.all([import('@axe-core/react'), import('react-dom')])
+    .then(([axeModule, ReactDOM]) => {
+      const reactDom = ReactDOM?.default ?? ReactDOM;
+      axeModule.default(React, reactDom, 1000);
+    })
+    .catch(() => {
+      // axe dev helper is optional in development
+    });
+}

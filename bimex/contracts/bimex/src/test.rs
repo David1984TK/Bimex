@@ -762,3 +762,86 @@ fn test_yield_no_es_demo_exagerado() {
     assert!(detalle.cetes < 100_000_000, "CETES parece tasa demo: {} stroops", detalle.cetes);
     assert!(detalle.amm   < 100_000_000, "AMM parece tasa demo: {} stroops",   detalle.amm);
 }
+
+// ============================================================
+//  CIRCUIT BREAKER TESTS
+// ============================================================
+
+#[test]
+#[should_panic(expected = "Contrato pausado por el administrador")]
+fn test_pausa_bloquea_contribuciones() {
+    let (env, cliente, admin, dueno, backer) = setup();
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &100_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.admin_aprobar(&id);
+
+    // Contribuir antes de pausar
+    cliente.contribuir(&backer, &id, &10_000_000i128);
+
+    // Pausar contrato
+    cliente.admin_pausar(&admin);
+
+    // Las funciones de lectura deben seguir funcionando
+    let p_read = cliente.obtener_proyecto(&id);
+    assert_eq!(p_read.estado, EstadoProyecto::EnProgreso);
+    let yield_read = cliente.calcular_yield(&id, &backer);
+    assert_eq!(yield_read, 0);
+    let yield_det = cliente.calcular_yield_detallado(&id);
+    assert_eq!(yield_det.total, 0);
+    let capital = cliente.estado_capital(&id);
+    assert_eq!(capital.total, 10_000_000i128);
+
+    // Intentar contribuir - debe fallar
+    cliente.contribuir(&backer, &id, &10_000_000i128);
+}
+
+#[test]
+fn test_reanudacion_permite_contribuciones() {
+    let (env, cliente, admin, dueno, backer) = setup();
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test"), &100_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.admin_aprobar(&id);
+
+    // Pausar
+    cliente.admin_pausar(&admin);
+
+    // Reanudar
+    cliente.admin_reanudar(&admin);
+
+    // Contribuir debe funcionar ahora
+    cliente.contribuir(&backer, &id, &10_000_000i128);
+    
+    let p = cliente.obtener_proyecto(&id);
+    assert_eq!(p.total_aportado, 10_000_000i128);
+}
+
+#[test]
+#[should_panic(expected = "Solo el admin puede pausar")]
+fn test_solo_admin_puede_pausar() {
+    let (env, cliente, _admin, _dueno, backer) = setup();
+    cliente.admin_pausar(&backer);
+}
+
+#[test]
+#[should_panic(expected = "Solo el admin puede reanudar")]
+fn test_solo_admin_puede_reanudar() {
+    let (env, cliente, _admin, _dueno, backer) = setup();
+    cliente.admin_reanudar(&backer);
+}
+
+#[test]
+fn test_admin_aprobacion_funciona_pausado() {
+    let (env, cliente, admin, dueno, _backer) = setup();
+    
+    let id_aprobar = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test 1"), &100_000_000i128, &doc_cid_vacio(&env), &6u32);
+    let id_rechazar = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Test 2"), &100_000_000i128, &doc_cid_vacio(&env), &6u32);
+    
+    // Pausar
+    cliente.admin_pausar(&admin);
+    
+    // Aprobar/Rechazar - debe funcionar
+    cliente.admin_aprobar(&id_aprobar);
+    cliente.admin_rechazar(&id_rechazar, &String::from_str(&env, "Motivo"));
+    
+    assert_eq!(cliente.obtener_proyecto(&id_aprobar).estado, EstadoProyecto::EtapaInicial);
+    assert_eq!(cliente.obtener_proyecto(&id_rechazar).estado, EstadoProyecto::Rechazado);
+}
+

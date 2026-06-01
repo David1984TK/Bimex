@@ -97,6 +97,7 @@ pub enum Clave {
     ContadorProyectos,
     Proyecto(u32),
     Aportacion(u32, Address),
+    Pausado,
 }
 
 // ============================================================
@@ -126,6 +127,11 @@ fn calcular_yield_seguro(capital: i128, bps: i128, minutos: i128) -> i128 {
     const MINUTOS_ANO: i128 = 525_600;
     (capital / MINUTOS_ANO) * bps / 10_000 * minutos
         + (capital % MINUTOS_ANO) * bps / 10_000 * minutos / MINUTOS_ANO
+}
+
+fn verificar_no_pausado(env: &Env) {
+    let pausado: bool = env.storage().instance().get(&Clave::Pausado).unwrap_or(false);
+    assert!(!pausado, "Contrato pausado por el administrador");
 }
 
 // ============================================================
@@ -176,9 +182,10 @@ impl BimexContrato {
         doc_cid: String,
         tiempo_meses: u32,
     ) -> u32 {
+        verificar_no_pausado(&env);
         dueno.require_auth();
         assert!(meta > 0, "La meta debe ser mayor a 0");
-        assert!(tiempo_meses >= 1 && tiempo_meses <= 120, "El tiempo debe estar entre 1 y 120 meses");
+        assert!((1..=120).contains(&tiempo_meses), "El tiempo debe estar entre 1 y 120 meses");
 
         let id: u32 = env.storage().instance().get(&Clave::ContadorProyectos).unwrap_or(0);
 
@@ -217,6 +224,7 @@ impl BimexContrato {
     /// - Top-ups preservan el timestamp original del backer.
     /// - No se aceptan contribuciones si el plazo de recaudación ya venció.
     pub fn contribuir(env: Env, backer: Address, id_proyecto: u32, cantidad: i128) {
+        verificar_no_pausado(&env);
         // AUTH FIRST
         backer.require_auth();
         assert!(cantidad > 0, "Cantidad debe ser mayor a 0");
@@ -272,7 +280,7 @@ impl BimexContrato {
         env.storage().persistent().set(&Clave::Proyecto(id_proyecto), &proyecto);
 
         // INTERACTION last
-        token.transfer(&backer, &env.current_contract_address(), &cantidad);
+        token.transfer(&backer, env.current_contract_address(), &cantidad);
     }
 
     /// Calcula el yield pendiente de un backer específico en stroops.
@@ -333,6 +341,7 @@ impl BimexContrato {
     /// Resetea `timestamp_inicio` al momento actual para el próximo período.
     /// Retorna el monto de yield transferido en stroops.
     pub fn reclamar_yield(env: Env, id_proyecto: u32) -> i128 {
+        verificar_no_pausado(&env);
         let mut proyecto: Proyecto = env
             .storage().persistent().get(&Clave::Proyecto(id_proyecto))
             .expect("Proyecto no existe");
@@ -386,6 +395,7 @@ impl BimexContrato {
     /// ya fue o puede ser reclamado por el dueño vía `reclamar_yield`.
     /// Retorna el monto retirado en stroops.
     pub fn retirar_principal(env: Env, backer: Address, id_proyecto: u32) -> i128 {
+        verificar_no_pausado(&env);
         // AUTH FIRST
         backer.require_auth();
 
@@ -524,6 +534,7 @@ impl BimexContrato {
     /// Resetea `timestamp_inicio` para que el nuevo dueño no herede
     /// yield acumulado del período anterior.
     pub fn solicitar_continuar(env: Env, nuevo_dueno: Address, id_proyecto: u32) {
+        verificar_no_pausado(&env);
         // AUTH FIRST
         nuevo_dueno.require_auth();
 
@@ -599,6 +610,20 @@ impl BimexContrato {
 
     pub fn total_proyectos(env: Env) -> u32 {
         env.storage().instance().get(&Clave::ContadorProyectos).unwrap_or(0)
+    }
+
+    pub fn admin_pausar(env: Env, admin: Address) {
+        admin.require_auth();
+        let admin_guardado: Address = env.storage().instance().get(&Clave::Admin).expect("No inicializado");
+        assert!(admin == admin_guardado, "Solo el admin puede pausar");
+        env.storage().instance().set(&Clave::Pausado, &true);
+    }
+
+    pub fn admin_reanudar(env: Env, admin: Address) {
+        admin.require_auth();
+        let admin_guardado: Address = env.storage().instance().get(&Clave::Admin).expect("No inicializado");
+        assert!(admin == admin_guardado, "Solo el admin puede reanudar");
+        env.storage().instance().set(&Clave::Pausado, &false);
     }
 }
 

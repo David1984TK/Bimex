@@ -9,7 +9,12 @@
     "transparency": "Transparencia"
   },
   "lang": {
-    "toggle": "EN"
+    "toggle": "EN",
+    "toggleAria": "Cambiar idioma a inglés"
+  },
+  "tema": {
+    "oscuro": "Modo oscuro",
+    "claro": "Modo claro"
   },
   "lista": {
     "title": "Proyectos",
