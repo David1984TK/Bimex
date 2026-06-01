@@ -11,6 +11,10 @@
   "lang": {
     "toggle": "ES"
   },
+  "tema": {
+    "oscuro": "Dark mode",
+    "claro": "Light mode"
+  },
   "lista": {
     "title": "Projects",
     "subtitle": "Support real-impact projects. Your capital is always recoverable.",

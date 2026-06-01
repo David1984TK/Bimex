@@ -11,6 +11,10 @@
   "lang": {
     "toggle": "EN"
   },
+  "tema": {
+    "oscuro": "Modo oscuro",
+    "claro": "Modo claro"
+  },
   "lista": {
     "title": "Proyectos",
     "subtitle": "Apoya proyectos de impacto real. Tu capital siempre es recuperable.",
