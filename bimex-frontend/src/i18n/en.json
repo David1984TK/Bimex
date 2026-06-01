@@ -359,5 +359,16 @@
     "ariaPanel": "Rewards panel",
     "ariaUnlocked": "View reward: {{name}}",
     "ariaLocked": "Locked reward: {{name}}. Requires {{amount}} MXNe"
+  },
+  "tour": {
+    "step1": { "title": "Your connected wallet", "content": "This is your connected wallet. Your Stellar address appears here securely." },
+    "step2": { "title": "Explore impact projects", "content": "Here you'll find verified social impact projects. Each one shows its goal and real-time progress." },
+    "step3": { "title": "Contribute with MXNe", "content": "Click on a project to see full details and contribute with MXNe. Your capital is always recoverable." },
+    "step4": { "title": "You're on Testnet", "content": "You're on testnet — use the faucet button to get free test MXNe and experiment risk-free." },
+    "step5": { "title": "Your personal account", "content": "Here you can see all your contributions, created projects, and the yield you've generated." },
+    "skip": "Skip",
+    "next": "Next",
+    "finish": "Finish",
+    "restart": "Restart tour"
   }
 }

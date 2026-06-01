@@ -9,6 +9,7 @@ import MiCuenta         from "./components/MiCuenta";
 import Changelog        from "./components/Changelog";
 import Terminos         from "./components/Terminos";
 import Privacidad       from "./components/Privacidad";
+import OnboardingTour, { shouldShowTour } from "./components/OnboardingTour";
 import { getStorage }   from "./utils/storage";
 import { parsearError } from "./utils/errores";
 import { useCetesRate } from "./hooks/useCetesRate";
@@ -16,6 +17,7 @@ import "./i18n/index.js";
 import "./index.css";
 
 const KEY_SESION_WALLET = "bimex.wallet.session";
+const IS_STAGING = import.meta.env.MODE === "staging";
 const KEY_PWA_BANNER_CERRADO = "bimex.pwa.banner.dismissed";
 const storageSesion     = getStorage("session");
 const storageLocal      = getStorage("local");
@@ -290,6 +292,7 @@ export default function App() {
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
   const [totalInvertido, setTotalInvertido] = useState(null);
   const [tema,           setTema]           = useState(() => storageLocal.getItem("tema") || "auto");
+  const [tourActivo,     setTourActivo]     = useState(false);
   const [installPromptEvent, setInstallPromptEvent] = useState(null);
   const [mostrarMensajeInstalada, setMostrarMensajeInstalada] = useState(false);
   const [bannerPwaCerrado, setBannerPwaCerrado] = useState(leerBannerPwaInicial);
@@ -365,6 +368,7 @@ export default function App() {
       setDireccion(addr);
       setAutoConectar(true);
       navigate("/proyectos", { replace: true });
+      if (shouldShowTour()) setTimeout(() => setTourActivo(true), 800);
     } else {
       desconectarLocal();
     }
@@ -427,6 +431,7 @@ export default function App() {
   return (
     <div>
       <ToastContainer toasts={toasts} onRemove={quitarToast} />
+      <OnboardingTour isActive={tourActivo} onComplete={() => setTourActivo(false)} />
       <PwaInstallBanner
         visible={mostrarBannerPwa}
         onInstall={instalarPwa}
@@ -442,6 +447,7 @@ export default function App() {
             <div style={{ display: "flex", alignItems: "center", gap: 9, marginRight: 24 }}>
               <LogoSVG size={22} />
               <span className="navbar-logo">Bimex</span>
+              {IS_STAGING && <span style={st.stagingBadge}>STAGING</span>}
             </div>
 
             <div style={{ display: "flex", gap: 2, height: "100%", alignItems: "stretch" }}>
@@ -1011,5 +1017,12 @@ const st = {
     background: "none", border: "none", cursor: "pointer",
     color: "rgba(255,255,255,0.75)", fontSize: "0.78rem",
     fontWeight: 500, padding: 0,
+  },
+  stagingBadge: {
+    fontSize: "0.72rem", fontWeight: 700, color: "#8B5CF6",
+    textTransform: "uppercase", letterSpacing: "0.05em",
+    background: "rgba(139,92,246,0.10)", padding: "3px 10px",
+    borderRadius: 99, border: "1px solid rgba(139,92,246,0.25)",
+    whiteSpace: "nowrap",
   },
 };

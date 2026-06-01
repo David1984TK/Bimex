@@ -359,5 +359,16 @@
     "ariaPanel": "Panel de recompensas",
     "ariaUnlocked": "Ver recompensa: {{name}}",
     "ariaLocked": "Recompensa bloqueada: {{name}}. Requiere {{amount}} MXNe"
+  },
+  "tour": {
+    "step1": { "title": "Tu wallet conectada", "content": "Esta es tu wallet conectada. Tu dirección Stellar aparece aquí de forma segura." },
+    "step2": { "title": "Explora proyectos de impacto", "content": "Aquí encuentras proyectos de impacto social verificados. Cada uno muestra su meta y progreso en tiempo real." },
+    "step3": { "title": "Contribuye con MXNe", "content": "Haz clic en un proyecto para ver detalles completos y contribuir con MXNe. Tu capital siempre es recuperable." },
+    "step4": { "title": "Estás en Testnet", "content": "Estás en testnet — usa el botón de faucet para obtener MXNe de prueba gratis y experimentar sin riesgo." },
+    "step5": { "title": "Tu cuenta personal", "content": "Aquí puedes ver todas tus contribuciones, proyectos creados y el rendimiento que has generado." },
+    "skip": "Omitir",
+    "next": "Siguiente",
+    "finish": "Finalizar",
+    "restart": "Reiniciar tour"
   }
 }
