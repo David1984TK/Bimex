@@ -1,3 +1,4 @@
+import React from 'react'
 import { Buffer } from 'buffer'
 globalThis.Buffer = Buffer
 
@@ -53,12 +54,18 @@ if (import.meta.env.VITE_SENTRY_DSN) {
 }
 
 createRoot(document.getElementById('root')).render(
-  <Sentry.ErrorBoundary fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>
-    <h2>Algo salió mal</h2>
-    <p>Por favor recarga la página. Si el problema persiste, contacta a soporte.</p>
-  </div>}>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  </Sentry.ErrorBoundary>,
+  <BrowserRouter>
+    <App />
+  </BrowserRouter>,
 )
+
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  Promise.all([import('@axe-core/react'), import('react-dom')])
+    .then(([axeModule, ReactDOM]) => {
+      const reactDom = ReactDOM?.default ?? ReactDOM;
+      axeModule.default(React, reactDom, 1000);
+    })
+    .catch(() => {
+      // axe dev helper is optional in development
+    });
+}

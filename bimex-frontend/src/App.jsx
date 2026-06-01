@@ -1,21 +1,16 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { lazy, Suspense, useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { setAllowed } from "@stellar/freighter-api";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import ConectarWallet   from "./components/ConectarWallet";
 import ListaProyectos   from "./components/ListaProyectos";
-import CrearProyecto    from "./components/CrearProyecto";
 import DetalleProyecto  from "./components/DetalleProyecto";
 import MiCuenta         from "./components/MiCuenta";
-import AdminPanel       from "./components/AdminPanel";
-import Recompensas      from "./components/Recompensas";
-import Transparencia    from "./components/Transparencia";
 import Changelog        from "./components/Changelog";
 import Terminos         from "./components/Terminos";
 import Privacidad       from "./components/Privacidad";
 import { getStorage }   from "./utils/storage";
 import { parsearError } from "./utils/errores";
-import { obtenerTodosLosProyectos, stroopsAMXNe, mintearMXNePrueba } from "./stellar/contrato";
 import { useCetesRate } from "./hooks/useCetesRate";
 import "./i18n/index.js";
 import "./index.css";
@@ -25,8 +20,35 @@ const storageSesion     = getStorage("session");
 const ADMIN_ADDRESS     = import.meta.env.VITE_ADMIN_ADDRESS ?? "GD2FLYXZMEGSSYZGC4LKFGCH6SOZR57UB64ECPEEJ4IEKAT6VZU3SLGS";
 const IS_STAGING        = import.meta.env.MODE === "staging";
 
+const AdminPanel = lazy(() => import("./components/AdminPanel"));
+const CrearProyecto = lazy(() => import("./components/CrearProyecto"));
+const Transparencia = lazy(() => import("./components/Transparencia"));
+const Recompensas = lazy(() => import("./components/Recompensas"));
+
+let contratoFnsPromise = null;
+
+function cargarContratoFns() {
+  if (!contratoFnsPromise) {
+    contratoFnsPromise = import("./stellar/contrato").then((mod) => ({
+      obtenerTodosLosProyectos: mod.obtenerTodosLosProyectos,
+      stroopsAMXNe: mod.stroopsAMXNe,
+      mintearMXNePrueba: mod.mintearMXNePrueba,
+    }));
+  }
+  return contratoFnsPromise;
+}
+
 function leerAutoConectarInicial() {
   return storageSesion.getItem(KEY_SESION_WALLET) === "1";
+}
+
+function Cargando({ inline = false }) {
+  return (
+    <div className={inline ? "spinner-inline-wrapper" : "spinner-global"} aria-live="polite" aria-busy="true">
+      <span className="spinner-global-dot" aria-hidden="true" />
+      <span>Cargando...</span>
+    </div>
+  );
 }
 
 // ── Logo SVG ────────────────────────────────────────────────────────────────
@@ -82,8 +104,9 @@ function useLiveStats() {
       setStats(_statsCache);
       return;
     }
-    obtenerTodosLosProyectos()
-      .then(proyectos => {
+    cargarContratoFns()
+      .then(({ obtenerTodosLosProyectos, stroopsAMXNe }) => obtenerTodosLosProyectos().then((proyectos) => ({ proyectos, stroopsAMXNe })))
+      .then(({ proyectos, stroopsAMXNe }) => {
         const totalBloqueado = proyectos.reduce((s, p) => {
           try { return s + BigInt(p.aportado ?? 0); } catch { return s; }
         }, BigInt(0));
@@ -109,6 +132,7 @@ function BtnFaucet({ direccion }) {
   async function pedir() {
     setEstado("loading");
     try {
+      const { mintearMXNePrueba } = await cargarContratoFns();
       await mintearMXNePrueba(direccion);
       setEstado("ok");
       setTimeout(() => setEstado("idle"), 4000);
@@ -144,22 +168,31 @@ function BtnFaucet({ direccion }) {
 function ToastContainer({ toasts, onRemove }) {
   if (!toasts.length) return null;
   return (
-    <div style={{
-      position: "fixed", top: 16, right: 16, zIndex: 9999,
-      display: "flex", flexDirection: "column", gap: 10,
-      maxWidth: 380, width: "calc(100vw - 32px)",
-    }}>
+    <div
+      aria-live="polite"
+      aria-atomic="true"
+      style={{
+        position: "fixed", top: 16, right: 16, zIndex: 9999,
+        display: "flex", flexDirection: "column", gap: 10,
+        maxWidth: 380, width: "calc(100vw - 32px)",
+      }}
+    >
       {toasts.map(t => (
-        <div key={t.id} style={{
-          background: t.tipo === "error" ? "#FEF2F2" : "#F0FDF4",
-          border: `1px solid ${t.tipo === "error" ? "rgba(220,38,38,0.20)" : "rgba(22,163,74,0.20)"}`,
-          borderLeft: `4px solid ${t.tipo === "error" ? "#DC2626" : "var(--green)"}`,
-          borderRadius: "var(--radius-sm)",
-          padding: "12px 14px",
-          boxShadow: "var(--shadow-md)",
-          display: "flex", alignItems: "flex-start", gap: 10,
-          animation: "slideInRight 0.22s ease",
-        }}>
+        <div
+          key={t.id}
+          role={t.tipo === "error" ? "alert" : "status"}
+          aria-live={t.tipo === "error" ? "assertive" : "polite"}
+          aria-atomic="true"
+          style={{
+            background: t.tipo === "error" ? "#FEF2F2" : "#F0FDF4",
+            border: `1px solid ${t.tipo === "error" ? "rgba(220,38,38,0.20)" : "rgba(22,163,74,0.20)"}`,
+            borderLeft: `4px solid ${t.tipo === "error" ? "#DC2626" : "var(--green)"}`,
+            borderRadius: "var(--radius-sm)",
+            padding: "12px 14px",
+            boxShadow: "var(--shadow-md)",
+            display: "flex", alignItems: "flex-start", gap: 10,
+            animation: "slideInRight 0.22s ease",
+          }}>
           {/* Icono */}
           <div style={{ flexShrink: 0, marginTop: 1 }}>
             {t.tipo === "error" ? (
@@ -220,6 +253,22 @@ export default function App() {
   const [autoConectar,   setAutoConectar]   = useState(leerAutoConectarInicial);
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
   const [totalInvertido, setTotalInvertido] = useState(null);
+  const [tema,           setTema]           = useState(() => localStorage.getItem("tema") || "auto");
+
+  useEffect(() => {
+    const docEl = document.documentElement;
+    if (tema === "auto") {
+      docEl.setAttribute("data-theme", "");
+      localStorage.removeItem("tema");
+    } else {
+      docEl.setAttribute("data-theme", tema);
+      localStorage.setItem("tema", tema);
+    }
+  }, [tema]);
+
+  useEffect(() => {
+    document.documentElement.lang = i18n.language || "es";
+  }, [i18n.language]);
 
   // ── Toast system ───────────────────────────────────────────────────────────
   const [toasts, setToasts] = useState([]);
@@ -298,32 +347,38 @@ export default function App() {
 
             <div style={{ display: "flex", gap: 2, height: "100%", alignItems: "stretch" }}>
               <button
+                type="button"
                 onClick={() => navigate("/proyectos")}
                 style={{
                   ...st.navTab,
                   color: esRutaProyectos ? "var(--navy)" : "var(--muted)",
                   borderBottom: esRutaProyectos ? "2px solid var(--navy)" : "2px solid transparent",
                 }}
+                aria-current={esRutaProyectos ? "page" : undefined}
               >
                 {t("nav.projects")}
               </button>
               <button
+                type="button"
                 onClick={() => navigate("/cuenta")}
                 style={{
                   ...st.navTab,
                   color: esRutaCuenta ? "var(--navy)" : "var(--muted)",
                   borderBottom: esRutaCuenta ? "2px solid var(--navy)" : "2px solid transparent",
                 }}
+                aria-current={esRutaCuenta ? "page" : undefined}
               >
                 {t("nav.myAccount")}
               </button>
               <button
+                type="button"
                 onClick={() => navigate("/transparencia")}
                 style={{
                   ...st.navTab,
                   color: esRutaTransparencia ? "var(--navy)" : "var(--muted)",
                   borderBottom: esRutaTransparencia ? "2px solid var(--navy)" : "2px solid transparent",
                 }}
+                aria-current={esRutaTransparencia ? "page" : undefined}
               >
                 {t("nav.transparency")}
               </button>
@@ -337,30 +392,42 @@ export default function App() {
               )}
               <span className="navbar-hide-tablet" style={st.testnetBadge}>Testnet</span>
 
+              <button
+                type="button"
+                onClick={() => setTema(t => t === 'dark' ? 'light' : 'dark')}
+                style={st.langBtn}
+                aria-label={t(tema === 'dark' ? "tema.claro" : "tema.oscuro")}
+              >
+                {tema === 'dark' ? '☀️' : '🌙'}
+              </button>
+
               <BtnFaucet direccion={direccion} />
 
               <button
+                type="button"
                 onClick={() => i18n.changeLanguage(i18n.language === "es" ? "en" : "es")}
                 style={st.langBtn}
-                aria-label="Switch language"
+                aria-label={t("lang.toggleAria")}
               >
                 {t("lang.toggle")}
               </button>
 
               {esAdmin && (
-                <button className="navbar-btn-admin" onClick={() => navigate("/admin") }>
+                <button type="button" className="navbar-btn-admin" onClick={() => navigate("/admin") }>
                   {t("nav.admin")}
                 </button>
               )}
 
-              <Recompensas direccion={direccion} refrescar={refrescar} totalInvertido={totalInvertido} />
+              <Suspense fallback={<Cargando inline />}>
+                <Recompensas direccion={direccion} refrescar={refrescar} totalInvertido={totalInvertido} />
+              </Suspense>
 
               <div className="wallet-chip">
                 <span className="wallet-dot" aria-hidden="true" />
                 <span aria-label={`Wallet: ${direccion}`}>{formatearDir(direccion)}</span>
               </div>
 
-              <button className="navbar-btn-salir" onClick={cerrarSesionWallet} disabled={cerrandoSesion}>
+              <button type="button" className="navbar-btn-salir" onClick={cerrarSesionWallet} disabled={cerrandoSesion}>
                 {cerrandoSesion ? t("nav.loggingOut") : t("nav.logout")}
               </button>
             </div>
@@ -383,6 +450,8 @@ export default function App() {
                   onChangelog={() => navigate("/novedades")}
                   onTerminos={() => navigate("/terminos")}
                   onPrivacidad={() => navigate("/privacidad")}
+                  tema={tema}
+                  setTema={setTema}
                 />
               )
             }
@@ -423,20 +492,29 @@ export default function App() {
               )
             }
           />
-          <Route path="/transparencia" element={<Transparencia onVolver={() => navigate(direccion ? "/proyectos" : "/")} />} />
-          <Route path="/novedades" element={<div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)" }}><button className="btn btn-ghost" onClick={() => navigate(direccion ? "/proyectos" : "/")} style={{ fontSize: "0.84rem" }}>← Volver</button><Changelog /></div>} />
+          <Route
+            path="/transparencia"
+            element={
+              <Suspense fallback={<Cargando />}>
+                <Transparencia onVolver={() => navigate(direccion ? "/proyectos" : "/")} />
+              </Suspense>
+            }
+          />
+          <Route path="/novedades" element={<div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)" }}><button type="button" className="btn btn-ghost" onClick={() => navigate(direccion ? "/proyectos" : "/")} style={{ fontSize: "0.84rem" }}>← Volver</button><Changelog /></div>} />
           <Route path="/terminos" element={<Terminos onVolver={() => navigate(direccion ? "/proyectos" : "/")} />} />
           <Route path="/privacidad" element={<Privacidad onVolver={() => navigate(direccion ? "/proyectos" : "/")} />} />
           <Route
             path="/admin"
             element={
               direccion && esAdmin ? (
-                <AdminPanel
-                  direccion={direccion}
-                  adminAddress={ADMIN_ADDRESS}
-                  onCerrar={() => navigate("/proyectos")}
-                  onError={mostrarError}
-                />
+                <Suspense fallback={<Cargando />}>
+                  <AdminPanel
+                    direccion={direccion}
+                    adminAddress={ADMIN_ADDRESS}
+                    onCerrar={() => navigate("/proyectos")}
+                    onError={mostrarError}
+                  />
+                </Suspense>
               ) : (
                 <Navigate to={direccion ? "/proyectos" : "/"} replace />
               )
@@ -446,33 +524,35 @@ export default function App() {
         </Routes>
 
         {modalCrear && esRutaProyectos && (
-          <CrearProyecto
-            direccion={direccion}
-            onCerrar={() => setModalCrear(false)}
-            onCreado={() => { setModalCrear(false); refrescarLista(); }}
-            onError={mostrarError}
-          />
+          <Suspense fallback={<Cargando />}>
+            <CrearProyecto
+              direccion={direccion}
+              onCerrar={() => setModalCrear(false)}
+              onCreado={() => { setModalCrear(false); refrescarLista(); }}
+              onError={mostrarError}
+            />
+          </Suspense>
         )}
       </main>
       {pathname !== "/" && (
         <footer style={{ ...st.footer, padding: "16px 40px" }}>
           <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-            <button onClick={() => navigate("/novedades")}
+            <button type="button" onClick={() => navigate("/novedades")}
               style={st.footerLink}>
               Novedades
             </button>
             <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
-            <button onClick={() => navigate("/terminos")}
+            <button type="button" onClick={() => navigate("/terminos")}
               style={st.footerLink}>
               {t("footer.terms")}
             </button>
             <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
-            <button onClick={() => navigate("/privacidad")}
+            <button type="button" onClick={() => navigate("/privacidad")}
               style={st.footerLink}>
               {t("footer.privacy")}
             </button>
             <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
-            <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.78rem" }}>Bimex · Stellar Testnet</span>
+            <span style={{ color: "rgba(255,255,255,0.65)", fontSize: "0.78rem" }}>Bimex · Stellar Testnet</span>
           </div>
         </footer>
       )}
@@ -481,7 +561,7 @@ export default function App() {
 }
 
 // ── Landing ──────────────────────────────────────────────────────────────────
-function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTerminos, onPrivacidad }) {
+function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTerminos, onPrivacidad, tema, setTema }) {
   const { t } = useTranslation();
   const liveStats = useLiveStats();
   const { rate: cetesRate, error: cetesError } = useCetesRate();
@@ -507,7 +587,17 @@ function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTe
             <span style={st.stagingBadge}>STAGING</span>
           )}
           <span className="navbar-hide-tablet" style={st.testnetBadge}>Testnet</span>
+          
           <button
+            onClick={() => setTema(t => t === 'dark' ? 'light' : 'dark')}
+            style={st.langBtn}
+            aria-label={t(tema === 'dark' ? "tema.claro" : "tema.oscuro")}
+          >
+            {tema === 'dark' ? '☀️' : '🌙'}
+          </button>
+
+          <button
+            type="button"
             onClick={onTransparencia}
             style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.84rem", fontWeight: 500, color: "var(--navy)", padding: "8px 12px" }}
           >
@@ -600,7 +690,7 @@ function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTe
                 CETES hoy
               </span>
               <span style={{ fontWeight: 700, fontSize: "1rem", color: "#86EFAC" }}>{cetesRate}%</span>
-              <span style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.45)" }}>vía Etherfuse</span>
+              <span style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.7)" }}>vía Etherfuse</span>
             </div>
             <div style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,0.25)" }} />
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -674,19 +764,19 @@ function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTe
           <LogoSVG size={20} light />
           <span style={{ fontWeight: 700, fontSize: "1rem", color: "rgba(255,255,255,0.85)" }}>Bimex</span>
         </div>
-        <p style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.78rem", marginBottom: 10 }}>
+        <p style={{ color: "rgba(255,255,255,0.65)", fontSize: "0.78rem", marginBottom: 10 }}>
           Hack+ Alebrije · Stellar · CDMX 2025 · Construido con Soroban y MXNe
         </p>
         <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={onChangelog} style={st.footerLinkLanding}>
+          <button type="button" onClick={onChangelog} style={st.footerLinkLanding}>
             Novedades
           </button>
           <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
-          <button onClick={onTerminos} style={st.footerLinkLanding}>
+          <button type="button" onClick={onTerminos} style={st.footerLinkLanding}>
             {t("footer.terms")}
           </button>
           <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
-          <button onClick={onPrivacidad} style={st.footerLinkLanding}>
+          <button type="button" onClick={onPrivacidad} style={st.footerLinkLanding}>
             {t("footer.privacy")}
           </button>
         </div>
@@ -769,12 +859,12 @@ const st = {
   },
   footerLink: {
     background: "none", border: "none", cursor: "pointer",
-    color: "rgba(255,255,255,0.55)", fontSize: "0.78rem",
+    color: "rgba(255,255,255,0.75)", fontSize: "0.78rem",
     fontWeight: 500, padding: "4px 8px",
   },
   footerLinkLanding: {
     background: "none", border: "none", cursor: "pointer",
-    color: "rgba(255,255,255,0.45)", fontSize: "0.78rem",
+    color: "rgba(255,255,255,0.75)", fontSize: "0.78rem",
     fontWeight: 500, padding: 0,
   },
 };
