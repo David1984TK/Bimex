@@ -121,7 +121,7 @@ function PreviewArchivo({ archivo, onEliminar }) {
   return (
     <div className="archivo-preview" style={estilos.archivoPreview}>
       {esImagen && previewUrl && (
-        <img src={previewUrl} alt="preview" className="archivo-thumb" style={estilos.archivoThumb} />
+        <img src={previewUrl} alt={archivo.name} className="archivo-thumb" style={estilos.archivoThumb} />
       )}
       {esPdf && <span className="archivo-icon" style={estilos.archivoIcon}>📄</span>}
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -461,7 +461,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
                 </div>
               )}
 
-              {error && <p style={estilos.error}>{error}</p>}
+              {error && <p role="alert" aria-live="assertive" style={estilos.error}>{error}</p>}
 
               <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
                 <button type="button" className="btn btn-ghost" onClick={onCerrar} style={{ flex: 1 }}>
@@ -537,7 +537,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
                 </span>
               </div>
 
-              {error && <p style={estilos.error}>{error}</p>}
+              {error && <p role="alert" aria-live="assertive" style={estilos.error}>{error}</p>}
 
               <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
                 <button type="button" className="btn btn-ghost" onClick={() => { setPaso(1); setError(""); }} style={{ flex: 1 }}>
@@ -624,7 +624,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
                 </div>
               </div>
 
-              {error && <p style={estilos.error}>{error}</p>}
+              {error && <p role="alert" aria-live="assertive" style={estilos.error}>{error}</p>}
 
               <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
                 <button type="button" className="btn btn-ghost" onClick={() => { setPaso(2); setError(""); }} style={{ flex: 1 }}>
@@ -689,7 +689,7 @@ function CampoDocumento({ id, label, descripcion, accept, icono, archivo, error,
             }}
           />
           {error && (
-            <p className="archivo-error" style={{ fontSize: "0.74rem", color: "#DC2626", marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
+            <p className="archivo-error" role="alert" aria-live="assertive" style={{ fontSize: "0.74rem", color: "#DC2626", marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
               <span aria-hidden="true">⚠️</span> {error}
             </p>
           )}

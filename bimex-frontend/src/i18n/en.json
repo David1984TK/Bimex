@@ -9,7 +9,8 @@
     "transparency": "Transparency"
   },
   "lang": {
-    "toggle": "ES"
+    "toggle": "ES",
+    "toggleAria": "Switch language to Spanish"
   },
   "tema": {
     "oscuro": "Dark mode",
