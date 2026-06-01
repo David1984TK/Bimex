@@ -367,53 +367,24 @@ export async function reclamarYield(direccion, idProyecto) {
   return firmarYEnviar(tx, direccion);
 }
 
-// ─── Faucet — TESTNET ONLY — do not call on Mainnet ──────────────────────────
+// ─── Faucet — TESTNET ONLY — delegates to indexer API ─────────────────────
 
-/**
- * Mintea 100 MXNe de prueba a la dirección indicada.
- * Firma con la clave de faucet (solo testnet, clave en .env.local).
- * WARNING: This function must NOT be exposed in the production UI.
- */
+const FAUCET_API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
+
 export async function mintearMXNePrueba(direccionDestino) {
   if (CONFIG.NETWORK_PASSPHRASE !== Networks.TESTNET) {
     throw new Error("mintearMXNePrueba solo está disponible en Testnet.");
   }
 
-  const secretFaucet = import.meta.env.VITE_FAUCET_SECRET;
-  if (!secretFaucet) throw new Error("Faucet no configurado (VITE_FAUCET_SECRET)");
+  const res = await fetch(`${FAUCET_API_URL}/faucet`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ destino: direccionDestino }),
+  });
 
-  const faucetKeypair = Keypair.fromSecret(secretFaucet);
-  const tokenContrato = new Contract(CONFIG.TOKEN_MXNE);
-  const cuentaInfo    = await servidor.getAccount(faucetKeypair.publicKey());
-
-  const tx = new TransactionBuilder(cuentaInfo, {
-    fee: "1000000",
-    networkPassphrase: CONFIG.NETWORK_PASSPHRASE,
-  })
-    .addOperation(tokenContrato.call(
-      "mint",
-      new Address(direccionDestino).toScVal(),
-      nativeToScVal(BigInt(1_000_000_000), { type: "i128" }), // 100 MXNe
-    ))
-    .setTimeout(300)
-    .build();
-
-  const txPreparada = await servidor.prepareTransaction(tx);
-  txPreparada.sign(faucetKeypair);
-
-  const envio = await servidor.sendTransaction(txPreparada);
-  if (envio.status === "ERROR") throw new Error("Faucet tx rechazada por la red");
-
-  let intentos = 0;
-  while (intentos < 20) {
-    await new Promise(r => setTimeout(r, 2000));
-    const estado = await servidor.getTransaction(envio.hash);
-    if (estado.status === rpc.Api.GetTransactionStatus.SUCCESS) return 100;
-    if (estado.status === rpc.Api.GetTransactionStatus.FAILED)
-      throw new Error("Faucet tx falló en la red");
-    intentos++;
-  }
-  throw new Error("Timeout del faucet");
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Faucet request falló");
+  return data.cantidad;
 }
 
 // ─── Verificación documental ──────────────────────────────────────────────────

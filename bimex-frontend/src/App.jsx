@@ -426,7 +426,7 @@ export default function App() {
     ? t("pwa.installed")
     : t("pwa.subtitle");
 
-  function refrescarLista() { setRefrescar(r => r + 1); }
+  const refrescarLista = useCallback(() => { setRefrescar(r => r + 1); }, []);
 
   return (
     <div>

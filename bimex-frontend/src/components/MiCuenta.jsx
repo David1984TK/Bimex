@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from "react";
 import { useTranslation } from "react-i18next";
 import { createClient } from "@supabase/supabase-js";
 import { parsearError } from "../utils/errores.js";
@@ -180,7 +180,7 @@ function MetricCard({ icon, label, value, accent }) {
 
 // ─── Pestaña: Mis proyectos ───────────────────────────────────────────────────
 
-function CardMiProyecto({ proyecto, onVerProyecto }) {
+const CardMiProyecto = memo(function CardMiProyecto({ proyecto, onVerProyecto }) {
   const { t } = useTranslation();
   const progreso = pct(proyecto.aportado, proyecto.meta);
 
@@ -231,11 +231,11 @@ function CardMiProyecto({ proyecto, onVerProyecto }) {
       </button>
     </article>
   );
-}
+});
 
 function TabMisProyectos({ proyectos, direccion, onVerProyecto }) {
   const { t } = useTranslation();
-  const misProyectos = proyectos.filter((p) => p.dueno === direccion);
+  const misProyectos = useMemo(() => proyectos.filter((p) => p.dueno === direccion), [proyectos, direccion]);
 
   if (misProyectos.length === 0) {
     return (
@@ -612,7 +612,7 @@ export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido })
     cargar();
   }, [direccion]);
 
-  const numCreados = proyectos.filter((p) => p.dueno === direccion).length;
+  const numCreados = useMemo(() => proyectos.filter((p) => p.dueno === direccion).length, [proyectos, direccion]);
 
   const [numApoyados,   setNumApoyados]   = useState(null);
   const [totalInvertido, setTotalInvertido] = useState(null);
