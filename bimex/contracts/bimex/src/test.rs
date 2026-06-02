@@ -981,3 +981,33 @@ fn test_admin_cambiar_admin_mismo_admin_falla() {
     let (_env, cliente, admin, _dueno, _backer) = setup();
     cliente.admin_cambiar_admin(&admin, &admin);
 }
+
+// ============================================================
+//  UPGRADE PATTERN TESTS
+// ============================================================
+
+#[test]
+fn test_solo_admin_puede_upgrade() {
+    let (env, cliente, admin, _dueno, _backer) = setup();
+    
+    // Generar un hash de wasm simulado
+    let mut hash = [0u8; 32];
+    hash[0] = 1;
+    let new_wasm_hash = soroban_sdk::BytesN::from_array(&env, &hash);
+    
+    // Esto debería ejecutarse sin error ya que es el admin
+    cliente.admin_upgrade(&admin, &new_wasm_hash);
+}
+
+#[test]
+#[should_panic(expected = "Solo el admin puede actualizar el contrato")]
+fn test_no_admin_no_puede_upgrade() {
+    let (env, cliente, _admin, dueno, _backer) = setup();
+    
+    let mut hash = [0u8; 32];
+    hash[0] = 1;
+    let new_wasm_hash = soroban_sdk::BytesN::from_array(&env, &hash);
+    
+    // Esto fallará porque el dueño no es el admin
+    cliente.admin_upgrade(&dueno, &new_wasm_hash);
+}
