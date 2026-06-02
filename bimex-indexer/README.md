@@ -57,3 +57,87 @@ Para garantizar la tolerancia a fallos ante caídas de red o cortes temporales d
 - Todas las operaciones de escritura (upserts/rpc) en la base de datos se ejecutan a través de un mecanismo de **reintento automático con Backoff Exponencial**.
 - Se realizan hasta **3 intentos** de manera automática.
 - El retraso entre intentos aumenta exponencialmente (`500ms`, `1000ms`, `2000ms`), previniendo saturación y permitiendo la recuperación del servicio base.
+
+## Sistema de Notificaciones por Email
+
+El indexer incluye un sistema de notificaciones por email usando [Resend](https://resend.com/) con templates HTML profesionales.
+
+### Templates Disponibles
+
+#### Templates HTML Profesionales (Nuevos)
+
+- **bienvenida** - Email de bienvenida para nuevos usuarios (primera contribución)
+- **nueva_contribucion** - Notificación cuando un proyecto recibe una contribución
+- **proyecto_aprobado_html** - Notificación de proyecto aprobado con diseño profesional
+- **yield_disponible_html** - Notificación de yield disponible con diseño profesional
+
+#### Templates Legacy (Simples)
+
+- **proyecto_aprobado** - Proyecto aprobado (versión simple)
+- **proyecto_rechazado** - Proyecto rechazado
+- **meta_alcanzada** - Meta de financiamiento alcanzada
+- **yield_disponible** - Yield disponible (versión simple)
+- **retiro_principal** - Retiro de principal
+
+### Características de los Templates HTML
+
+✅ **Diseño responsive** - Funciona en desktop y móvil
+✅ **Compatible con clientes principales** - Gmail, Outlook, Apple Mail
+✅ **Inline CSS** - Máxima compatibilidad con clientes de email
+✅ **Branding de Bimex** - Usa la paleta de colores oficial (navy, green, amber)
+✅ **Link de desuscripción** - Incluido en el footer de cada email
+
+### Configuración
+
+Agrega estas variables a tu archivo `.env`:
+
+```bash
+RESEND_API_KEY=re_xxxxxxxxxxxxx
+RESEND_FROM="Bimex <notificaciones@bimex.fi>"
+FRONTEND_URL=https://bimex.fi
+```
+
+### Uso Programático
+
+```javascript
+import { enviarNotificacion } from "./notifications.js";
+
+// Email de bienvenida
+await enviarNotificacion("bienvenida", "usuario@example.com", {
+  nombreProyecto: "Mi Proyecto",
+  monto: "5000",
+  idProyecto: "123",
+});
+
+// Nueva contribución
+await enviarNotificacion("nueva_contribucion", "creador@example.com", {
+  nombreProyecto: "Mi Proyecto",
+  monto: "1000",
+  progreso: "45",
+  idProyecto: "123",
+});
+
+// Yield disponible
+await enviarNotificacion("yield_disponible_html", "usuario@example.com", {
+  nombreProyecto: "Mi Proyecto",
+  monto: "250.50",
+  tasaCetes: "11.2",
+  idProyecto: "123",
+});
+```
+
+### Testing de Templates
+
+Para generar archivos HTML de prueba y visualizarlos en el navegador:
+
+```bash
+node test-templates.js
+```
+
+Esto generará archivos HTML en `./test-output/` que puedes abrir en tu navegador para verificar el diseño.
+
+### Documentación Completa
+
+Para más detalles sobre los templates, variables soportadas y cómo crear nuevos templates, consulta:
+
+📄 [templates/README.md](./templates/README.md)
