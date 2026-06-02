@@ -2,6 +2,7 @@
 
 > Zero-loss social impact crowdfunding on Stellar/Soroban
 
+[![CI](https://github.com/David1984TK/Bimex/actions/workflows/ci.yml/badge.svg)](https://github.com/David1984TK/Bimex/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Network: Testnet](https://img.shields.io/badge/Network-Stellar%20Testnet-brightgreen)](https://stellar.expert/explorer/testnet/)
 [![Contract](https://img.shields.io/badge/Contract-Soroban-orange)](https://soroban.stellar.org)
