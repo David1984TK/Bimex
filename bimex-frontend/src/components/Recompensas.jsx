@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { obtenerTodosLosProyectos, obtenerAportacion } from "../stellar/contrato";
+import { formatearNumero, formatearNumeroConDecimales } from "../utils/formato.js";
 
 // ── Niveles de confianza ──────────────────────────────────────────────────────
 const NIVELES = [
@@ -235,7 +236,7 @@ export default function Recompensas({ direccion, refrescar, totalInvertido: tota
                 <div style={{ height: "100%", width: `${pct}%`, background: nivel.color, borderRadius: 99, transition: "width 0.6s ease" }} />
               </div>
               <p style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: 6 }}>
-                {t("recompensas.remaining", { amount: Math.max(0, siguiente.min - totalMXNe).toLocaleString("es-MX", { maximumFractionDigits: 2 }) })}
+                {t("recompensas.remaining", { amount: formatearNumeroConDecimales(Math.max(0, siguiente.min - totalMXNe), 2) })}
               </p>
             </div>
           )}
@@ -259,7 +260,7 @@ export default function Recompensas({ direccion, refrescar, totalInvertido: tota
                 disabled={!r.desbloqueado}
                 aria-label={r.desbloqueado
                   ? t("recompensas.ariaUnlocked", { name: r.nombre })
-                  : t("recompensas.ariaLocked", { name: r.nombre, amount: r.umbral.toLocaleString("es-MX") })}
+                  : t("recompensas.ariaLocked", { name: r.nombre, amount: formatearNumero(r.umbral) })}
                 style={{
                   ...st.recompensaBtn,
                   opacity: r.desbloqueado ? 1 : 0.45,
