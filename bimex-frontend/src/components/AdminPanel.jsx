@@ -48,6 +48,7 @@ export default function AdminPanel({ direccion, onCerrar }) {
     setCargando(false);
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { cargarPendientes(); }, []);
 
   useEffect(() => {
