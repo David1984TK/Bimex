@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { createClient } from "@supabase/supabase-js";
 import { parsearError } from "../utils/errores.js";
 import usePaginacion from "../hooks/usePaginacion";
+import usePaginacionLocal from "../hooks/usePaginacionLocal";
 import Paginacion from "./Paginacion";
 import {
   obtenerTodosLosProyectos,
@@ -236,6 +237,13 @@ const CardMiProyecto = memo(function CardMiProyecto({ proyecto, onVerProyecto })
 function TabMisProyectos({ proyectos, direccion, onVerProyecto }) {
   const { t } = useTranslation();
   const misProyectos = useMemo(() => proyectos.filter((p) => p.dueno === direccion), [proyectos, direccion]);
+  const gridRef = useRef(null);
+  const { datosPagina, pagina, setPagina, totalPaginas } = usePaginacionLocal(misProyectos, [direccion]);
+
+  const handlePaginaChange = (nueva) => {
+    setPagina(nueva);
+    gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   if (misProyectos.length === 0) {
     return (
@@ -252,10 +260,13 @@ function TabMisProyectos({ proyectos, direccion, onVerProyecto }) {
   }
 
   return (
-    <div className="cuenta-grid" style={estilos.grid} role="list" aria-label={t("cuenta.ariaProjects")}>
-      {misProyectos.map((p) => (
-        <CardMiProyecto key={p.id} proyecto={p} onVerProyecto={onVerProyecto} />
-      ))}
+    <div ref={gridRef}>
+      <div className="cuenta-grid" style={estilos.grid} role="list" aria-label={t("cuenta.ariaProjects")}>
+        {datosPagina.map((p) => (
+          <CardMiProyecto key={p.id} proyecto={p} onVerProyecto={onVerProyecto} />
+        ))}
+      </div>
+      <Paginacion pagina={pagina} totalPaginas={totalPaginas} onChange={handlePaginaChange} />
     </div>
   );
 }
