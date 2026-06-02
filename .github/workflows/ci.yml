@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  contract:
+    name: Contrato Soroban
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: bimex
+      - name: cargo test
+        run: cd bimex && cargo test
+      - name: cargo clippy
+        run: cd bimex && cargo clippy -- -D warnings
+
+  frontend:
+    name: Frontend React
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: bimex-frontend/package-lock.json
+      - name: Install dependencies
+        run: cd bimex-frontend && npm ci
+      - name: Lint
+        run: cd bimex-frontend && npm run lint
+      - name: Unit tests
+        run: cd bimex-frontend && npm run test:run -- --coverage
+        env:
+          VITE_CONTRACT_ID: PLACEHOLDER_CONTRACT_ID
+          VITE_RPC_URL: https://soroban-testnet.stellar.org
+          VITE_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
+
+  indexer:
+    name: Indexer Node.js
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: bimex-indexer/package-lock.json
+      - name: Install dependencies
+        run: cd bimex-indexer && npm ci
