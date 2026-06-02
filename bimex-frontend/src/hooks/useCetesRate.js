@@ -17,7 +17,7 @@ export function useCetesRate() {
       return;
     }
     fetch("https://api.sand.etherfuse.com/v1/assets", {
-      headers: { "Authorization": apiKey }
+      headers: { "Authorization": ETHERFUSE_API_KEY }
     })
       .then(r => r.json())
       .then(data => {

@@ -140,7 +140,6 @@ function useLiveStats() {
   const [stats, setStats] = useState(() => _statsCache ?? { totalProyectos: "—", totalBloqueado: "—", enProgreso: "—" });
   useEffect(() => {
     if (_statsCache && Date.now() - _statsCacheTs < 15_000) {
-      setStats(_statsCache);
       return;
     }
     cargarContratoFns()

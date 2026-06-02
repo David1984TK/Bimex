@@ -39,7 +39,6 @@ export default function AdminPanel({ direccion, onCerrar }) {
   }
 
   async function cargarPendientes() {
-    setCargando(true);
     try {
       const todos = await obtenerTodosLosProyectos();
       setProyectos(todos.filter((p) => p.estado === "EnRevision"));
