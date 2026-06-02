@@ -906,3 +906,78 @@ fn test_admin_aprobacion_funciona_pausado() {
     assert_eq!(cliente.obtener_proyecto(&id_rechazar).estado, EstadoProyecto::Rechazado);
 }
 
+
+// ============================================================
+//  TTL TESTS
+// ============================================================
+
+#[test]
+fn test_extend_ttl() {
+    let (env, cliente, _admin, dueno, backer) = setup();
+
+    let id = cliente.crear_proyecto(
+        &dueno,
+        &String::from_str(&env, "Proyecto TTL"),
+        &100_000_000i128,
+        &doc_cid_vacio(&env),
+        &6u32,
+    );
+
+    cliente.admin_aprobar(&id);
+    cliente.contribuir(&backer, &id, &10_000_000i128);
+
+    env.ledger().with_mut(|l| l.sequence_number = 17_281);
+
+    assert_eq!(cliente.total_proyectos(), 1);
+
+    let proyecto = cliente.obtener_proyecto(&id);
+    assert_eq!(proyecto.nombre, String::from_str(&env, "Proyecto TTL"));
+
+    let aportacion = cliente.obtener_aportacion(&id, &backer);
+    assert_eq!(aportacion.cantidad, 10_000_000i128);
+}
+
+// ============================================================
+//  ADMIN ROTATION TESTS
+// ============================================================
+
+#[test]
+fn test_admin_cambiar_admin_exito() {
+    let (env, cliente, admin, dueno, _backer) = setup();
+    let nuevo_admin = Address::generate(&env);
+
+    cliente.admin_cambiar_admin(&admin, &nuevo_admin);
+
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Proyecto A"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.admin_aprobar(&id);
+
+    let p = cliente.obtener_proyecto(&id);
+    assert_eq!(p.estado, EstadoProyecto::EtapaInicial);
+}
+
+#[test]
+#[should_panic(expected = "Solo el admin actual puede transferir el rol")]
+fn test_admin_cambiar_admin_no_autorizado() {
+    let (env, cliente, _admin, dueno, _backer) = setup();
+    let nuevo_admin = Address::generate(&env);
+
+    cliente.admin_cambiar_admin(&dueno, &nuevo_admin);
+}
+
+#[test]
+fn test_admin_cambiar_admin_emite_evento() {
+    let (env, cliente, admin, _dueno, _backer) = setup();
+    let nuevo_admin = Address::generate(&env);
+
+    cliente.admin_cambiar_admin(&admin, &nuevo_admin);
+
+    let eventos = env.events().all();
+    assert_eq!(eventos.len(), 1);
+}
+
+#[test]
+#[should_panic(expected = "El nuevo admin debe ser diferente")]
+fn test_admin_cambiar_admin_mismo_admin_falla() {
+    let (_env, cliente, admin, _dueno, _backer) = setup();
+    cliente.admin_cambiar_admin(&admin, &admin);
+}

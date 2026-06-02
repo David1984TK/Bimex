@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
+import { crearThrottle } from "../utils/throttle.js";
 import { parsearError } from "../utils/errores.js";
 import { QRCodeSVG } from "qrcode.react";
 import {
@@ -165,6 +166,11 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
   const [miYield,           setMiYield]           = useState(BigInt(0));
   const [balanceMXNe,       setBalanceMXNe]       = useState(null);
 
+  const throttleContribuir = useRef(crearThrottle(3000)).current;
+  const throttleRetirar    = useRef(crearThrottle(3000)).current;
+  const throttleReclamar   = useRef(crearThrottle(3000)).current;
+  const throttleAbandonar  = useRef(crearThrottle(5000)).current;
+
   const estado    = proyecto.estado ?? "EtapaInicial";
   const estadoCfg = ESTADO_CONFIG[estado] ?? ESTADO_CONFIG.EtapaInicial;
   const esDueno      = direccion === proyecto.dueno;
@@ -183,7 +189,11 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
   const meta       = Number(proyecto.meta ?? 0);
   const porcentaje = meta > 0 ? Math.min((aportado / meta) * 100, 100) : 0;
 
-  const yieldDueno = esDueno ? estimarYieldDueno(proyecto) : BigInt(0);
+  const yieldDueno = useMemo(() => (
+    esDueno
+      ? estimarYieldDueno(proyecto)
+      : BigInt(0)
+  ), [esDueno, proyecto.aportado, proyecto.capital_en_cetes, proyecto.capital_en_amm, proyecto.timestamp_inicio]);
 
   // Documentos IPFS: "CID1|CID2|CID3" → array
   const DOC_LABELS = [
@@ -191,9 +201,11 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
     t("detalle.docPlan"),
     t("detalle.docPresupuesto"),
   ];
-  const docs = proyecto.doc_hash
-    ? proyecto.doc_hash.split("|").filter(Boolean)
-    : [];
+  const docs = useMemo(() => (
+    proyecto.doc_hash
+      ? proyecto.doc_hash.split("|").filter(Boolean)
+      : []
+  ), [proyecto.doc_hash]);
 
   useEffect(() => {
     if (!proyecto?.id) return () => aplicarMeta(DEFAULT_META);
@@ -283,83 +295,113 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
     ? t("detalle.errBalance", { balance: stroopsAMXNe(balanceMXNe) })
     : null;
 
-  const proyeccion = calcProyeccion(cantidadNum, 12, modoInversion);
+  const proyeccion = useMemo(() => calcProyeccion(cantidadNum, 12, modoInversion), [cantidadNum, modoInversion]);
 
-  async function manejarContribuir() {
+  const manejarContribuir = useCallback(async () => {
     if (!direccion || !cantidadValida || superaBalance) return;
-    setCargando(true);
     try {
-      await contribuirContrato(direccion, proyecto.id, mxneAStroops(Number(cantidad)));
-      onToast?.(t("detalle.toastContributed", { amount: cantidad }));
-      setCantidad("");
-      await refrescar();
+      await throttleContribuir.ejecutar(async () => {
+        setCargando(true);
+        await contribuirContrato(direccion, proyecto.id, mxneAStroops(Number(cantidad)));
+        onToast?.(t("detalle.toastContributed", { amount: cantidad }));
+        setCantidad("");
+        await refrescar();
+      });
     } catch (err) {
-      onError?.(err);
+      if (String(err?.message ?? "").toLowerCase().includes("espera")) {
+        onToast?.(err.message, "info");
+      } else {
+        onError?.(err);
+      }
     }
     setCargando(false);
-  }
+  }, [balanceMXNe, cantidad, direccion, onError, onToast, proyecto.id, refrescar, t, throttleContribuir]);
 
-  async function manejarRetirar() {
+  const manejarRetirar = useCallback(async () => {
     if (!direccion) return;
-    setCargando(true);
     try {
-      await retirarPrincipalContrato(direccion, proyecto.id);
-      onToast?.(t("detalle.toastWithdrawn", { amount: stroopsAMXNe(miAportacion) }));
-      setMiAportacion(BigInt(0));
-      setMiYield(BigInt(0));
-      setVistaRetirar(false);
-      await refrescar();
+      await throttleRetirar.ejecutar(async () => {
+        setCargando(true);
+        await retirarPrincipalContrato(direccion, proyecto.id);
+        onToast?.(t("detalle.toastWithdrawn", { amount: stroopsAMXNe(miAportacion) }));
+        setMiAportacion(BigInt(0));
+        setMiYield(BigInt(0));
+        setVistaRetirar(false);
+        await refrescar();
+      });
     } catch (err) {
-      onError?.(err);
+      if (String(err?.message ?? "").toLowerCase().includes("espera")) {
+        onToast?.(err.message, "info");
+      } else {
+        onError?.(err);
+      }
     }
     setCargando(false);
-  }
+  }, [direccion, miAportacion, onError, onToast, proyecto.id, refrescar, t, throttleRetirar]);
 
-  async function manejarReclamarYield() {
+  const manejarReclamarYield = useCallback(async () => {
     if (!direccion) return;
     if (estado !== "Liberado") { onError?.(t("detalle.errYieldOnly")); return; }
     if (miYield === BigInt(0)) { onError?.(t("detalle.errNoYield")); return; }
-    setCargando(true);
     try {
-      await reclamarYieldContrato(direccion, proyecto.id);
-      onToast?.(t("detalle.toastYield"));
-      await refrescar();
+      await throttleReclamar.ejecutar(async () => {
+        setCargando(true);
+        await reclamarYieldContrato(direccion, proyecto.id);
+        onToast?.(t("detalle.toastYield"));
+        await refrescar();
+      });
     } catch (err) {
-      onError?.(err);
+      if (String(err?.message ?? "").toLowerCase().includes("espera")) {
+        onToast?.(err.message, "info");
+      } else {
+        onError?.(err);
+      }
     }
     setCargando(false);
-  }
+  }, [direccion, estado, miYield, onError, onToast, proyecto.id, refrescar, t, throttleReclamar]);
 
-  async function manejarAbandonar() {
+  const manejarAbandonar = useCallback(async () => {
     if (!direccion) return;
     setConfirmarAbandonar(false);
-    setCargando(true);
     try {
-      await abandonarProyectoContrato(direccion, proyecto.id);
-      onToast?.(t("detalle.toastAbandoned"));
-      await refrescar();
+      await throttleAbandonar.ejecutar(async () => {
+        setCargando(true);
+        await abandonarProyectoContrato(direccion, proyecto.id);
+        onToast?.(t("detalle.toastAbandoned"));
+        await refrescar();
+      });
     } catch (err) {
-      onError?.(err);
+      if (String(err?.message ?? "").toLowerCase().includes("espera")) {
+        onToast?.(err.message, "info");
+      } else {
+        onError?.(err);
+      }
     }
     setCargando(false);
-  }
+  }, [direccion, onError, onToast, proyecto.id, refrescar, t, throttleAbandonar]);
 
-  async function manejarRetiroAnticipado() {
+  const manejarRetiroAnticipado = useCallback(async () => {
     if (!direccion) return;
-    setCargando(true);
     try {
-      await retiroAnticipadoContrato(direccion, proyecto.id);
-      onToast?.(t("detalle.toastWithdrawn", { amount: stroopsAMXNe(miAportacion) }));
-      setMiAportacion(BigInt(0));
-      setMiYield(BigInt(0));
-      await refrescar();
+      await throttleRetirar.ejecutar(async () => {
+        setCargando(true);
+        await retiroAnticipadoContrato(direccion, proyecto.id);
+        onToast?.(t("detalle.toastWithdrawn", { amount: stroopsAMXNe(miAportacion) }));
+        setMiAportacion(BigInt(0));
+        setMiYield(BigInt(0));
+        await refrescar();
+      });
     } catch (err) {
-      onError?.(err);
+      if (String(err?.message ?? "").toLowerCase().includes("espera")) {
+        onToast?.(err.message, "info");
+      } else {
+        onError?.(err);
+      }
     }
     setCargando(false);
-  }
+  }, [direccion, miAportacion, onError, onToast, proyecto.id, refrescar, t, throttleRetirar]);
 
-  async function manejarSolicitarContinuar() {
+  const manejarSolicitarContinuar = useCallback(async () => {
     if (!direccion) return;
     setCargando(true);
     try {
@@ -370,7 +412,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
       onError?.(err);
     }
     setCargando(false);
-  }
+  }, [direccion, onError, onToast, proyecto.id, refrescar, t]);
 
   return (
     <>
@@ -690,7 +732,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                     <button
                       className="invest-btn"
                       onClick={manejarContribuir}
-                      disabled={cargando || !direccion || !cantidadValida || !!errorCantidad}
+                      disabled={cargando || !direccion || !cantidadValida || !!errorCantidad || throttleContribuir.estaBloqueado()}
                     >
                       {cargando ? t("detalle.processing") : t("detalle.confirmContribute")}
                     </button>
@@ -717,7 +759,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                         className="btn btn-ghost"
                         style={{ width: "100%", justifyContent: "center", marginTop: 8, fontSize: "0.82rem", color: "var(--muted)" }}
                         onClick={manejarRetiroAnticipado}
-                        disabled={cargando || !direccion}
+                        disabled={cargando || !direccion || throttleRetirar.estaBloqueado()}
                         title={t("detalle.earlyWithdrawTitle")}
                       >
                         {cargando ? t("detalle.processing") : t("detalle.earlyWithdraw")}
@@ -737,7 +779,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                         className="btn btn-amber"
                         style={{ width: "100%", justifyContent: "center", marginTop: aceptaFondos ? 0 : 4 }}
                         onClick={() => setVistaRetirar(true)}
-                        disabled={cargando || !direccion}
+                        disabled={cargando || !direccion || throttleRetirar.estaBloqueado()}
                       >
                         {t("detalle.withdraw")}
                       </button>
@@ -758,7 +800,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                             className="btn btn-amber"
                             style={{ flex: 2, justifyContent: "center" }}
                             onClick={manejarRetirar}
-                            disabled={cargando || !direccion}
+                            disabled={cargando || !direccion || throttleRetirar.estaBloqueado()}
                           >
                             {cargando ? t("detalle.processing") : t("detalle.confirmWithdraw")}
                           </button>
@@ -774,7 +816,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                     className="btn btn-secondary"
                     style={{ width: "100%", justifyContent: "center", marginTop: 8 }}
                     onClick={manejarReclamarYield}
-                    disabled={cargando || !direccion || miYield === BigInt(0)}
+                    disabled={cargando || !direccion || miYield === BigInt(0) || throttleReclamar.estaBloqueado()}
                     title={miYield === BigInt(0) ? t("detalle.waitYield") : ""}
                   >
                     {cargando ? t("detalle.processing") : t("detalle.claimYield")}

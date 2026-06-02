@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { obtenerTodosLosProyectos, obtenerAportacion } from "../stellar/contrato";
+import { formatearNumero, formatearNumeroConDecimales } from "../utils/formato.js";
 
 // ── Niveles de confianza ──────────────────────────────────────────────────────
 const NIVELES = [

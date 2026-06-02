@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { crearThrottle } from "../utils/throttle.js";
 import { parsearError } from "../utils/errores.js";
 import {
   crearProyecto as crearProyectoContrato,
@@ -187,6 +188,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
   const modalRef = useRef(null);
   const botonAbrioRef = useRef(document.activeElement);
   const [paso, setPaso] = useState(1);
+  const throttleCrear = useRef(crearThrottle(5000)).current;
 
   useEffect(() => {
     const modal = modalRef.current;
@@ -311,15 +313,18 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
   async function manejarSubmit(e) {
     e.preventDefault();
     if (paso !== 3 || !docCid) return;
-    setCargando(true);
     setError("");
     try {
-      const metaStroops = mxneAStroops(Number(forma.meta));
-      const meses = Math.max(1, Math.min(120, Number(forma.tiempoMeses) || 6));
-      await crearProyectoContrato(direccion, forma.nombre, metaStroops, docCid, meses);
-      onCreado();
+      await throttleCrear.ejecutar(async () => {
+        setCargando(true);
+        const metaStroops = mxneAStroops(Number(forma.meta));
+        const meses = Math.max(1, Math.min(120, Number(forma.tiempoMeses) || 6));
+        await crearProyectoContrato(direccion, forma.nombre, metaStroops, docCid, meses);
+        onCreado();
+      });
     } catch (err) {
-      setError(parsearError(err));
+      const mensaje = String(err?.message ?? "");
+      setError(mensaje.toLowerCase().includes("espera") ? mensaje : parsearError(err));
       onError?.(err);
     }
     setCargando(false);
@@ -633,7 +638,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
                 <button
                   type="submit"
                   className="btn btn-primary"
-                  disabled={cargando}
+                  disabled={cargando || throttleCrear.estaBloqueado()}
                   style={{ flex: 2, justifyContent: "center" }}
                 >
                   {cargando ? t("crear.submitting") : t("crear.submit")}
