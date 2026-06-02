@@ -249,8 +249,7 @@ export default function ListaProyectos({ onCrear, refrescar }) {
       )}
 
       {/* Filtros */}
-      {proyectosPublicos.length > 0 && (
-        <div className="filtros-row" style={estilos.filtrosRow}>
+      <div className="filtros-row" style={estilos.filtrosRow}>
           <div style={estilos.busquedaContainer}>
             <input
               type="search"
@@ -311,7 +310,6 @@ export default function ListaProyectos({ onCrear, refrescar }) {
             );
           })}
         </div>
-      )}
 
       {/* Error de carga */}
       {errorCarga && (

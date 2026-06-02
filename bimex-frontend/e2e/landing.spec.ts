@@ -12,7 +12,7 @@ test.describe('Landing – sin wallet', () => {
   })
 
   test('muestra el botón "Conectar con Freighter" en el hero', async ({ page }) => {
-    const heroBtn = page.getByRole('button', { name: /conectar con freighter/i })
+    const heroBtn = page.getByRole('button', { name: /conectar con freighter/i }).first()
     await expect(heroBtn).toBeVisible()
   })
 
@@ -29,11 +29,11 @@ test.describe('Landing – sin wallet', () => {
 
   test('muestra la tarjeta de distribución del rendimiento', async ({ page }) => {
     await expect(page.getByText('Distribución del rendimiento')).toBeVisible()
-    await expect(page.getByText('13.45%')).toBeVisible()
+    await expect(page.getByText('13.45%', { exact: true }).first()).toBeVisible()
   })
 
   test('muestra los pasos de cómo funciona Bimex', async ({ page }) => {
-    await expect(page.getByText('Conecta tu wallet')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Conecta tu wallet' })).toBeVisible()
     await expect(page.getByText(/deposita mxne/i)).toBeVisible()
   })
 

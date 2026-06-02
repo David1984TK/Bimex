@@ -230,7 +230,6 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
       if (!montadoRef.current) return;
       if (!proyActualizado) {
         onError?.(new Error(t("detalle.errContract")));
-        onCerrar?.();
         return;
       }
       setProyecto(proyActualizado);

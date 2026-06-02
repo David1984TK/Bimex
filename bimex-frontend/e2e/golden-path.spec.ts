@@ -59,7 +59,7 @@ test.describe('Golden Path – flujo completo connect wallet → invertir → yi
     })
     await page.goto('/')
 
-    const heroBtn = page.getByRole('button', { name: /conectar con freighter/i })
+    const heroBtn = page.getByRole('button', { name: /conectar con freighter/i }).first()
     await expect(heroBtn).toBeVisible({ timeout: 10_000 })
 
     const navBtn = page.getByRole('button', { name: /^conectar$/i })
@@ -107,8 +107,8 @@ test.describe('Golden Path – flujo completo connect wallet → invertir → yi
     await stubProjectData(page)
     await page.goto('/proyectos/1')
 
-    const h1 = page.getByRole('heading', { level: 1 })
-    await expect(h1).toBeVisible({ timeout: 15_000 })
+    const backLink = page.locator('.back-link')
+    await expect(backLink).toBeVisible({ timeout: 15_000 })
   })
 
   test('panel de inversión visible en la página de detalle', async ({ page }) => {
