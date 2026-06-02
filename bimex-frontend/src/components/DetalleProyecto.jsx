@@ -274,15 +274,9 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
     setTimeout(() => setToastVisible(false), 2000);
   }
 
-  function mensajeCorto(err) {
-    const msg = err?.message || t("detalle.errContract");
-    if (msg.includes("HostError") || msg.includes("XDR") || msg.length > 120) return t("detalle.errContract");
-    return msg;
-  }
-
   function handleCantidadChange(e) {
     const raw = e.target.value;
-    if (/[eE+\-]/.test(raw)) return;
+    if (/[eE+-]/.test(raw)) return;
     setCantidad(raw);
   }
 
@@ -732,7 +726,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                     <button
                       className="invest-btn"
                       onClick={manejarContribuir}
-                      disabled={cargando || !direccion || !cantidadValida || !!errorCantidad || throttleContribuir.estaBloqueado()}
+                      disabled={cargando || !direccion || !cantidadValida || !!errorCantidad}
                     >
                       {cargando ? t("detalle.processing") : t("detalle.confirmContribute")}
                     </button>
@@ -759,7 +753,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                         className="btn btn-ghost"
                         style={{ width: "100%", justifyContent: "center", marginTop: 8, fontSize: "0.82rem", color: "var(--muted)" }}
                         onClick={manejarRetiroAnticipado}
-                        disabled={cargando || !direccion || throttleRetirar.estaBloqueado()}
+                        disabled={cargando || !direccion}
                         title={t("detalle.earlyWithdrawTitle")}
                       >
                         {cargando ? t("detalle.processing") : t("detalle.earlyWithdraw")}
@@ -779,7 +773,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                         className="btn btn-amber"
                         style={{ width: "100%", justifyContent: "center", marginTop: aceptaFondos ? 0 : 4 }}
                         onClick={() => setVistaRetirar(true)}
-                        disabled={cargando || !direccion || throttleRetirar.estaBloqueado()}
+                        disabled={cargando || !direccion}
                       >
                         {t("detalle.withdraw")}
                       </button>
@@ -800,7 +794,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                             className="btn btn-amber"
                             style={{ flex: 2, justifyContent: "center" }}
                             onClick={manejarRetirar}
-                            disabled={cargando || !direccion || throttleRetirar.estaBloqueado()}
+                            disabled={cargando || !direccion}
                           >
                             {cargando ? t("detalle.processing") : t("detalle.confirmWithdraw")}
                           </button>
@@ -816,7 +810,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                     className="btn btn-secondary"
                     style={{ width: "100%", justifyContent: "center", marginTop: 8 }}
                     onClick={manejarReclamarYield}
-                    disabled={cargando || !direccion || miYield === BigInt(0) || throttleReclamar.estaBloqueado()}
+                    disabled={cargando || !direccion || miYield === BigInt(0)}
                     title={miYield === BigInt(0) ? t("detalle.waitYield") : ""}
                   >
                     {cargando ? t("detalle.processing") : t("detalle.claimYield")}

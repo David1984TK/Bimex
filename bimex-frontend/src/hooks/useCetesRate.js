@@ -5,16 +5,15 @@ import { parsearError } from "../utils/errores.js";
  * Fetches current CETES APY from Etherfuse sandbox.
  * Falls back to 9.45 if API key not set or request fails.
  */
+const ETHERFUSE_API_KEY = import.meta.env.VITE_ETHERFUSE_API_KEY;
+
 export function useCetesRate() {
-  const [rate, setRate]     = useState(null);   // number, e.g. 9.45
-  const [loading, setLoading] = useState(true);
+  const [rate, setRate]     = useState(() => ETHERFUSE_API_KEY ? null : 9.45);
+  const [loading, setLoading] = useState(() => !!ETHERFUSE_API_KEY);
   const [error, setError]   = useState(null);
 
   useEffect(() => {
-    const apiKey = import.meta.env.VITE_ETHERFUSE_API_KEY;
-    if (!apiKey) {
-      setRate(9.45);
-      setLoading(false);
+    if (!ETHERFUSE_API_KEY) {
       return;
     }
     fetch("https://api.sand.etherfuse.com/v1/assets", {

@@ -1,6 +1,6 @@
 use super::*;
 use soroban_sdk::{
-    testutils::{Address as _, Ledger},
+    testutils::{Address as _, Events as _, Ledger},
     token::StellarAssetClient,
     Env, String,
 };
@@ -225,7 +225,7 @@ fn test_evento_admin_rechazar_emitido() {
     let (env, cliente, _admin, dueno, _backer) = setup();
 
     let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Evento rechazar"), &100_000_000i128, &doc_cid_vacio(&env), &6u32);
-    cliente.admin_rechazar(&id, String::from_str(&env, "Motivo de prueba"));
+    cliente.admin_rechazar(&id, &String::from_str(&env, "Motivo de prueba"));
 
     let events = env.events().all();
     assert_eq!(events.len(), 1);

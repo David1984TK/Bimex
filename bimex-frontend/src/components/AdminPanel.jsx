@@ -24,7 +24,7 @@ const IconCheckCircle = () => (
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
+export default function AdminPanel({ direccion, onCerrar }) {
   const { t } = useTranslation();
   const [proyectos,  setProyectos]  = useState([]);
   const [cargando,   setCargando]   = useState(true);
@@ -32,6 +32,11 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
   const throttleAdmin = useRef(crearThrottle(3000)).current;
   const modalRef      = useRef(null);
   const botonAbrioRef = useRef(null);
+
+  function mostrarToast(msg, tipo = "success") {
+    setToast({ msg, tipo });
+    setTimeout(() => setToast(null), 4500);
+  }
 
   async function cargarPendientes() {
     setCargando(true);
@@ -72,11 +77,6 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
       botonAbrioRef.current?.focus?.();
     };
   }, [onCerrar]);
-
-  function mostrarToast(msg, tipo = "success") {
-    setToast({ msg, tipo });
-    setTimeout(() => setToast(null), 4500);
-  }
 
   async function manejarAprobar(idProyecto) {
     try {

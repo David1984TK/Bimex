@@ -325,7 +325,7 @@ impl BimexContrato {
     /// No modifica el estado del contrato.
     pub fn calcular_yield(env: Env, id_proyecto: u32, backer: Address) -> i128 {
         let aportacion: Aportacion = env
-            .storage().persistent().get(&Clave::Aportacion(id_proyecto, backer))
+            .storage().persistent().get(&Clave::Aportacion(id_proyecto, backer.clone()))
             .expect("Este backer no tiene aportacion en este proyecto");
 
         let cetes_bps = env.storage().instance().get::<_, u32>(&Clave::YieldCetesBps).unwrap_or(DEFAULT_CETES_BPS) as i128;

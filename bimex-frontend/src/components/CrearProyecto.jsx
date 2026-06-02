@@ -638,7 +638,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
                 <button
                   type="submit"
                   className="btn btn-primary"
-                  disabled={cargando || throttleCrear.estaBloqueado()}
+                  disabled={cargando}
                   style={{ flex: 2, justifyContent: "center" }}
                 >
                   {cargando ? t("crear.submitting") : t("crear.submit")}
