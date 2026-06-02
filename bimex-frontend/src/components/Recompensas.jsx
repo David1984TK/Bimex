@@ -211,7 +211,7 @@ export default function Recompensas({ direccion, refrescar, totalInvertido: tota
               <div style={{ fontSize: "1.5rem", color: nivel.color, marginTop: 4 }}>—</div>
             ) : (
               <div style={{ fontSize: "1.5rem", color: nivel.color, fontWeight: 800, marginTop: 4, fontVariantNumeric: "tabular-nums" }}>
-                {totalMXNe.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXNe
+                {formatearNumeroConDecimales(totalMXNe, 2)} MXNe
               </div>
             )}
           </div>
@@ -222,7 +222,7 @@ export default function Recompensas({ direccion, refrescar, totalInvertido: tota
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: "0.74rem" }}>
                 <span style={{ color: "var(--muted)" }}>{t("recompensas.progressTo")} {siguiente.icono} {siguiente.nombre}</span>
                 <span style={{ color: nivel.color, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-                  {totalMXNe.toFixed(0)} / {siguiente.min.toLocaleString("es-MX")} MXNe
+                  {formatearNumero(Math.floor(totalMXNe))} / {formatearNumero(siguiente.min)} MXNe
                 </span>
               </div>
               <div

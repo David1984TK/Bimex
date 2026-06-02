@@ -10,6 +10,7 @@ import {
   scValToNative,
 } from "@stellar/stellar-sdk";
 import { signTransaction } from "@stellar/freighter-api";
+import { formatearMXNe } from "../utils/formato.js";
 
 // ─── Configuración ────────────────────────────────────────────────────────────
 
@@ -423,9 +424,7 @@ export async function hashearDocumentos(ine, plan, presupuesto) {
 // ─── Helpers de formato ───────────────────────────────────────────────────────
 
 export function stroopsAMXNe(stroops) {
-  const b = typeof stroops === "bigint" ? stroops : BigInt(stroops ?? 0);
-  const valor = Number(b / BigInt(10_000_000)) + Number(b % BigInt(10_000_000)) / 10_000_000;
-  return `${valor.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXNe`;
+  return `${formatearMXNe(stroops)} MXNe`;
 }
 
 export function mxneAStroops(mxne) {
