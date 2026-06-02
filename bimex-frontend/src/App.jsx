@@ -427,6 +427,7 @@ export default function App() {
     : t("pwa.subtitle");
 
   const refrescarLista = useCallback(() => { setRefrescar(r => r + 1); }, []);
+  const cerrarDetalle  = useCallback(() => navigate("/proyectos"), [navigate]);
 
   return (
     <div>
@@ -575,7 +576,7 @@ export default function App() {
             element={
               <DetalleProyecto
                 direccion={direccion}
-                onCerrar={() => navigate("/proyectos")}
+                onCerrar={cerrarDetalle}
                 onError={mostrarError}
                 onToast={(msg) => agregarToast(msg, "success")}
               />
@@ -615,7 +616,7 @@ export default function App() {
                   <AdminPanel
                     direccion={direccion}
                     adminAddress={ADMIN_ADDRESS}
-                    onCerrar={() => navigate("/proyectos")}
+                    onCerrar={cerrarDetalle}
                     onError={mostrarError}
                   />
                 </Suspense>
