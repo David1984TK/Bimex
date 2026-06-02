@@ -11,16 +11,16 @@ import {
 describe('Formatting utilities', () => {
   describe('formatearMXNe', () => {
     beforeEach(async () => {
-      await i18n.changeLanguage('es');
+      await i18n.changeLanguage('en');
     });
 
-    it('formats stroops to MXNe in Spanish', () => {
+    it('formats stroops to MXNe', () => {
       const stroops = 12345670000; // 1,234.567 MXNe
       const result = formatearMXNe(stroops);
       expect(result).toBe('1,234.57');
     });
 
-    it('formats stroops to MXNe in English', async () => {
+    it('formats stroops to MXNe with en locale', async () => {
       await i18n.changeLanguage('en');
       const stroops = 12345670000; // 1,234.567 MXNe
       const result = formatearMXNe(stroops);
@@ -60,7 +60,7 @@ describe('Formatting utilities', () => {
 
   describe('formatearPorcentaje', () => {
     beforeEach(async () => {
-      await i18n.changeLanguage('es');
+      await i18n.changeLanguage('en');
     });
 
     it('formats percentage correctly', () => {
@@ -78,15 +78,15 @@ describe('Formatting utilities', () => {
 
   describe('formatearNumero', () => {
     beforeEach(async () => {
-      await i18n.changeLanguage('es');
+      await i18n.changeLanguage('en');
     });
 
-    it('formats number without decimals in Spanish', () => {
+    it('formats number without decimals', () => {
       const result = formatearNumero(1234567);
       expect(result).toBe('1,234,567');
     });
 
-    it('formats number without decimals in English', async () => {
+    it('formats number without decimals with en locale', async () => {
       await i18n.changeLanguage('en');
       const result = formatearNumero(1234567);
       expect(result).toBe('1,234,567');
@@ -100,7 +100,7 @@ describe('Formatting utilities', () => {
 
   describe('formatearNumeroConDecimales', () => {
     beforeEach(async () => {
-      await i18n.changeLanguage('es');
+      await i18n.changeLanguage('en');
     });
 
     it('formats number with 2 decimals by default', () => {
