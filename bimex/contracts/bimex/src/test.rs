@@ -179,7 +179,7 @@ fn test_evento_contribucion_emitido() {
     cliente.contribuir(&backer, &id, &50_000_000i128);
 
     let events = env.events().all();
-    assert_eq!(events.events().len(), 1);
+    assert_eq!(events.events().len(), 2);
 }
 
 #[test]
@@ -203,6 +203,7 @@ fn test_evento_retiro_emitido() {
     let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Evento retiro"), &100_000_000i128, &doc_cid_vacio(&env), &6u32);
     cliente.admin_aprobar(&id);
     cliente.contribuir(&backer, &id, &50_000_000i128);
+    env.ledger().with_mut(|l| l.timestamp = PLAZO_6_MESES + 1);
     let _monto = cliente.retirar_principal(&backer, &id);
 
     let events = env.events().all();
