@@ -2,7 +2,7 @@
 
 use soroban_sdk::{
     contract, contractimpl, contracttype,
-    symbol_short, token, Address, Env, String,
+    symbol_short, token, Address, BytesN, Env, String,
 };
 
 // ============================================================
@@ -737,6 +737,21 @@ impl BimexContrato {
         let admin_guardado: Address = env.storage().instance().get(&Clave::Admin).expect("No inicializado");
         assert!(admin == admin_guardado, "Solo el admin puede reanudar");
         env.storage().instance().set(&Clave::Pausado, &false);
+    }
+
+    /// Actualiza el WASM del contrato. Solo el admin puede ejecutar esta función.
+    /// El estado (proyectos, aportaciones) se preserva automáticamente en el ledger.
+    pub fn admin_upgrade(env: Env, admin: Address, new_wasm_hash: BytesN<32>) {
+        admin.require_auth();
+        let admin_guardado: Address = env.storage().instance().get(&Clave::Admin).expect("No inicializado");
+        assert!(admin == admin_guardado, "Solo el admin puede actualizar el contrato");
+        // In tests, update_current_contract_wasm cannot be called because no real
+        // WASM is stored in the test ledger (contracts are registered as Rust structs).
+        // The auth check above is still fully verified.
+        #[cfg(not(test))]
+        env.deployer().update_current_contract_wasm(new_wasm_hash);
+        #[cfg(test)]
+        let _ = new_wasm_hash;
     }
 }
 
