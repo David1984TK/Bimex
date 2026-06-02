@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { crearThrottle } from "../utils/throttle.js";
 import {
   obtenerTodosLosProyectos,
   aprobarProyecto,
@@ -28,6 +29,7 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
   const [proyectos,  setProyectos]  = useState([]);
   const [cargando,   setCargando]   = useState(true);
   const [toast,      setToast]      = useState(null);
+  const throttleAdmin = useRef(crearThrottle(3000)).current;
   const modalRef      = useRef(null);
   const botonAbrioRef = useRef(null);
 
@@ -78,22 +80,34 @@ export default function AdminPanel({ direccion, adminAddress, onCerrar }) {
 
   async function manejarAprobar(idProyecto) {
     try {
-      await aprobarProyecto(direccion, idProyecto);
-      mostrarToast(t("admin.toastApproved", { id: idProyecto }));
-      await cargarPendientes();
+      await throttleAdmin.ejecutar(async () => {
+        await aprobarProyecto(direccion, idProyecto);
+        mostrarToast(t("admin.toastApproved", { id: idProyecto }));
+        await cargarPendientes();
+      });
     } catch (err) {
-      mostrarToast(parsearError(err), "error");
+      if (String(err?.message ?? "").toLowerCase().includes("espera")) {
+        mostrarToast(err.message, "info");
+      } else {
+        mostrarToast(parsearError(err), "error");
+      }
     }
   }
 
   async function manejarRechazar(idProyecto, motivo) {
     try {
-      await rechazarProyecto(direccion, idProyecto, motivo);
-      mostrarToast(t("admin.toastRejected", { id: idProyecto }));
-      await cargarPendientes();
+      await throttleAdmin.ejecutar(async () => {
+        await rechazarProyecto(direccion, idProyecto, motivo);
+        mostrarToast(t("admin.toastRejected", { id: idProyecto }));
+        await cargarPendientes();
+      });
     } catch (err) {
-      mostrarToast(parsearError(err), "error");
-      throw err;
+      if (String(err?.message ?? "").toLowerCase().includes("espera")) {
+        mostrarToast(err.message, "info");
+      } else {
+        mostrarToast(parsearError(err), "error");
+        throw err;
+      }
     }
   }
 

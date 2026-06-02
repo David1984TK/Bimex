@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, memo } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { obtenerTodosLosProyectos, stroopsAMXNe } from "../stellar/contrato";
@@ -84,7 +84,7 @@ export default function ListaProyectos({ onCrear, refrescar }) {
     { key: "Abandonado",   label: t("filters.abandoned"),  dot: "var(--error)"  },
   ];
 
-  async function cargar() {
+  const cargar = useCallback(async () => {
     if (cargandoRef.current) return;
     cargandoRef.current = true;
     setCargando(true);
@@ -108,9 +108,9 @@ export default function ListaProyectos({ onCrear, refrescar }) {
       setCargando(false);
       cargandoRef.current = false;
     }
-  }
+  }, []);
 
-  useEffect(() => { cargar(); }, [refrescar]);
+  useEffect(() => { cargar(); }, [cargar, refrescar]);
   useEffect(() => { setVisibles(12); }, [filtro]);
   useEffect(() => {
     const timer = setTimeout(() => setBusquedaDebounced(textoBusqueda), 300);
@@ -128,7 +128,7 @@ export default function ListaProyectos({ onCrear, refrescar }) {
     es.addEventListener('yield_reclamado', recargar);
     es.onerror = () => es.close();
     return () => es.close();
-  }, []);
+  }, [cargar]);
 
   const proyectosPublicos = useMemo(
     () => proyectos.filter(p => !ESTADOS_OCULTOS.has(p.estado)),
@@ -167,6 +167,14 @@ export default function ListaProyectos({ onCrear, refrescar }) {
       return null;
     }
   }, [cacheTimestamp, i18n.language]);
+
+  const limpiarBusqueda = useCallback(() => {
+    setTextoBusqueda("");
+  }, []);
+
+  const cargarMas = useCallback(() => {
+    setVisibles((valorActual) => valorActual + 12);
+  }, []);
 
   return (
     <div className="lista-contenedor" style={estilos.contenedor}>
@@ -257,7 +265,7 @@ export default function ListaProyectos({ onCrear, refrescar }) {
               <button
                 type="button"
                 className="btn btn-ghost"
-                onClick={() => setTextoBusqueda("")}
+                onClick={limpiarBusqueda}
                 aria-label={t("lista.limpiarBusqueda")}
                 style={estilos.busquedaClear}
               >
@@ -364,7 +372,7 @@ export default function ListaProyectos({ onCrear, refrescar }) {
             <div style={{ display: "flex", justifyContent: "center", marginTop: 24 }}>
               <button
                 className="btn btn-ghost"
-                onClick={() => setVisibles(v => v + 12)}
+                onClick={cargarMas}
               >
                 {t("lista.loadMore")} ({proyectosFiltrados.length - visibles} {t("lista.remaining")})
               </button>
@@ -422,7 +430,7 @@ const ESTADO_CFG = {
 };
 
 // ── Card ─────────────────────────────────────────────────────────────────────
-function CardProyecto({ proyecto }) {
+const CardProyecto = memo(function CardProyecto({ proyecto }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const meta     = Number(proyecto.meta);
@@ -502,7 +510,7 @@ function CardProyecto({ proyecto }) {
       </button>
     </article>
   );
-}
+});
 
 function StatItem({ label, valor, muted }) {
   return (

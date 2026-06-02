@@ -4,6 +4,7 @@ import { obtenerTodosLosProyectos, calcularYieldDetallado, stroopsAMXNe } from "
 import { parsearError } from "../utils/errores.js";
 import { createClient } from "@supabase/supabase-js";
 import usePaginacion from "../hooks/usePaginacion";
+import usePaginacionLocal from "../hooks/usePaginacionLocal";
 import Paginacion from "./Paginacion";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
@@ -100,6 +101,14 @@ export default function Transparencia({ onVolver }) {
   const proyectosFiltrados = filtro === "Todos"
     ? proyectos
     : proyectos.filter(p => p.estado === filtro);
+
+  const gridRef = useRef(null);
+  const { datosPagina, pagina, setPagina, totalPaginas } = usePaginacionLocal(proyectosFiltrados, [filtro]);
+
+  const handlePaginaChange = (nueva) => {
+    setPagina(nueva);
+    gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
     <div style={{ maxWidth: "1140px", margin: "0 auto", padding: "40px 24px" }}>
@@ -264,15 +273,18 @@ export default function Transparencia({ onVolver }) {
               </button>
             </div>
           ) : (
-            <div className="grid-proyectos" style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(285px, 1fr))",
-              gap: 16,
-            }} role="list" aria-label={t("transp.title")}>
-              {proyectosFiltrados.map(p => (
-                <ProyectoCard key={p.id} proyecto={p} />
-              ))}
-            </div>
+            <>
+              <div ref={gridRef} className="grid-proyectos" style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(285px, 1fr))",
+                gap: 16,
+              }} role="list" aria-label={t("transp.title")}>
+                {datosPagina.map(p => (
+                  <ProyectoCard key={p.id} proyecto={p} />
+                ))}
+              </div>
+              <Paginacion pagina={pagina} totalPaginas={totalPaginas} onChange={handlePaginaChange} />
+            </>
           )}
           {/* Paginated contributions table */}
           <div style={{ marginTop: 28 }}>
