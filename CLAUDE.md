@@ -58,6 +58,15 @@ scripts/                → Scripts de deploy y prueba
 - **Navbar landing mobile:** padding `clamp(14px,4vw,48px)`, prop `inNavbar` en `ConectarWallet`, badge TESTNET oculto en móvil (`navbar-hide-tablet`)
 - **IPFS completo:** `src/utils/ipfs.js` + integración real en `avanzarAPaso3` (sube INE/Plan/Presupuesto en paralelo, fallback SHA-256)
 
+## ⚠️ REGLAS DE SEGURIDAD — OBLIGATORIAS EN TODA SESIÓN
+
+### Panel superadmin — CONFIDENCIAL
+- Existe una ruta de administración en `/bx` (SuperAdmin.jsx). **NUNCA** mencionar esta ruta en PRs, issues, comentarios, documentación pública, ni en ningún archivo del repositorio.
+- **NUNCA** commitear, loggear ni exponer: credenciales de Supabase Auth del admin, la clave secreta de la wallet admin (empieza con `S`), ni ninguna referencia a cómo autenticarse como superadmin.
+- La clave secreta de la wallet admin **NUNCA** debe aparecer en código fuente, `.env.example`, ni en ningún archivo trackeado por git.
+- Si en alguna sesión se encuentra la clave secreta en texto plano en cualquier archivo del repo, eliminarla inmediatamente y alertar al usuario.
+- El archivo `SuperAdmin.jsx` y `supabaseAdmin.js` deben mantenerse sin comentarios que revelen el propósito de la ruta `/bx`.
+
 ## Notas importantes
 - El contrato almacena `doc_cid: String` (no `BytesN<32>`) desde PR #28
 - Si IPFS está configurado: `docCid = "CID1|CID2|CID3"` (3 docs separados por `|`)
