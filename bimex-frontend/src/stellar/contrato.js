@@ -361,6 +361,50 @@ export async function rechazarProyecto(direccion, idProyecto, motivo) {
   return firmarYEnviar(tx, direccion);
 }
 
+// Firma directa con clave secreta (sin Freighter) — solo para superadmin
+async function firmarYEnviarConClave(txPreparada, keypair) {
+  txPreparada.sign(keypair);
+  const envio = await servidor.sendTransaction(txPreparada);
+
+  if (envio.status === "ERROR") {
+    const motivo = envio.errorResult ? envio.errorResult.toXDR("base64") : "desconocido";
+    throw new Error(`La transacción fue rechazada por la red. Detalle: ${motivo}`);
+  }
+  if (!envio.hash) {
+    throw new Error(`La red no aceptó la transacción (status: ${envio.status}).`);
+  }
+
+  let intentos = 0;
+  while (intentos < 20) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const estado = await servidor.getTransaction(envio.hash);
+    if (estado.status === rpc.Api.GetTransactionStatus.SUCCESS) return estado;
+    if (estado.status === rpc.Api.GetTransactionStatus.FAILED) {
+      const xdrFallo = estado.resultXdr ? estado.resultXdr.toXDR("base64") : envio.hash;
+      throw new Error(`La transacción falló en la red. XDR: ${xdrFallo}`);
+    }
+    intentos++;
+  }
+  throw new Error(`Tiempo de espera agotado. TX: ${envio.hash}`);
+}
+
+export async function aprobarProyectoConClave(secretKey, idProyecto) {
+  const keypair = Keypair.fromSecret(secretKey);
+  const tx = await construirTx(keypair.publicKey(), "admin_aprobar", [
+    nativeToScVal(idProyecto, { type: "u32" }),
+  ]);
+  return firmarYEnviarConClave(tx, keypair);
+}
+
+export async function rechazarProyectoConClave(secretKey, idProyecto, motivo) {
+  const keypair = Keypair.fromSecret(secretKey);
+  const tx = await construirTx(keypair.publicKey(), "admin_rechazar", [
+    nativeToScVal(idProyecto, { type: "u32" }),
+    nativeToScVal(motivo, { type: "string" }),
+  ]);
+  return firmarYEnviarConClave(tx, keypair);
+}
+
 export async function reclamarYield(direccion, idProyecto) {
   const tx = await construirTx(direccion, "reclamar_yield", [
     nativeToScVal(idProyecto, { type: "u32" }),

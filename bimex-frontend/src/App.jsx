@@ -25,6 +25,7 @@ const storageLocal      = getStorage("local");
 const ADMIN_ADDRESS     = import.meta.env.VITE_ADMIN_ADDRESS ?? "GD2FLYXZMEGSSYZGC4LKFGCH6SOZR57UB64ECPEEJ4IEKAT6VZU3SLGS";
 
 const AdminPanel = lazy(() => import("./components/AdminPanel"));
+const SuperAdmin = lazy(() => import("./components/SuperAdmin"));
 const CrearProyecto = lazy(() => import("./components/CrearProyecto"));
 const Transparencia = lazy(() => import("./components/Transparencia"));
 const Recompensas = lazy(() => import("./components/Recompensas"));
@@ -623,6 +624,14 @@ export default function App() {
               ) : (
                 <Navigate to={direccion ? "/proyectos" : "/"} replace />
               )
+            }
+          />
+          <Route
+            path="/bx"
+            element={
+              <Suspense fallback={<Cargando />}>
+                <SuperAdmin />
+              </Suspense>
             }
           />
           <Route path="*" element={<Navigate to={direccion ? "/proyectos" : "/"} replace />} />
