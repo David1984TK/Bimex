@@ -35,11 +35,10 @@ export default function OnboardingTour({ isActive, onComplete }) {
       placement: "bottom",
     },
     {
-      target: "button:has-text('Mi cuenta'), button:has-text('My account')",
+      target: ".navbar-actions",
       title: t("tour.step5.title"),
       content: t("tour.step5.content"),
       placement: "bottom",
-      fallback: ".navbar-actions button:nth-child(4)",
     },
   ];
 
@@ -48,21 +47,15 @@ export default function OnboardingTour({ isActive, onComplete }) {
 
     const updatePosition = () => {
       const step = steps[currentStep];
-      let targetElement = document.querySelector(step.target);
-      
-      // Fallback for elements that might not exist yet
+      let targetElement = null;
+      try {
+        targetElement = document.querySelector(step.target);
+      } catch (_) {}
+
       if (!targetElement && step.fallback) {
-        targetElement = document.querySelector(step.fallback);
-      }
-      
-      if (!targetElement) {
-        // Try alternative selectors
-        if (step.target.includes("Mi cuenta") || step.target.includes("My account")) {
-          const buttons = document.querySelectorAll(".navbar button");
-          targetElement = Array.from(buttons).find(btn => 
-            btn.textContent.includes("Mi cuenta") || btn.textContent.includes("My account")
-          );
-        }
+        try {
+          targetElement = document.querySelector(step.fallback);
+        } catch (_) {}
       }
 
       if (!targetElement) return;
@@ -130,16 +123,20 @@ export default function OnboardingTour({ isActive, onComplete }) {
     };
   }, [isActive, currentStep]);
 
+  const cleanupHighlight = (selector) => {
+    try {
+      const el = document.querySelector(selector);
+      if (el) {
+        el.style.position = "";
+        el.style.zIndex = "";
+        el.style.boxShadow = "";
+      }
+    } catch (_) {}
+  };
+
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
-      // Clean up current highlight
-      const step = steps[currentStep];
-      const targetElement = document.querySelector(step.target);
-      if (targetElement) {
-        targetElement.style.position = "";
-        targetElement.style.zIndex = "";
-        targetElement.style.boxShadow = "";
-      }
+      cleanupHighlight(steps[currentStep].target);
       setCurrentStep(currentStep + 1);
     } else {
       handleComplete();
@@ -151,15 +148,7 @@ export default function OnboardingTour({ isActive, onComplete }) {
   };
 
   const handleComplete = () => {
-    // Clean up highlight
-    const step = steps[currentStep];
-    const targetElement = document.querySelector(step.target);
-    if (targetElement) {
-      targetElement.style.position = "";
-      targetElement.style.zIndex = "";
-      targetElement.style.boxShadow = "";
-    }
-
+    cleanupHighlight(steps[currentStep].target);
     localStorage.setItem(TOUR_STORAGE_KEY, "true");
     onComplete();
   };
