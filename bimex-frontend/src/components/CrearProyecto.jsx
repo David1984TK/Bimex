@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { useTranslation } from "react-i18next";
 import { crearThrottle } from "../utils/throttle.js";
 import { parsearError } from "../utils/errores.js";
@@ -145,7 +145,7 @@ function PreviewArchivo({ archivo, onEliminar }) {
 
 // ─── Stepper ──────────────────────────────────────────────────────────────────
 
-function Stepper({ pasos, pasoActual }) {
+const Stepper = memo(function Stepper({ pasos, pasoActual }) {
   return (
     <div style={estilos.pasoIndicador}>
       {pasos.map((p, i) => {
@@ -179,7 +179,7 @@ function Stepper({ pasos, pasoActual }) {
       })}
     </div>
   );
-}
+});
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 

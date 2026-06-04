@@ -134,11 +134,22 @@ export default function ListaProyectos({ onCrear, refrescar }) {
     () => proyectos.filter(p => !ESTADOS_OCULTOS.has(p.estado)),
     [proyectos]
   );
-  const totalBloqueado = proyectosPublicos.reduce((s, p) => {
-    try { return s + BigInt(p.aportado ?? 0); } catch { return s; }
-  }, BigInt(0));
-  const enProgreso = proyectosPublicos.filter(p => p.estado === "EnProgreso").length;
-  const liberados  = proyectosPublicos.filter(p => p.estado === "Liberado").length;
+  const conteoPorEstado = useMemo(() => {
+    const counts = { Todos: proyectosPublicos.length };
+    for (const p of proyectosPublicos) {
+      counts[p.estado] = (counts[p.estado] ?? 0) + 1;
+    }
+    return counts;
+  }, [proyectosPublicos]);
+
+  const totalBloqueado = useMemo(() =>
+    proyectosPublicos.reduce((s, p) => {
+      try { return s + BigInt(p.aportado ?? 0); } catch { return s; }
+    }, BigInt(0)),
+  [proyectosPublicos]);
+
+  const enProgreso = conteoPorEstado["EnProgreso"] ?? 0;
+  const liberados  = conteoPorEstado["Liberado"] ?? 0;
 
   const busquedaNormalizada = busquedaDebounced.trim().toLowerCase();
   const hayBusqueda = busquedaNormalizada.length > 0;
@@ -274,9 +285,7 @@ export default function ListaProyectos({ onCrear, refrescar }) {
           </div>
           {FILTROS.map(f => {
             const activo = filtro === f.key;
-            const count = f.key === "Todos"
-              ? proyectosPublicos.length
-              : proyectosPublicos.filter(p => p.estado === f.key).length;
+            const count = conteoPorEstado[f.key] ?? 0;
             return (
               <button
                 key={f.key}
