@@ -1,5 +1,7 @@
+import { Keypair } from '@stellar/stellar-sdk';
+
 const API_URL = process.env.API_URL || 'http://localhost:3001';
-const TEST_WALLET = 'G_TEST_WALLET_' + Date.now(); // Unique wallet for testing
+const TEST_WALLET = Keypair.random().publicKey(); // Genera una wallet G... válida fresca en cada test
 
 async function runTest() {
   console.log(`Starting Rate Limit Integration Test for wallet: ${TEST_WALLET}`);

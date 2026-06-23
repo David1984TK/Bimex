@@ -26,7 +26,14 @@ const RL_WINDOW_MS = 60 * 60 * 1000;
 
 async function checkRateLimit(wallet) {
   const oneHourAgo = new Date(Date.now() - RL_WINDOW_MS).toISOString();
-  
+
+  // Intentar insertar primero para prevenir condiciones de carrera (race condition)
+  const { error: insertError } = await supabase.from('faucet_rate_limit').insert({ wallet });
+  if (insertError) {
+    console.error('Rate limit insert error:', insertError);
+    return { allowed: false, retryAfter: 3600 };
+  }
+
   const { data, error } = await supabase
     .from('faucet_rate_limit')
     .select('granted_at')
@@ -39,13 +46,19 @@ async function checkRateLimit(wallet) {
     return { allowed: false, retryAfter: 3600 };
   }
 
-  if (data.length >= RL_MAX) {
+  // data.length incluye el registro que acabamos de insertar
+  if (data.length > RL_MAX) {
+    // Revertir el insert excedente
+    const latest = data[data.length - 1].granted_at;
+    await supabase.from('faucet_rate_limit').delete()
+      .eq('wallet', wallet)
+      .eq('granted_at', latest);
+
     const oldest = new Date(data[0].granted_at).getTime();
     const retryAfterSeconds = Math.ceil((oldest + RL_WINDOW_MS - Date.now()) / 1000);
     return { allowed: false, retryAfter: Math.max(1, retryAfterSeconds) };
   }
 
-  await supabase.from('faucet_rate_limit').insert({ wallet });
   return { allowed: true };
 }
 
