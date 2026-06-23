@@ -1,17 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { obtenerTodosLosProyectos, calcularYieldDetallado, stroopsAMXNe, urlExplorer, CONFIG } from "../stellar/contrato";
+import { stroopsAMXNe, urlExplorer, CONFIG } from "../stellar/contrato";
 import { parsearError } from "../utils/errores.js";
-import { createClient } from "@supabase/supabase-js";
 import usePaginacion from "../hooks/usePaginacion";
 import usePaginacionLocal from "../hooks/usePaginacionLocal";
 import Paginacion from "./Paginacion";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
-const supabase = supabaseUrl && supabaseAnonKey && !supabaseUrl.includes("placeholder.supabase.co") && supabaseAnonKey !== "placeholder"
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 const ESTADOS_OCULTOS = new Set(["EnRevision", "Rechazado"]);
 
@@ -46,6 +41,7 @@ export default function Transparencia({ onVolver }) {
   const [errorCarga, setErrorCarga] = useState(null);
   const [filtro, setFiltro] = useState("Todos");
   const [totalYield, setTotalYield] = useState(BigInt(0));
+  const [contribuidores, setContribuidores] = useState(0);
   const contribTopRef = useRef(null);
 
   const FILTROS = [
@@ -60,17 +56,21 @@ export default function Transparencia({ onVolver }) {
     setCargando(true);
     setErrorCarga(null);
     try {
-      const data = await obtenerTodosLosProyectos();
-      const publicos = data.filter(p => !ESTADOS_OCULTOS.has(p.estado));
-      setProyectos(publicos);
-
-      const yields = await Promise.all(
-        publicos.map(p => calcularYieldDetallado(p.id).catch(() => ({ total: BigInt(0) })))
-      );
-      const sumaYield = yields.reduce((s, y) => {
-        try { return s + BigInt(y?.total ?? 0); } catch { return s; }
-      }, BigInt(0));
-      setTotalYield(sumaYield);
+      const [resProyectos, resStats] = await Promise.all([
+        fetch(`${API_URL}/proyectos`),
+        fetch(`${API_URL}/stats`)
+      ]);
+      
+      if (!resProyectos.ok || !resStats.ok) throw new Error("Error fetching data from indexer");
+      
+      const dataProyectos = await resProyectos.json();
+      const dataStats = await resStats.json();
+      
+      const publicos = dataProyectos.filter(p => !ESTADOS_OCULTOS.has(p.estado));
+      setProyectos(publicos.map(p => ({...p, aportado: p.total_aportado})));
+      
+      setTotalYield(BigInt(dataStats.total_yield || 0));
+      setContribuidores(dataStats.numero_contribuidores || 0);
     } catch (e) {
       setErrorCarga(parsearError(e));
     } finally {
@@ -80,17 +80,16 @@ export default function Transparencia({ onVolver }) {
 
   useEffect(() => { cargar(); }, []);
 
-  // Paginated contributions across platform (Supabase)
-  const contribPaginacion = usePaginacion(
-    (desde, hasta) => {
-      if (!supabase) return Promise.resolve({ data: [], count: 0 });
-      return supabase
-        .from("aportaciones")
-        .select("proyecto_id, contribuidor, monto, retirado, timestamp", { count: "exact" })
-        .order("timestamp", { ascending: false })
-        .range(desde, hasta);
+  // Paginated transaction history across platform (Indexer)
+  const histPaginacion = usePaginacion(
+    async (desde, hasta) => {
+      const limit = hasta - desde + 1;
+      const offset = desde;
+      const res = await fetch(`${API_URL}/eventos?limit=${limit}&offset=${offset}`);
+      if (!res.ok) throw new Error("Error fetching eventos");
+      return res.json();
     },
-    [/* no extra deps */ filtro]
+    [filtro]
   );
 
   const totalBloqueado = proyectos.reduce((s, p) => {
@@ -198,6 +197,8 @@ export default function Transparencia({ onVolver }) {
               <div style={{ width: 1, height: 28, background: "var(--border)", flexShrink: 0 }} />
               <StatStrip label={t("transp.statProgress")} valor={enProgreso} highlight />
               <div style={{ width: 1, height: 28, background: "var(--border)", flexShrink: 0 }} />
+              <StatStrip label={t("transp.statContrib")} valor={contribuidores} highlight />
+              <div style={{ width: 1, height: 28, background: "var(--border)", flexShrink: 0 }} />
               <StatStrip label={t("transp.statYield")} valor={stroopsAMXNe(totalYield)} mono />
             </div>
           )}
@@ -294,42 +295,59 @@ export default function Transparencia({ onVolver }) {
               <Paginacion pagina={pagina} totalPaginas={totalPaginas} onChange={handlePaginaChange} />
             </>
           )}
-          {/* Paginated contributions table */}
+          {/* Paginated transaction history table */}
           <div style={{ marginTop: 28 }}>
-            <h2 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: 8 }}>{t("transp.contributionsTitle")}</h2>
+            <h2 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: 8 }}>{t("transp.historyTitle")}</h2>
             <div ref={contribTopRef} />
             <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: "8px" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
                     <th style={{ textAlign: "left", padding: 12 }}>{t("transp.colProject")}</th>
-                    <th style={{ textAlign: "left", padding: 12 }}>{t("transp.colContributor")}</th>
+                    <th style={{ textAlign: "left", padding: 12 }}>{t("transp.colType")}</th>
                     <th style={{ textAlign: "right", padding: 12 }}>{t("transp.colAmount")}</th>
                     <th style={{ textAlign: "right", padding: 12 }}>{t("transp.colWhen")}</th>
+                    <th style={{ textAlign: "center", padding: 12 }}>{t("transp.colHash")}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {contribPaginacion.cargando ? (
-                    <tr><td colSpan={4}><div style={{ padding: 12 }}><div className="skeleton" style={{ height: 140 }} /></div></td></tr>
+                  {histPaginacion.cargando ? (
+                    <tr><td colSpan={5}><div style={{ padding: 12 }}><div className="skeleton" style={{ height: 140 }} /></div></td></tr>
                   ) : (
-                    contribPaginacion.datos.map((r) => {
-                      const proyecto = proyectos.find((p) => Number(p.id) === Number(r.proyecto_id)) || { nombre: `#${r.proyecto_id}` };
+                    histPaginacion.datos.map((r) => {
+                      const projId = r.data && Array.isArray(r.data) && r.data.length > 0 ? Number(r.data[0]) : null;
+                      const proyecto = proyectos.find((p) => Number(p.id) === projId) || { nombre: projId ? `#${projId}` : "—" };
+                      const amount = r.tipo === 'nueva_aportacion' || r.tipo === 'retiro_principal' 
+                        ? (r.data && r.data.length > 1 ? String(r.data[1]) : "0")
+                        : (r.tipo === 'yield_reclamado' && r.data && r.data.length > 1 ? String(r.data[1]) : null);
+                        
                       return (
-                        <tr key={`${r.proyecto_id}_${r.contribuidor}_${r.timestamp}`}>
+                        <tr key={r.id}>
                           <td style={{ padding: 12 }}>{proyecto.nombre}</td>
-                          <td style={{ padding: 12, fontFamily: "monospace" }}>
-                            <a
-                              href={urlExplorer("account", r.contribuidor)}
-                              target="_blank"
-                              rel="noreferrer"
-                              title={`${t("transp.viewAccount")}: ${r.contribuidor}`}
-                              style={{ color: "var(--navy)", textDecoration: "none", fontWeight: 600, whiteSpace: "nowrap" }}
-                            >
-                              {r.contribuidor ? `${r.contribuidor.slice(0, 5)}…${r.contribuidor.slice(-4)}` : "—"} ↗
-                            </a>
+                          <td style={{ padding: 12 }}>
+                            <span style={{ 
+                              background: "var(--bg)", padding: "2px 6px", borderRadius: "4px", fontSize: "0.8rem", border: "1px solid var(--border2)"
+                            }}>
+                              {r.tipo === 'nueva_aportacion' ? "Aportación" : r.tipo === 'retiro_principal' ? "Retiro" : r.tipo === 'yield_reclamado' ? "Yield" : r.tipo === 'cambio_estado' ? "Estado" : r.tipo}
+                            </span>
                           </td>
-                          <td style={{ padding: 12, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{stroopsAMXNe(r.monto)}</td>
+                          <td style={{ padding: 12, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                            {amount ? stroopsAMXNe(amount) : "—"}
+                          </td>
                           <td style={{ padding: 12, textAlign: "right" }}>{r.timestamp ? new Date(r.timestamp).toLocaleString() : "—"}</td>
+                          <td style={{ padding: 12, textAlign: "center", fontFamily: "monospace" }}>
+                            {r.tx_hash ? (
+                              <a
+                                href={`https://stellar.expert/explorer/testnet/tx/${r.tx_hash}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                title={t("transp.viewContract")}
+                                style={{ color: "var(--navy)", textDecoration: "none", fontWeight: 600, whiteSpace: "nowrap" }}
+                              >
+                                {r.tx_hash.slice(0, 4)}…{r.tx_hash.slice(-4)} ↗
+                              </a>
+                            ) : "—"}
+                          </td>
                         </tr>
                       );
                     })
@@ -337,7 +355,7 @@ export default function Transparencia({ onVolver }) {
                 </tbody>
               </table>
             </div>
-            <Paginacion pagina={contribPaginacion.pagina} totalPaginas={contribPaginacion.totalPaginas} onChange={(p) => { contribPaginacion.setPagina(p); contribTopRef.current?.scrollIntoView({ behavior: "auto", block: "start" }); }} />
+            <Paginacion pagina={histPaginacion.pagina} totalPaginas={histPaginacion.totalPaginas} onChange={(p) => { histPaginacion.setPagina(p); contribTopRef.current?.scrollIntoView({ behavior: "auto", block: "start" }); }} />
           </div>
         </>
       )}

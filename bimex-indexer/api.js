@@ -140,32 +140,37 @@ async function route(req, res) {
     return error ? json(res, 500, { error: error.message }) : json(res, 200, data);
   }
 
-  // GET /eventos[?tipo=X&limit=N]
+  // GET /eventos[?tipo=X&limit=N&offset=M]
   if (parts[0] === 'eventos' && !parts[1]) {
     const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50', 10), 200);
-    let q = supabase.from('eventos').select('*').order('ledger', { ascending: false }).limit(limit);
+    const offset = parseInt(url.searchParams.get('offset') ?? '0', 10);
+    let q = supabase.from('eventos').select('*', { count: 'exact' }).order('ledger', { ascending: false }).range(offset, offset + limit - 1);
     if (url.searchParams.has('tipo')) q = q.eq('tipo', url.searchParams.get('tipo'));
-    const { data, error } = await q;
-    return error ? json(res, 500, { error: error.message }) : json(res, 200, data);
+    const { data, count, error } = await q;
+    return error ? json(res, 500, { error: error.message }) : json(res, 200, { data, count });
   }
 
   // GET /stats
   if (parts[0] === 'stats' && !parts[1]) {
     const [proyectos, aportaciones] = await Promise.all([
       supabase.from('proyectos').select('estado,total_aportado,yield_entregado,meta'),
-      supabase.from('aportaciones').select('monto,retirado'),
+      supabase.from('aportaciones').select('monto,retirado,contribuidor'),
     ]);
     if (proyectos.error) return json(res, 500, { error: proyectos.error.message });
 
     const ps = proyectos.data;
+    const aports = aportaciones.data ?? [];
+    const contribuidoresUnicos = new Set(aports.filter(a => a.contribuidor).map(a => a.contribuidor));
+
     const stats = {
       total_proyectos:   ps.length,
       activos:           ps.filter(p => ['EtapaInicial','EnProgreso','Liberado'].includes(p.estado)).length,
       total_aportado:    ps.reduce((s, p) => s + Number(p.total_aportado ?? 0), 0),
       total_yield:       ps.reduce((s, p) => s + Number(p.yield_entregado ?? 0), 0),
-      capital_activo:    (aportaciones.data ?? [])
+      capital_activo:    aports
                            .filter(a => !a.retirado)
                            .reduce((s, a) => s + Number(a.monto ?? 0), 0),
+      numero_contribuidores: contribuidoresUnicos.size,
     };
     return json(res, 200, stats);
   }
