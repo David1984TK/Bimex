@@ -56,3 +56,5 @@ jobs:
           cache-dependency-path: bimex-indexer/package-lock.json
       - name: Install dependencies
         run: cd bimex-indexer && npm ci
+      - name: Run unit tests
+        run: cd bimex-indexer && npm test
