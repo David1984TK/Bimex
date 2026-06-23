@@ -72,3 +72,17 @@ create policy "Allow insert only" on audit_log for insert with check (true);
 create index if not exists idx_audit_log_block_time on audit_log (block_time desc);
 create index if not exists idx_audit_log_actor_address on audit_log (actor_address);
 create index if not exists idx_audit_log_action on audit_log (action);
+
+-- Faucet Rate Limit
+create table if not exists faucet_rate_limit (
+  wallet text not null,
+  granted_at timestamptz not null default now(),
+  ip_hash text,
+  primary key (wallet, granted_at)
+);
+create index if not exists idx_faucet_rate_limit_wallet on faucet_rate_limit (wallet, granted_at desc);
+
+-- Nota: pg_cron NO viene habilitado por defecto.
+-- Para limpiar registros antiguos, primero ve a Supabase Dashboard -> Database -> Extensions
+-- y habilita "pg_cron". Luego configura este job (SQL Editor):
+-- select cron.schedule('cleanup_faucet_rate_limit', '0 0 * * *', $$ delete from faucet_rate_limit where granted_at < now() - interval '24 hours' $$);
