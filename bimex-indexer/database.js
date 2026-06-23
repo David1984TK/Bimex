@@ -76,4 +76,13 @@ export async function getLastIndexedLedger() {
   });
 }
 
+export async function countEventsLastHour() {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { count, error } = await supabase.from('eventos')
+    .select('id', { count: 'exact', head: true })
+    .gt('timestamp', oneHourAgo);
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export default supabase;

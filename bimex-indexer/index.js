@@ -2,6 +2,8 @@ import 'dotenv/config';
 import http from 'node:http';
 import { rpc } from '@stellar/stellar-sdk';
 import { parseEvent } from './eventParser.js';
+import { countEventsLastHour } from './database.js';
+
 import { upsertProyecto, upsertAportacion, insertEvento, getLastIndexedLedger, supabaseOk } from './database.js';
 import { notificarClientes } from './sse.js';
 import './api.js'; // start HTTP + SSE server in the same process
@@ -14,24 +16,34 @@ const POLL_INTERVAL   = parseInt(process.env.POLL_INTERVAL_MS ?? '10000', 10);
 const soroban = new rpc.Server(RPC_URL, { allowHttp: false });
 
 const estadoIndexer = {
+  // ... existing fields will follow
   ultimoLedger: 0,
   txProcesadas: 0,
   ultimaActualizacion: null,
   supabaseOk: true,
   rpcLatencyMs: null,
+  // track when the server started for uptime
+  processStartTime: Date.now(),
 };
 
 http.createServer(async (req, res) => {
   if (req.url === '/health') {
+    // Gather async metrics
+    const eventsLastHour = await countEventsLastHour();
+    const uptimeSeconds = Math.floor((Date.now() - estadoIndexer.processStartTime) / 1000);
+    // Simple lag estimation: difference between current time and last ledger (assuming 1 ledger per second)
+    const lagSeconds = Math.max(0, Math.floor(Date.now() / 1000) - estadoIndexer.ultimoLedger);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
     res.end(JSON.stringify({
-      status: 'ok',
-      ultimoLedger: estadoIndexer.ultimoLedger,
-      txProcesadas: estadoIndexer.txProcesadas,
-      ultimaActualizacion: estadoIndexer.ultimaActualizacion,
-      supabaseOk: supabaseOk,
+      ok: true,
+      lastBlockIndexed: estadoIndexer.ultimoLedger,
+      lagSeconds: lagSeconds,
       rpcLatencyMs: estadoIndexer.rpcLatencyMs,
+      supabaseOk: supabaseOk,
+      eventsLastHour: eventsLastHour ?? 0,
+      uptime: uptimeSeconds,
     }));
+    return;
   } else {
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Not found' }));
