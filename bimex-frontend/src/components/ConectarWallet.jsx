@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import {
   isConnected, isAllowed, requestAccess, getAddress, getNetwork,
 } from "@stellar/freighter-api";
-import { CONFIG } from "../stellar/contrato";
 import { parsearError } from "../utils/errores.js";
+import { passkeyKit } from "../stellar/contrato.js";
 
 export default function ConectarWallet({ onConectado, autoConectar = true, inNavbar = false }) {
   const [estado,    setEstado]    = useState("inactivo");
@@ -25,6 +25,26 @@ export default function ConectarWallet({ onConectado, autoConectar = true, inNav
       }
     })();
   }, [autoConectar, onConectado]);
+
+  async function conectarConPasskey() {
+    setEstado("verificando"); setError("");
+    try {
+      const rpId = window.location.hostname === "localhost" ? "localhost" : window.location.hostname;
+      let res;
+      try {
+        // Intentar iniciar sesión (autenticar)
+        res = await passkeyKit.connectWallet({ rpId });
+      } catch (err) {
+        // Si no tiene, crear nuevo (registro)
+        res = await passkeyKit.createWallet("Bimex", "usuario-bimex", { rpId });
+      }
+      const address = res.contractId;
+      setDireccion(address); setEstado("conectado"); onConectado?.(address);
+    } catch (e) {
+      setError(e.message || "Error al autenticar con biometría");
+      setEstado("error");
+    }
+  }
 
   async function conectar() {
     setEstado("verificando"); setError("");
@@ -83,17 +103,28 @@ export default function ConectarWallet({ onConectado, autoConectar = true, inNav
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 12 }}>
-      <button
-        onClick={conectar}
-        disabled={verificando}
-        className="btn btn-primary"
-        style={{ padding: "14px 36px", fontSize: "1rem", opacity: verificando ? 0.65 : 1 }}
-      >
-        {verificando ? "Conectando…" : "Conectar con Freighter"}
-      </button>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", width: "100%" }}>
+        <button
+          onClick={conectarConPasskey}
+          disabled={verificando}
+          className="btn btn-primary"
+          style={{ flex: 1, padding: "14px 20px", fontSize: "0.95rem", opacity: verificando ? 0.65 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "var(--navy)" }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          {verificando ? "Conectando…" : "Huella / Face ID"}
+        </button>
+        <button
+          onClick={conectar}
+          disabled={verificando}
+          className="btn"
+          style={{ flex: 1, padding: "14px 20px", fontSize: "0.95rem", opacity: verificando ? 0.65 : 1, background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)" }}
+        >
+          Freighter
+        </button>
+      </div>
 
       {estado === "sin_extension" && (
-        <p style={{ color: "var(--amber)", fontSize: "0.82rem", margin: 0 }}>
+        <p style={{ color: "var(--amber)", fontSize: "0.82rem", margin: 0, marginTop: 8 }}>
           Freighter no está instalado.{" "}
           <a href="https://freighter.app" target="_blank" rel="noreferrer"
              style={{ color: "var(--navy)", fontWeight: 600 }}>
