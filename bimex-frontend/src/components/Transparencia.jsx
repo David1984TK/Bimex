@@ -318,8 +318,8 @@ export default function Transparencia({ onVolver }) {
                       const projId = r.data && Array.isArray(r.data) && r.data.length > 0 ? Number(r.data[0]) : null;
                       const proyecto = proyectos.find((p) => Number(p.id) === projId) || { nombre: projId ? `#${projId}` : "—" };
                       const amount = r.tipo === 'nueva_aportacion' || r.tipo === 'retiro_principal' 
-                        ? (r.data && r.data.length > 1 ? String(r.data[1]) : "0")
-                        : (r.tipo === 'yield_reclamado' && r.data && r.data.length > 1 ? String(r.data[1]) : null);
+                        ? (r.data && Array.isArray(r.data) && r.data.length > 1 ? String(r.data[1]) : "0")
+                        : (r.tipo === 'yield_reclamado' && r.data && Array.isArray(r.data) && r.data.length > 1 ? String(r.data[1]) : null);
                         
                       return (
                         <tr key={r.id}>
@@ -338,7 +338,7 @@ export default function Transparencia({ onVolver }) {
                           <td style={{ padding: 12, textAlign: "center", fontFamily: "monospace" }}>
                             {r.tx_hash ? (
                               <a
-                                href={`https://stellar.expert/explorer/testnet/tx/${r.tx_hash}`}
+                                href={urlExplorer("tx", r.tx_hash)}
                                 target="_blank"
                                 rel="noreferrer"
                                 title={t("transp.viewContract")}
