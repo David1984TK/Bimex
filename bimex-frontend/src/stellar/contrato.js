@@ -6,6 +6,7 @@ import {
   BASE_FEE,
   Address,
   Keypair,
+  Account,
   nativeToScVal,
   scValToNative,
 } from "@stellar/stellar-sdk";
@@ -48,14 +49,15 @@ const CUENTA_DUMMY = Keypair.random().publicKey();
 export const passkeyKit = new PasskeyKit({
   rpcUrl: CONFIG.RPC_URL,
   networkPassphrase: CONFIG.NETWORK_PASSPHRASE,
-  walletWasmHash: "22831f4967de7649d268d8ef53d46dc757352358fb8d672df999b119cc60eb7f", // default hash or passkey-kit default
+  walletWasmHash: import.meta.env.VITE_PASSKEY_WASM_HASH,
 });
 
-// Función mock para Launchtube, ya que requiere token generado manualmente
+// Enviar TX vía Launchtube (gas sponsor)
 async function enviarPorLaunchtube(txXdrBase64) {
   console.log("Enviando TX a Launchtube para fee sponsorship...", txXdrBase64);
-  const token = localStorage.getItem("launchtube_jwt") || "";
-  const res = await fetch("https://testnet.launchtube.xyz/", {
+  const token = import.meta.env.VITE_LAUNCHTUBE_JWT || localStorage.getItem("launchtube_jwt") || "";
+  const url = import.meta.env.VITE_LAUNCHTUBE_URL || "https://testnet.launchtube.xyz";
+  const res = await fetch(`${url.replace(/\/$/, "")}/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -83,11 +85,7 @@ async function simularLectura(metodo, args = []) {
   try {
     cuentaInfo = await servidor.getAccount(CUENTA_DUMMY);
   } catch {
-    cuentaInfo = {
-      accountId: () => CUENTA_DUMMY,
-      sequenceNumber: () => "0",
-      incrementSequenceNumber: () => {},
-    };
+    cuentaInfo = new Account(CUENTA_DUMMY, "0");
   }
 
   const tx = new TransactionBuilder(cuentaInfo, {
@@ -121,11 +119,7 @@ async function construirTx(cuentaPublica, metodo, args = []) {
     cuentaInfo = await servidor.getAccount(cuentaPublica);
   } catch {
     // Si la cuenta es un smart wallet y no está inicializada en red, simulamos
-    cuentaInfo = {
-      accountId: () => cuentaPublica,
-      sequenceNumber: () => "0",
-      incrementSequenceNumber: () => {},
-    };
+    cuentaInfo = new Account(cuentaPublica, "0");
   }
 
   const tx = new TransactionBuilder(cuentaInfo, {

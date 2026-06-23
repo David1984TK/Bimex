@@ -3,12 +3,14 @@ import {
   isConnected, isAllowed, requestAccess, getAddress, getNetwork,
 } from "@stellar/freighter-api";
 import { parsearError } from "../utils/errores.js";
-import { passkeyKit } from "../stellar/contrato.js";
+import { passkeyKit, CONFIG } from "../stellar/contrato.js";
+import { Fingerprint } from "lucide-react";
 
 export default function ConectarWallet({ onConectado, autoConectar = true, inNavbar = false }) {
   const [estado,    setEstado]    = useState("inactivo");
   const [direccion, setDireccion] = useState(null);
   const [error,     setError]     = useState("");
+  const [nuevaPasskey, setNuevaPasskey] = useState(false);
 
   useEffect(() => {
     if (!autoConectar) return;
@@ -35,8 +37,13 @@ export default function ConectarWallet({ onConectado, autoConectar = true, inNav
         // Intentar iniciar sesión (autenticar)
         res = await passkeyKit.connectWallet({ rpId });
       } catch (err) {
-        // Si no tiene, crear nuevo (registro)
-        res = await passkeyKit.createWallet("Bimex", "usuario-bimex", { rpId });
+        // Solo crear si el error indica "no hay credencial", no cualquier error
+        if (err.name === "NotAllowedError" || err.message?.includes("no credential")) {
+          res = await passkeyKit.createWallet("Bimex", "usuario-bimex", { rpId });
+          setNuevaPasskey(true);
+        } else {
+          throw err; // propagar el resto de errores
+        }
       }
       const address = res.contractId;
       setDireccion(address); setEstado("conectado"); onConectado?.(address);
@@ -69,20 +76,28 @@ export default function ConectarWallet({ onConectado, autoConectar = true, inNav
   }
 
   if (estado === "conectado") return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 8,
-      background: "var(--navy-dim)",
-      border: "1.5px solid rgba(30,58,95,0.20)",
-      padding: inNavbar ? "6px 14px" : "10px 18px",
-      borderRadius: 99,
-    }}>
-      <span style={{
-        width: 8, height: 8, borderRadius: "50%",
-        background: "var(--green)", flexShrink: 0,
-      }} />
-      <span style={{ fontFamily: "monospace", fontSize: inNavbar ? 12 : 14, color: "var(--navy)", fontWeight: 600 }}>
-        {direccion && direccion.length >= 8 ? `${direccion.slice(0, 4)}…${direccion.slice(-4)}` : direccion}
-      </span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 8,
+        background: "var(--navy-dim)",
+        border: "1.5px solid rgba(30,58,95,0.20)",
+        padding: inNavbar ? "6px 14px" : "10px 18px",
+        borderRadius: 99,
+        width: "fit-content"
+      }}>
+        <span style={{
+          width: 8, height: 8, borderRadius: "50%",
+          background: "var(--green)", flexShrink: 0,
+        }} />
+        <span style={{ fontFamily: "monospace", fontSize: inNavbar ? 12 : 14, color: "var(--navy)", fontWeight: 600 }}>
+          {direccion && direccion.length >= 8 ? `${direccion.slice(0, 4)}…${direccion.slice(-4)}` : direccion}
+        </span>
+      </div>
+      {nuevaPasskey && !inNavbar && (
+        <p style={{ color: "var(--amber)", fontSize: "0.82rem", margin: 0, padding: "10px", background: "var(--card)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", maxWidth: 320 }}>
+          <strong>Nota:</strong> Tu nueva Smart Wallet necesita fondearse con MXNe. Contáctanos para enviarte tokens y establecer la trustline inicial.
+        </p>
+      )}
     </div>
   );
 
@@ -110,7 +125,7 @@ export default function ConectarWallet({ onConectado, autoConectar = true, inNav
           className="btn btn-primary"
           style={{ flex: 1, padding: "14px 20px", fontSize: "0.95rem", opacity: verificando ? 0.65 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "var(--navy)" }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          <Fingerprint size={18} />
           {verificando ? "Conectando…" : "Huella / Face ID"}
         </button>
         <button
