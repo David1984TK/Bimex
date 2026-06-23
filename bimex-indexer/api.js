@@ -179,8 +179,8 @@ async function route(req, res) {
       'Access-Control-Allow-Origin': process.env.FRONTEND_URL || '*',
     });
     res.write(':ok\n\n');
-    agregarCliente(res);
-    req.on('close', () => eliminarCliente(res));
+    agregarCliente(req, res);
+    req.on('close', () => eliminarCliente(req, res));
     return;
   }
 

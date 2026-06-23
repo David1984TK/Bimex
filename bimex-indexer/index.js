@@ -5,7 +5,7 @@ import { parseEvent } from './eventParser.js';
 import { countEventsLastHour } from './database.js';
 
 import { upsertProyecto, upsertAportacion, insertEvento, getLastIndexedLedger, supabaseOk } from './database.js';
-import { notificarClientes } from './sse.js';
+import { notificarClientes, getSseMetrics } from './sse.js';
 import './api.js'; // start HTTP + SSE server in the same process
 
 const RPC_URL         = process.env.STELLAR_RPC_URL;
@@ -42,6 +42,7 @@ http.createServer(async (req, res) => {
       supabaseOk: supabaseOk,
       eventsLastHour: eventsLastHour ?? 0,
       uptime: uptimeSeconds,
+      ...getSseMetrics(),
     }));
     return;
   } else {
