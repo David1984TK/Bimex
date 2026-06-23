@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { setAllowed } from "@stellar/freighter-api";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import ConectarWallet   from "./components/ConectarWallet";
+import ObtenerMXNeLanding from "./components/ObtenerMXNe";
 import ListaProyectos   from "./components/ListaProyectos";
 import DetalleProyecto  from "./components/DetalleProyecto";
 import MiCuenta         from "./components/MiCuenta";
@@ -878,6 +879,13 @@ function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTe
             </p>
             <ConectarWallet autoConectar={false} onConectado={onConectado} />
           </div>
+        </div>
+      </section>
+
+      {/* Cómo obtener MXNe — Phase 1: Etherfuse ramp */}
+      <section aria-labelledby="obtener-mxne-titulo" className="landing-section" style={{ padding: "48px 40px", background: "var(--bg)", borderTop: "1px solid var(--border)" }}>
+        <div style={{ maxWidth: 960, margin: "0 auto" }}>
+          <ObtenerMXNeLanding variant="banner" />
         </div>
       </section>
 

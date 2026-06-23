@@ -22,6 +22,13 @@ vi.mock("../stellar/contrato", () => ({
   obtenerTodosLosProyectos: vi.fn().mockResolvedValue([]),
   stroopsAMXNe: vi.fn(() => "0.00 MXNe"),
   mintearMXNePrueba: vi.fn().mockResolvedValue(undefined),
+  CONFIG: {
+    NETWORK: "testnet",
+    NETWORK_PASSPHRASE: "Test SDF Network ; September 2015",
+    CONTRACT_ID: "CC5WJJMGXIGJLDTAM4F5WFA6PHREJP2ARB5Y5IGZJKIWYCFJ36SDD43J",
+    RPC_URL: "https://soroban-testnet.stellar.org",
+    TOKEN_MXNE: "CDDIGHPVTW4PSCQCU67NQ4NXZ4NX5GDLNL3O67WT5RQ4GT6RXIEYPC4P",
+  },
 }));
 
 vi.mock("../hooks/useCetesRate", () => ({

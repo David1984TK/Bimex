@@ -287,7 +287,6 @@
     "viewContract": "View the contract on Stellar Explorer",
     "viewAccount": "View account on Stellar Explorer"
   },
-
   "simulador": {
     "sectionLabel": "Simulate your impact",
     "title": "How much does your contribution generate?",
@@ -303,7 +302,6 @@
     "youRecoverSub": "Includes +${{amount}} yield ({{pct}} annual)",
     "disclaimer": "Illustrative calculation based on the target yield distribution (CETES via Etherfuse + Stellar AMM). Rates are variable; your contributed capital is always 100% recoverable."
   },
-
   "pagination": {
     "aria": "Pagination",
     "prev": "Previous",
@@ -379,14 +377,51 @@
     "ariaLocked": "Locked reward: {{name}}. Requires {{amount}} MXNe"
   },
   "tour": {
-    "step1": { "title": "Your connected wallet", "content": "This is your connected wallet. Your Stellar address appears here securely." },
-    "step2": { "title": "Explore impact projects", "content": "Here you'll find verified social impact projects. Each one shows its goal and real-time progress." },
-    "step3": { "title": "Contribute with MXNe", "content": "Click on a project to see full details and contribute with MXNe. Your capital is always recoverable." },
-    "step4": { "title": "You're on Testnet", "content": "You're on testnet — use the faucet button to get free test MXNe and experiment risk-free." },
-    "step5": { "title": "Your personal account", "content": "Here you can see all your contributions, created projects, and the yield you've generated." },
+    "step1": {
+      "title": "Your connected wallet",
+      "content": "This is your connected wallet. Your Stellar address appears here securely."
+    },
+    "step2": {
+      "title": "Explore impact projects",
+      "content": "Here you'll find verified social impact projects. Each one shows its goal and real-time progress."
+    },
+    "step3": {
+      "title": "Contribute with MXNe",
+      "content": "Click on a project to see full details and contribute with MXNe. Your capital is always recoverable."
+    },
+    "step4": {
+      "title": "You're on Testnet",
+      "content": "You're on testnet — use the faucet button to get free test MXNe and experiment risk-free."
+    },
+    "step5": {
+      "title": "Your personal account",
+      "content": "Here you can see all your contributions, created projects, and the yield you've generated."
+    },
     "skip": "Skip",
     "next": "Next",
     "finish": "Finish",
     "restart": "Restart tour"
+  },
+  "obtenerMXNe": {
+    "buttonLabel": "Don't have MXNe? Get it here",
+    "buttonTitle": "Get MXNe via SPEI with Etherfuse",
+    "buttonAria": "Go to Etherfuse ramp to get MXNe with Mexican pesos via SPEI",
+    "cta": "Get MXNe →",
+    "bannerTitle": "Don't have MXNe? Get it with pesos via SPEI",
+    "bannerDesc": "Etherfuse operates the SPEI↔MXNe rail. Complete KYC, deposit pesos via SPEI, and receive MXNe directly in your Stellar wallet. Bimex never touches your fiat money.",
+    "cardTitle": "Get MXNe to get started",
+    "cardDesc": "You need MXNe in your wallet to contribute to projects. You can get it with Mexican pesos through Etherfuse.",
+    "showTutorial": "View step-by-step tutorial",
+    "hideTutorial": "Hide tutorial",
+    "tutorialTitle": "How to get MXNe with pesos (SPEI)",
+    "paso1Titulo": "Create your Etherfuse account",
+    "paso1Desc": "Sign up at app.etherfuse.com/ramp and complete your identity verification (KYC). It's quick and secure.",
+    "paso2Titulo": "Deposit pesos via SPEI",
+    "paso2Desc": "Transfer from your bank to Etherfuse's CLABE using SPEI. The amount is reflected within minutes on business days.",
+    "paso3Titulo": "Receive MXNe in your wallet",
+    "paso3Desc": "Once your deposit is credited, MXNe arrives directly at your Stellar address. You're ready to contribute on Bimex.",
+    "testnetNoteTitle": "You're on Testnet:",
+    "testnetNote": "Use the faucet button (\"100 MXNe\") to get free test tokens and experiment risk-free.",
+    "regulatoryNote": "Pesos are received by Etherfuse (a regulated issuer), not by Bimex. MXNe goes directly to your wallet. This does not constitute public fundraising."
   }
 }
