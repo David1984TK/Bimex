@@ -2,7 +2,7 @@ import 'dotenv/config';
 import http from 'node:http';
 import { rpc } from '@stellar/stellar-sdk';
 import { parseEvent } from './eventParser.js';
-import { upsertProyecto, upsertAportacion, insertEvento, getLastIndexedLedger, supabaseOk } from './database.js';
+import { upsertProyecto, upsertAportacion, insertEvento, insertAuditLog, getLastIndexedLedger, supabaseOk } from './database.js';
 import { notificarClientes } from './sse.js';
 import './api.js'; // start HTTP + SSE server in the same process
 
@@ -58,7 +58,7 @@ async function processBatch(startLedger) {
     startLedger,
     filters: [{
       contractIds: [CONTRACT_ID],
-      topics: [['contribuir'], ['yield'], ['retiro'], ['aprobar'], ['rechazar']],
+      topics: [['contribuir'], ['yield'], ['retiro'], ['aprobar'], ['rechazar'], ['pausar'], ['reanudar'], ['upgrade']],
     }],
     pagination: { limit: 200 },
   });
@@ -72,11 +72,12 @@ async function processBatch(startLedger) {
     const parsed = parseEvent(event, CONTRACT_ID);
     if (!parsed) continue;
 
-    const { evento, proyecto, aportacion } = parsed;
+    const { evento, proyecto, aportacion, audit } = parsed;
     estadoIndexer.txProcesadas++;
     await insertEvento(evento).catch(console.error);
     if (proyecto)   { await upsertProyecto(proyecto).catch(console.error); notificarClientes('proyecto_actualizado', { id: proyecto.id, estado: proyecto.estado }); }
     if (aportacion) { await upsertAportacion(aportacion).catch(console.error); notificarClientes('nueva_contribucion', { proyectoId: aportacion.proyecto_id, monto: aportacion.monto }); }
+    if (audit)      { await insertAuditLog(audit).catch(console.error); notificarClientes('admin_action', { action: audit.action, target: audit.target }); }
     if (evento.tipo === 'yield_reclamado') notificarClientes('yield_reclamado', { proyectoId: proyecto?.id ?? null, monto: proyecto?.yield_entregado_delta ?? null });
 
     console.log(`[${new Date().toISOString()}] ${evento.tipo} ledger=${evento.ledger} tx=${evento.tx_hash}`);

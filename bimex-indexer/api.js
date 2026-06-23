@@ -170,6 +170,44 @@ async function route(req, res) {
     return json(res, 200, stats);
   }
 
+  // GET /audit[?action=X&limit=N&offset=M&format=csv]
+  if (parts[0] === 'audit' && !parts[1]) {
+    const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50', 10), 1000);
+    const offset = parseInt(url.searchParams.get('offset') ?? '0', 10);
+    let q = supabase.from('audit_log').select('*', { count: 'exact' }).order('block_time', { ascending: false }).range(offset, offset + limit - 1);
+    
+    if (url.searchParams.has('action') && url.searchParams.get('action') !== 'Todos') {
+      q = q.eq('action', url.searchParams.get('action'));
+    }
+    if (url.searchParams.has('actor') && url.searchParams.get('actor').trim()) {
+      q = q.eq('actor_address', url.searchParams.get('actor').trim());
+    }
+    if (url.searchParams.has('start_date') && url.searchParams.get('start_date')) {
+      q = q.gte('block_time', url.searchParams.get('start_date'));
+    }
+    if (url.searchParams.has('end_date') && url.searchParams.get('end_date')) {
+      q = q.lte('block_time', url.searchParams.get('end_date'));
+    }
+    
+    const { data, count, error } = await q;
+    if (error) return json(res, 500, { error: error.message });
+
+    if (url.searchParams.get('format') === 'csv') {
+      res.writeHead(200, {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': 'attachment; filename="audit_log.csv"',
+        'Access-Control-Allow-Origin': '*'
+      });
+      res.write('Action,Actor,Target,TxHash,BlockTime,Metadata\n');
+      data.forEach(row => {
+        const metadataStr = JSON.stringify(row.metadata || {}).replace(/"/g, '""');
+        res.write(`${row.action},${row.actor_address},${row.target},${row.tx_hash},${row.block_time},"${metadataStr}"\n`);
+      });
+      return res.end();
+    }
+    return json(res, 200, { data, count });
+  }
+
   // GET /sse — Server-Sent Events stream
   if (parts[0] === 'sse' && !parts[1]) {
     res.writeHead(200, {

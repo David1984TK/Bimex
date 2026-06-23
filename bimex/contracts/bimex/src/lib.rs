@@ -730,6 +730,12 @@ impl BimexContrato {
         let admin_guardado: Address = env.storage().instance().get(&Clave::Admin).expect("No inicializado");
         assert!(admin == admin_guardado, "Solo el admin puede pausar");
         env.storage().instance().set(&Clave::Pausado, &true);
+
+        #[allow(deprecated)]
+        env.events().publish(
+            (symbol_short!("pausar"), admin.clone()),
+            env.ledger().timestamp(),
+        );
     }
 
     pub fn admin_reanudar(env: Env, admin: Address) {
@@ -737,6 +743,12 @@ impl BimexContrato {
         let admin_guardado: Address = env.storage().instance().get(&Clave::Admin).expect("No inicializado");
         assert!(admin == admin_guardado, "Solo el admin puede reanudar");
         env.storage().instance().set(&Clave::Pausado, &false);
+
+        #[allow(deprecated)]
+        env.events().publish(
+            (symbol_short!("reanudar"), admin.clone()),
+            env.ledger().timestamp(),
+        );
     }
 
     /// Actualiza el WASM del contrato. Solo el admin puede ejecutar esta función.
@@ -745,6 +757,13 @@ impl BimexContrato {
         admin.require_auth();
         let admin_guardado: Address = env.storage().instance().get(&Clave::Admin).expect("No inicializado");
         assert!(admin == admin_guardado, "Solo el admin puede actualizar el contrato");
+
+        #[allow(deprecated)]
+        env.events().publish(
+            (symbol_short!("upgrade"), admin.clone()),
+            (new_wasm_hash.clone(), env.ledger().timestamp()),
+        );
+
         // In tests, update_current_contract_wasm cannot be called because no real
         // WASM is stored in the test ledger (contracts are registered as Rust structs).
         // The auth check above is still fully verified.
