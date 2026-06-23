@@ -21,6 +21,7 @@ import {
 } from "../stellar/contrato";
 import { aplicarMeta, crearMetaProyecto, DEFAULT_META } from "../utils/metaTags.js";
 import { calcProyeccion } from "../utils/rendimiento.js";
+import ObtenerMXNe from "./ObtenerMXNe";
 
 const ESTADO_CONFIG = {
   EtapaInicial: { labelKey: "status.EtapaInicial", clase: "badge-muted" },
@@ -721,6 +722,13 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                     <div className="invest-note">
                       {t("detalle.safetyMsg")}
                     </div>
+
+                    {/* Obtener MXNe CTA — Phase 1: Etherfuse ramp */}
+                    {balanceMXNe !== null && balanceMXNe < BigInt(100_000_000) && (
+                      <div style={{ marginTop: 16 }}>
+                        <ObtenerMXNe variant="card" compact />
+                      </div>
+                    )}
                   </>
                 )}
 

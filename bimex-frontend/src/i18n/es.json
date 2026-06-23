@@ -287,7 +287,6 @@
     "viewContract": "Ver el contrato en Stellar Explorer",
     "viewAccount": "Ver cuenta en Stellar Explorer"
   },
-
   "simulador": {
     "sectionLabel": "Simula tu impacto",
     "title": "¿Cuánto genera tu aporte?",
@@ -303,7 +302,6 @@
     "youRecoverSub": "Incluye +${{amount}} de rendimiento ({{pct}} anual)",
     "disclaimer": "Cálculo ilustrativo basado en la distribución objetivo del rendimiento (CETES vía Etherfuse + AMM Stellar). Las tasas son variables; tu capital aportado siempre es 100% recuperable."
   },
-
   "pagination": {
     "aria": "Paginación",
     "prev": "Anterior",
@@ -379,14 +377,51 @@
     "ariaLocked": "Recompensa bloqueada: {{name}}. Requiere {{amount}} MXNe"
   },
   "tour": {
-    "step1": { "title": "Tu wallet conectada", "content": "Esta es tu wallet conectada. Tu dirección Stellar aparece aquí de forma segura." },
-    "step2": { "title": "Explora proyectos de impacto", "content": "Aquí encuentras proyectos de impacto social verificados. Cada uno muestra su meta y progreso en tiempo real." },
-    "step3": { "title": "Contribuye con MXNe", "content": "Haz clic en un proyecto para ver detalles completos y contribuir con MXNe. Tu capital siempre es recuperable." },
-    "step4": { "title": "Estás en Testnet", "content": "Estás en testnet — usa el botón de faucet para obtener MXNe de prueba gratis y experimentar sin riesgo." },
-    "step5": { "title": "Tu cuenta personal", "content": "Aquí puedes ver todas tus contribuciones, proyectos creados y el rendimiento que has generado." },
+    "step1": {
+      "title": "Tu wallet conectada",
+      "content": "Esta es tu wallet conectada. Tu dirección Stellar aparece aquí de forma segura."
+    },
+    "step2": {
+      "title": "Explora proyectos de impacto",
+      "content": "Aquí encuentras proyectos de impacto social verificados. Cada uno muestra su meta y progreso en tiempo real."
+    },
+    "step3": {
+      "title": "Contribuye con MXNe",
+      "content": "Haz clic en un proyecto para ver detalles completos y contribuir con MXNe. Tu capital siempre es recuperable."
+    },
+    "step4": {
+      "title": "Estás en Testnet",
+      "content": "Estás en testnet — usa el botón de faucet para obtener MXNe de prueba gratis y experimentar sin riesgo."
+    },
+    "step5": {
+      "title": "Tu cuenta personal",
+      "content": "Aquí puedes ver todas tus contribuciones, proyectos creados y el rendimiento que has generado."
+    },
     "skip": "Omitir",
     "next": "Siguiente",
     "finish": "Finalizar",
     "restart": "Reiniciar tour"
+  },
+  "obtenerMXNe": {
+    "buttonLabel": "No tienes MXNe? Consíguelo aquí",
+    "buttonTitle": "Obtener MXNe vía SPEI con Etherfuse",
+    "buttonAria": "Ir al ramp de Etherfuse para obtener MXNe con pesos mexicanos vía SPEI",
+    "cta": "Obtener MXNe →",
+    "bannerTitle": "No tienes MXNe? Consíguelo con pesos vía SPEI",
+    "bannerDesc": "Etherfuse opera el rail SPEI↔MXNe. Haz KYC, deposita pesos por SPEI y recibe MXNe directamente en tu wallet Stellar. Bimex nunca toca tu dinero fiat.",
+    "cardTitle": "Consigue MXNe para empezar",
+    "cardDesc": "Necesitas MXNe en tu wallet para contribuir a proyectos. Puedes obtenerlo con pesos mexicanos a través de Etherfuse.",
+    "showTutorial": "Ver tutorial paso a paso",
+    "hideTutorial": "Ocultar tutorial",
+    "tutorialTitle": "Cómo obtener MXNe con pesos (SPEI)",
+    "paso1Titulo": "Crea tu cuenta en Etherfuse",
+    "paso1Desc": "Regístrate en app.etherfuse.com/ramp y completa tu verificación de identidad (KYC). Es un proceso rápido y seguro.",
+    "paso2Titulo": "Deposita pesos por SPEI",
+    "paso2Desc": "Transfiere desde tu banco a la CLABE de Etherfuse usando SPEI. El monto se refleja en minutos en días hábiles.",
+    "paso3Titulo": "Recibe MXNe en tu wallet",
+    "paso3Desc": "Una vez acreditado tu depósito, los MXNe llegan directamente a tu dirección Stellar. Ya puedes contribuir en Bimex.",
+    "testnetNoteTitle": "Estás en Testnet:",
+    "testnetNote": "Usa el botón de faucet (\"100 MXNe\") para obtener tokens de prueba gratis y experimentar sin riesgo.",
+    "regulatoryNote": "Los pesos son recibidos por Etherfuse (emisor regulado), no por Bimex. El MXNe va directo a tu wallet. Esto no constituye captación de recursos del público."
   }
 }
