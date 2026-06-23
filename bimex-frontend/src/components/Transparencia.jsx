@@ -100,18 +100,15 @@ export default function Transparencia({ onVolver }) {
   );
 
   const auditPaginacion = usePaginacion(
-    (desde, hasta) => {
-      if (!supabase) return Promise.resolve({ data: [], count: 0 });
-      let q = supabase
-        .from("audit_log")
-        .select("*", { count: "exact" })
-        .order("block_time", { ascending: false })
-        .range(desde, hasta);
-      if (auditFiltro !== "Todos") q = q.eq("action", auditFiltro);
-      if (auditActor.trim()) q = q.eq("actor_address", auditActor.trim());
-      if (auditStartDate) q = q.gte("block_time", auditStartDate);
-      if (auditEndDate) q = q.lte("block_time", auditEndDate);
-      return q;
+    async (desde, hasta) => {
+      const params = new URLSearchParams({ limit: hasta - desde + 1, offset: desde });
+      if (auditFiltro !== "Todos") params.set("action", auditFiltro);
+      if (auditActor.trim()) params.set("actor", auditActor.trim());
+      if (auditStartDate) params.set("start_date", auditStartDate);
+      if (auditEndDate) params.set("end_date", auditEndDate);
+      const res = await fetch(`${API_URL}/audit?${params}`);
+      if (!res.ok) throw new Error("Error fetching audit");
+      return res.json(); // { data, count }
     },
     [auditFiltro, auditActor, auditStartDate, auditEndDate]
   );
@@ -450,7 +447,7 @@ export default function Transparencia({ onVolver }) {
                         <td style={{ padding: 12, textAlign: "center", fontFamily: "monospace" }}>
                           {r.tx_hash ? (
                             <a
-                              href={`https://stellar.expert/explorer/testnet/tx/${r.tx_hash}`}
+                              href={urlExplorer("tx", r.tx_hash)}
                               target="_blank"
                               rel="noreferrer"
                               style={{ color: "var(--navy)", textDecoration: "none", fontWeight: 600, whiteSpace: "nowrap" }}

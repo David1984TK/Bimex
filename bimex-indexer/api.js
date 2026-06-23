@@ -193,10 +193,10 @@ async function route(req, res) {
     if (error) return json(res, 500, { error: error.message });
 
     if (url.searchParams.get('format') === 'csv') {
+      setCorsHeaders(req, res);
       res.writeHead(200, {
         'Content-Type': 'text/csv',
         'Content-Disposition': 'attachment; filename="audit_log.csv"',
-        'Access-Control-Allow-Origin': '*'
       });
       res.write('Action,Actor,Target,TxHash,BlockTime,Metadata\n');
       data.forEach(row => {

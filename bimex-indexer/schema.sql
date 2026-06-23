@@ -68,3 +68,7 @@ alter table audit_log enable row level security;
 create policy "Allow public read" on audit_log for select using (true);
 create policy "Allow insert only" on audit_log for insert with check (true);
 -- No policies for update or delete means they are implicitly denied
+
+create index if not exists idx_audit_log_block_time on audit_log (block_time desc);
+create index if not exists idx_audit_log_actor_address on audit_log (actor_address);
+create index if not exists idx_audit_log_action on audit_log (action);

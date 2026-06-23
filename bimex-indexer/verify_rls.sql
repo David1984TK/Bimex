@@ -1,4 +1,9 @@
 -- verify_rls.sql
+-- ⚠️  EJECUTAR SOLO EN ENTORNO DE PRUEBA.
+-- En producción, el INSERT de prueba queda registrado permanentemente
+-- en el audit log (no se puede borrar por las RLS).
+-- Para testear en producción usar el rol 'postgres' en una DB de staging.
+--
 -- Run this script to verify that the Audit Log table correctly enforces immutability via Row Level Security (RLS).
 
 -- 1. Insert a test record (Should succeed because INSERT is allowed)
