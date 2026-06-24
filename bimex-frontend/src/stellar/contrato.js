@@ -1,3 +1,4 @@
+import { esDireccionValida } from "../utils/stellar.js";
 import {
   Contract,
   rpc,
@@ -6,10 +7,12 @@ import {
   BASE_FEE,
   Address,
   Keypair,
+  Account,
   nativeToScVal,
   scValToNative,
 } from "@stellar/stellar-sdk";
 import { signTransaction } from "@stellar/freighter-api";
+import { PasskeyKit } from "passkey-kit";
 import { formatearMXNe } from "../utils/formato.js";
 
 // ─── Configuración ────────────────────────────────────────────────────────────
@@ -44,6 +47,33 @@ const servidor = new rpc.Server(CONFIG.RPC_URL, { allowHttp: false });
 // Cuenta ficticia para simulaciones de lectura (no necesita existir en la red)
 const CUENTA_DUMMY = Keypair.random().publicKey();
 
+export const passkeyKit = new PasskeyKit({
+  rpcUrl: CONFIG.RPC_URL,
+  networkPassphrase: CONFIG.NETWORK_PASSPHRASE,
+  walletWasmHash: import.meta.env.VITE_PASSKEY_WASM_HASH,
+});
+
+// Enviar TX vía Launchtube (gas sponsor)
+async function enviarPorLaunchtube(txXdrBase64) {
+  console.log("Enviando TX a Launchtube para fee sponsorship...", txXdrBase64);
+  const token = import.meta.env.VITE_LAUNCHTUBE_JWT || localStorage.getItem("launchtube_jwt") || "";
+  const url = import.meta.env.VITE_LAUNCHTUBE_URL || "https://testnet.launchtube.xyz";
+  const res = await fetch(`${url.replace(/\/$/, "")}/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { "Authorization": `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify({ xdr: txXdrBase64 })
+  });
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Error en Launchtube: ${errorText}`);
+  }
+  const data = await res.json();
+  return { hash: data.hash || data.txHash || data.id };
+}
+
 // ─── Utilidades internas ──────────────────────────────────────────────────────
 
 function dirAScVal(direccion) {
@@ -56,11 +86,7 @@ async function simularLectura(metodo, args = []) {
   try {
     cuentaInfo = await servidor.getAccount(CUENTA_DUMMY);
   } catch {
-    cuentaInfo = {
-      accountId: () => CUENTA_DUMMY,
-      sequenceNumber: () => "0",
-      incrementSequenceNumber: () => {},
-    };
+    cuentaInfo = new Account(CUENTA_DUMMY, "0");
   }
 
   const tx = new TransactionBuilder(cuentaInfo, {
@@ -88,7 +114,14 @@ async function simularLectura(metodo, args = []) {
 
 async function construirTx(cuentaPublica, metodo, args = []) {
   const contrato = new Contract(CONFIG.CONTRACT_ID);
-  const cuentaInfo = await servidor.getAccount(cuentaPublica);
+  
+  let cuentaInfo;
+  try {
+    cuentaInfo = await servidor.getAccount(cuentaPublica);
+  } catch {
+    // Si la cuenta es un smart wallet y no está inicializada en red, simulamos
+    cuentaInfo = new Account(cuentaPublica, "0");
+  }
 
   const tx = new TransactionBuilder(cuentaInfo, {
     fee: "1000000",
@@ -102,44 +135,59 @@ async function construirTx(cuentaPublica, metodo, args = []) {
 }
 
 async function firmarYEnviar(txPreparada, cuentaPublica) {
-  const { signedTxXdr, error: errorFirma } = await signTransaction(
-    txPreparada.toXDR(),
-    { networkPassphrase: CONFIG.NETWORK_PASSPHRASE, address: cuentaPublica }
-  );
+  let envioHash;
 
-  if (errorFirma) {
-    throw new Error(`Freighter rechazó la firma: ${errorFirma?.message || JSON.stringify(errorFirma)}`);
-  }
-  if (!signedTxXdr) {
-    throw new Error("Freighter no devolvió una transacción firmada.");
-  }
+  // Si es un smart wallet (empieza por C) -> Firmamos con passkeyKit y enviamos por Launchtube
+  if (cuentaPublica.startsWith("C")) {
+    const txFirmada = await passkeyKit.sign(txPreparada);
+    try {
+      const res = await enviarPorLaunchtube(txFirmada.toXDR());
+      envioHash = res.hash;
+    } catch (err) {
+      throw new Error(`Launchtube rechazó la transacción: ${err.message}`);
+    }
+  } else {
+    // Es una cuenta normal (G...), usamos Freighter
+    const { signedTxXdr, error: errorFirma } = await signTransaction(
+      txPreparada.toXDR(),
+      { networkPassphrase: CONFIG.NETWORK_PASSPHRASE, address: cuentaPublica }
+    );
 
-  const txFirmada = TransactionBuilder.fromXDR(signedTxXdr, CONFIG.NETWORK_PASSPHRASE);
-  const envio = await servidor.sendTransaction(txFirmada);
+    if (errorFirma) {
+      throw new Error(`Freighter rechazó la firma: ${errorFirma?.message || JSON.stringify(errorFirma)}`);
+    }
+    if (!signedTxXdr) {
+      throw new Error("Freighter no devolvió una transacción firmada.");
+    }
 
-  if (envio.status === "ERROR") {
-    const motivo = envio.errorResult
-      ? envio.errorResult.toXDR("base64")
-      : "desconocido";
-    throw new Error(`La transacción fue rechazada por la red. Detalle: ${motivo}`);
-  }
+    const txFirmada = TransactionBuilder.fromXDR(signedTxXdr, CONFIG.NETWORK_PASSPHRASE);
+    const envio = await servidor.sendTransaction(txFirmada);
 
-  if (!envio.hash) {
-    throw new Error(`La red no aceptó la transacción (status: ${envio.status}). Intenta de nuevo.`);
+    if (envio.status === "ERROR") {
+      const motivo = envio.errorResult
+        ? envio.errorResult.toXDR("base64")
+        : "desconocido";
+      throw new Error(`La transacción fue rechazada por la red. Detalle: ${motivo}`);
+    }
+
+    if (!envio.hash) {
+      throw new Error(`La red no aceptó la transacción (status: ${envio.status}). Intenta de nuevo.`);
+    }
+    envioHash = envio.hash;
   }
 
   let intentos = 0;
   while (intentos < 20) {
     await new Promise((r) => setTimeout(r, 2000));
-    const estado = await servidor.getTransaction(envio.hash);
+    const estado = await servidor.getTransaction(envioHash);
     if (estado.status === rpc.Api.GetTransactionStatus.SUCCESS) return estado;
     if (estado.status === rpc.Api.GetTransactionStatus.FAILED) {
-      const xdrFallo = estado.resultXdr ? estado.resultXdr.toXDR("base64") : envio.hash;
+      const xdrFallo = estado.resultXdr ? estado.resultXdr.toXDR("base64") : envioHash;
       throw new Error(`La transacción falló en la red. XDR: ${xdrFallo}`);
     }
     intentos++;
   }
-  throw new Error(`Tiempo de espera agotado. Verifica la TX en el explorador: ${envio.hash}`);
+  throw new Error(`Tiempo de espera agotado. Verifica la TX en el explorador: ${envioHash}`);
 }
 
 // ─── Funciones de LECTURA ─────────────────────────────────────────────────────

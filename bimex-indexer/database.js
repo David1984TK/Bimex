@@ -76,4 +76,13 @@ export async function getLastIndexedLedger() {
   });
 }
 
+export async function insertAuditLog(audit) {
+  return conRetry(async () => {
+    const { error } = await supabase
+      .from('audit_log')
+      .upsert(audit, { onConflict: 'tx_hash', ignoreDuplicates: true });
+    if (error) throw error;
+  });
+}
+
 export default supabase;

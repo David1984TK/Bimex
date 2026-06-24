@@ -6,11 +6,17 @@
   "scripts": {
     "start": "node index.js",
     "api": "node api.js",
+ #147-Global-rate-limiting-by-IP-on-public-indexer-endpoints-FIX
     "test": "node --test"
+    
+    "reporte-mensual": "node jobs/reporteMensual.js",
+    "reporte-mensual:dry-run": "node jobs/reporteMensual.js --dry-run"
+ main
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^14.6.1",
     "@supabase/supabase-js": "^2.43.0",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "resend": "^4.8.0"
   }
 }
