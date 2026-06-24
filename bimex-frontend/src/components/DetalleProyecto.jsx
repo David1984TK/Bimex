@@ -22,6 +22,9 @@ import {
 import { aplicarMeta, crearMetaProyecto, DEFAULT_META } from "../utils/metaTags.js";
 import { calcProyeccion } from "../utils/rendimiento.js";
 
+const RAMP_URL = import.meta.env.VITE_ETHERFUSE_RAMP_URL || "https://app.etherfuse.com/ramp";
+const MIN_MXNE_THRESHOLD = BigInt(1_000_000_000); // 100 MXNe in Stroops
+
 const ESTADO_CONFIG = {
   EtapaInicial: { labelKey: "status.EtapaInicial", clase: "badge-muted" },
   EnProgreso:   { labelKey: "status.EnProgreso",   clase: "badge-teal" },
@@ -270,6 +273,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
 
   const cantidadNum    = Number(cantidad);
   const cantidadValida = cantidad !== "" && !isNaN(cantidadNum) && cantidadNum > 0;
+  const necesitaMXNe   = BigInt(balanceMXNe ?? 0) < MIN_MXNE_THRESHOLD;
   const superaBalance  = cantidadValida && balanceMXNe !== null && mxneAStroops(cantidadNum) > balanceMXNe;
   const errorCantidad  = !cantidadValida && cantidad !== ""
     ? t("detalle.errAmount")
@@ -639,6 +643,35 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                 {/* Forma de contribuir */}
                 {aceptaFondos && (
                   <>
+                    {necesitaMXNe && (
+                      <div className="mxne-ramp-card" role="region" aria-labelledby="mxne-ramp-title">
+                        <div className="mxne-ramp-card__eyebrow">{t("detalle.ramp.eyebrow")}</div>
+                        <h4 id="mxne-ramp-title" className="mxne-ramp-card__title">
+                          {t("detalle.ramp.title")}
+                        </h4>
+                        <p className="mxne-ramp-card__desc">
+                          {t("detalle.ramp.description")}
+                        </p>
+                        <ol className="mxne-ramp-card__steps" aria-label={t("detalle.ramp.stepsAria")}>
+                          <li>{t("detalle.ramp.stepKyc")}</li>
+                          <li>{t("detalle.ramp.stepSpei")}</li>
+                          <li>{t("detalle.ramp.stepWallet")}</li>
+                          <li>{t("detalle.ramp.stepBimex")}</li>
+                        </ol>
+                        <a
+                          className="btn btn-primary mxne-ramp-card__button"
+                          href={RAMP_URL}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {t("detalle.ramp.cta")}
+                        </a>
+                        <p className="mxne-ramp-card__note">
+                          {t("detalle.ramp.note")}
+                        </p>
+                      </div>
+                    )}
+
                     <div style={{ fontSize: "0.78rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", marginBottom: 8 }}>
                       {t("detalle.mode")}
                     </div>

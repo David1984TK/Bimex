@@ -101,6 +101,18 @@
     "calcTotal": "Retiras al finalizar",
     "confirmContribute": "Confirmar inversión",
     "safetyMsg": "Capital garantizado por contrato inteligente en Stellar.",
+    "ramp": {
+      "eyebrow": "Fondea con pesos por SPEI",
+      "title": "¿No tienes MXNe? Consíguelos aquí",
+      "description": "Usa el ramp de Etherfuse para convertir MXN a MXNe sin que Bimex toque tus pesos.",
+      "stepsAria": "Pasos para obtener MXNe con pesos vía SPEI",
+      "stepKyc": "Completa el KYC directamente con Etherfuse.",
+      "stepSpei": "Deposita MXN desde tu banco vía SPEI a la CLABE indicada.",
+      "stepWallet": "Etherfuse envía MXNe directamente a tu wallet Stellar.",
+      "stepBimex": "Regresa a Bimex y aporta MXNe al proyecto.",
+      "cta": "No tengo MXNe, obtener aquí ↗",
+      "note": "Banco → SPEI → MXNe → Bimex. KYC, SPEI y fiat quedan a cargo de Etherfuse."
+    },
     "myPosition": "Mi posición actual",
     "myCapital": "Capital aportado",
     "myYield": "Yield acumulado",

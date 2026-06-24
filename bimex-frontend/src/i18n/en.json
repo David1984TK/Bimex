@@ -101,6 +101,18 @@
     "calcTotal": "You withdraw at end",
     "confirmContribute": "Confirm investment",
     "safetyMsg": "Capital guaranteed by smart contract on Stellar.",
+    "ramp": {
+      "eyebrow": "Fund with pesos via SPEI",
+      "title": "Don’t have MXNe? Get it here",
+      "description": "Use the Etherfuse ramp to convert MXN to MXNe without Bimex touching your pesos.",
+      "stepsAria": "Steps to get MXNe with pesos via SPEI",
+      "stepKyc": "Complete KYC directly with Etherfuse.",
+      "stepSpei": "Deposit MXN from your bank via SPEI to the provided CLABE.",
+      "stepWallet": "Etherfuse sends MXNe directly to your Stellar wallet.",
+      "stepBimex": "Return to Bimex and contribute MXNe to the project.",
+      "cta": "I don’t have MXNe, get it here ↗",
+      "note": "Bank → SPEI → MXNe → Bimex. KYC, SPEI and fiat are handled by Etherfuse."
+    },
     "myPosition": "My current position",
     "myCapital": "Capital contributed",
     "myYield": "Accumulated yield",
