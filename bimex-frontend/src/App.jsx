@@ -110,8 +110,8 @@ function LogoSVG({ size = 36, light = false }) {
 // ── Datos estáticos de landing ──────────────────────────────────────────────
 const FEATURES = [
   {
-    titulo: "Tu capital siempre es recuperable",
-    desc: "Tu MXNe entra al smart contract y permanece ahí, protegido por código. Cuando el proyecto concluye, recuperas exactamente lo que aportaste.",
+    titulo: "Tu dinero no está bloqueado — puedes retirarlo cuando quieras",
+    desc: "Tu MXNe entra al smart contract y permanece disponible para ti. Puedes retirar el 100% de tu dinero en cualquier momento que lo desees, sin plazos forzosos ni penalizaciones.",
     color: "#1E3A5F", bg: "rgba(30,58,95,0.05)", border: "rgba(30,58,95,0.12)",
   },
   {
@@ -721,7 +721,7 @@ function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTe
           <div>
             <div style={st.heroBadge}>
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--green)", display: "inline-block" }} />
-              Capital siempre recuperable
+              Tu dinero no está bloqueado — puedes retirarlo cuando quieras
             </div>
             <h1 id="hero-titulo" style={st.heroH1}>
               Invierte. Impacta.<br />

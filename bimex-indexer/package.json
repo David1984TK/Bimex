@@ -5,11 +5,14 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "api": "node api.js"
+    "api": "node api.js",
+    "reporte-mensual": "node jobs/reporteMensual.js",
+    "reporte-mensual:dry-run": "node jobs/reporteMensual.js --dry-run"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^14.6.1",
     "@supabase/supabase-js": "^2.43.0",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "resend": "^4.8.0"
   }
 }

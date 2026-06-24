@@ -4,6 +4,20 @@ import { Contract, rpc, TransactionBuilder, Networks, Address, Keypair, nativeTo
 import supabase from './database.js';
 import { agregarCliente, eliminarCliente } from './sse.js';
 
+const ALLOWED_ORIGINS = new Set([
+  'https://bimex.vercel.app',
+  'https://bimex.mx',
+  process.env.NODE_ENV === 'development' && 'http://localhost:5173'
+].filter(Boolean));
+
+function setCorsHeaders(req, res) {
+  const origin = req.headers.origin;
+  if (ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
+}
+
 const PORT = parseInt(process.env.API_PORT ?? '3002', 10);
 
 // ─── Rate limiter: 3 requests per wallet per hour ────────────────────────
@@ -23,9 +37,10 @@ function checkRateLimit(wallet) {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
-function json(res, status, data) {
+function json(req, res, status, data) {
   const body = JSON.stringify(data);
-  res.writeHead(status, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+  setCorsHeaders(req, res);
+  res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(body);
 }
 
@@ -91,45 +106,45 @@ async function route(req, res) {
   if (req.method === 'POST' && parts[0] === 'faucet' && !parts[1]) {
     let body;
     try { body = await readBody(req); }
-    catch (e) { return json(res, 400, { error: e.message }); }
+    catch (e) { return json(req, res, 400, { error: e.message }); }
 
     const { destino } = body;
-    if (!destino) return json(res, 400, { error: 'Falta "destino" en el cuerpo' });
+    if (!destino) return json(req, res, 400, { error: 'Falta "destino" en el cuerpo' });
 
     if (!checkRateLimit(destino))
-      return json(res, 429, { error: 'Límite de 3 solicitudes por hora por wallet' });
+      return json(req, res, 429, { error: 'Límite de 3 solicitudes por hora por wallet' });
 
     try {
       await mintearMXNe(destino);
-      return json(res, 200, { exito: true, cantidad: 100 });
+      return json(req, res, 200, { exito: true, cantidad: 100 });
     } catch (e) {
-      return json(res, 500, { error: e.message });
+      return json(req, res, 500, { error: e.message });
     }
   }
 
-  if (req.method !== 'GET') return json(res, 405, { error: 'Method not allowed' });
+  if (req.method !== 'GET') return json(req, res, 405, { error: 'Method not allowed' });
 
   // GET /proyectos[?estado=X]
   if (parts[0] === 'proyectos' && !parts[1]) {
     let q = supabase.from('proyectos').select('*').order('id');
     if (url.searchParams.has('estado')) q = q.eq('estado', url.searchParams.get('estado'));
     const { data, error } = await q;
-    return error ? json(res, 500, { error: error.message }) : json(res, 200, data);
+    return error ? json(req, res, 500, { error: error.message }) : json(req, res, 200, data);
   }
 
   // GET /proyectos/:id
   if (parts[0] === 'proyectos' && parts[1] && !parts[2]) {
     const { data, error } = await supabase
       .from('proyectos').select('*').eq('id', parts[1]).single();
-    if (error) return json(res, error.code === 'PGRST116' ? 404 : 500, { error: error.message });
-    return json(res, 200, data);
+    if (error) return json(req, res, error.code === 'PGRST116' ? 404 : 500, { error: error.message });
+    return json(req, res, 200, data);
   }
 
   // GET /proyectos/:id/aportaciones
   if (parts[0] === 'proyectos' && parts[1] && parts[2] === 'aportaciones') {
     const { data, error } = await supabase
       .from('aportaciones').select('*').eq('proyecto_id', parts[1]).order('timestamp');
-    return error ? json(res, 500, { error: error.message }) : json(res, 200, data);
+    return error ? json(req, res, 500, { error: error.message }) : json(req, res, 200, data);
   }
 
   // GET /backers/:address/aportaciones
@@ -137,7 +152,7 @@ async function route(req, res) {
     const { data, error } = await supabase
       .from('aportaciones').select('*, proyectos(nombre,estado)')
       .eq('contribuidor', parts[1]).order('timestamp');
-    return error ? json(res, 500, { error: error.message }) : json(res, 200, data);
+    return error ? json(req, res, 500, { error: error.message }) : json(req, res, 200, data);
   }
 
   // GET /eventos[?tipo=X&limit=N]
@@ -146,7 +161,7 @@ async function route(req, res) {
     let q = supabase.from('eventos').select('*').order('ledger', { ascending: false }).limit(limit);
     if (url.searchParams.has('tipo')) q = q.eq('tipo', url.searchParams.get('tipo'));
     const { data, error } = await q;
-    return error ? json(res, 500, { error: error.message }) : json(res, 200, data);
+    return error ? json(req, res, 500, { error: error.message }) : json(req, res, 200, data);
   }
 
   // GET /stats
@@ -155,7 +170,7 @@ async function route(req, res) {
       supabase.from('proyectos').select('estado,total_aportado,yield_entregado,meta'),
       supabase.from('aportaciones').select('monto,retirado'),
     ]);
-    if (proyectos.error) return json(res, 500, { error: proyectos.error.message });
+    if (proyectos.error) return json(req, res, 500, { error: proyectos.error.message });
 
     const ps = proyectos.data;
     const stats = {
@@ -167,16 +182,54 @@ async function route(req, res) {
                            .filter(a => !a.retirado)
                            .reduce((s, a) => s + Number(a.monto ?? 0), 0),
     };
-    return json(res, 200, stats);
+    return json(req, res, 200, stats);
+  }
+
+  // GET /audit[?action=X&limit=N&offset=M&format=csv]
+  if (parts[0] === 'audit' && !parts[1]) {
+    const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50', 10), 1000);
+    const offset = parseInt(url.searchParams.get('offset') ?? '0', 10);
+    let q = supabase.from('audit_log').select('*', { count: 'exact' }).order('block_time', { ascending: false }).range(offset, offset + limit - 1);
+    
+    if (url.searchParams.has('action') && url.searchParams.get('action') !== 'Todos') {
+      q = q.eq('action', url.searchParams.get('action'));
+    }
+    if (url.searchParams.has('actor') && url.searchParams.get('actor').trim()) {
+      q = q.eq('actor_address', url.searchParams.get('actor').trim());
+    }
+    if (url.searchParams.has('start_date') && url.searchParams.get('start_date')) {
+      q = q.gte('block_time', url.searchParams.get('start_date'));
+    }
+    if (url.searchParams.has('end_date') && url.searchParams.get('end_date')) {
+      q = q.lte('block_time', url.searchParams.get('end_date'));
+    }
+    
+    const { data, count, error } = await q;
+    if (error) return json(res, 500, { error: error.message });
+
+    if (url.searchParams.get('format') === 'csv') {
+      setCorsHeaders(req, res);
+      res.writeHead(200, {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': 'attachment; filename="audit_log.csv"',
+      });
+      res.write('Action,Actor,Target,TxHash,BlockTime,Metadata\n');
+      data.forEach(row => {
+        const metadataStr = JSON.stringify(row.metadata || {}).replace(/"/g, '""');
+        res.write(`${row.action},${row.actor_address},${row.target},${row.tx_hash},${row.block_time},"${metadataStr}"\n`);
+      });
+      return res.end();
+    }
+    return json(res, 200, { data, count });
   }
 
   // GET /sse — Server-Sent Events stream
   if (parts[0] === 'sse' && !parts[1]) {
+    setCorsHeaders(req, res);
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': process.env.FRONTEND_URL || '*',
     });
     res.write(':ok\n\n');
     agregarCliente(res);
@@ -184,13 +237,13 @@ async function route(req, res) {
     return;
   }
 
-  json(res, 404, { error: 'Not found' });
+  json(req, res, 404, { error: 'Not found' });
 }
 
 const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
+    setCorsHeaders(req, res);
     res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     });
@@ -199,7 +252,7 @@ const server = http.createServer(async (req, res) => {
   try {
     await route(req, res);
   } catch (err) {
-    json(res, 500, { error: err.message });
+    json(req, res, 500, { error: err.message });
   }
 });
 

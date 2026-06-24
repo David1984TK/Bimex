@@ -7,6 +7,7 @@ import usePaginacion from "../hooks/usePaginacion";
 import usePaginacionLocal from "../hooks/usePaginacionLocal";
 import Paginacion from "./Paginacion";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
 const supabase = supabaseUrl && supabaseAnonKey && !supabaseUrl.includes("placeholder.supabase.co") && supabaseAnonKey !== "placeholder"
@@ -45,8 +46,13 @@ export default function Transparencia({ onVolver }) {
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState(null);
   const [filtro, setFiltro] = useState("Todos");
+  const [auditFiltro, setAuditFiltro] = useState("Todos");
+  const [auditActor, setAuditActor] = useState("");
+  const [auditStartDate, setAuditStartDate] = useState("");
+  const [auditEndDate, setAuditEndDate] = useState("");
   const [totalYield, setTotalYield] = useState(BigInt(0));
   const contribTopRef = useRef(null);
+  const auditTopRef = useRef(null);
 
   const FILTROS = [
     { key: "Todos",        label: t("filters.all")        },
@@ -91,6 +97,20 @@ export default function Transparencia({ onVolver }) {
         .range(desde, hasta);
     },
     [/* no extra deps */ filtro]
+  );
+
+  const auditPaginacion = usePaginacion(
+    async (desde, hasta) => {
+      const params = new URLSearchParams({ limit: hasta - desde + 1, offset: desde });
+      if (auditFiltro !== "Todos") params.set("action", auditFiltro);
+      if (auditActor.trim()) params.set("actor", auditActor.trim());
+      if (auditStartDate) params.set("start_date", auditStartDate);
+      if (auditEndDate) params.set("end_date", auditEndDate);
+      const res = await fetch(`${API_URL}/audit?${params}`);
+      if (!res.ok) throw new Error("Error fetching audit");
+      return res.json(); // { data, count }
+    },
+    [auditFiltro, auditActor, auditStartDate, auditEndDate]
   );
 
   const totalBloqueado = proyectos.reduce((s, p) => {
@@ -338,6 +358,111 @@ export default function Transparencia({ onVolver }) {
               </table>
             </div>
             <Paginacion pagina={contribPaginacion.pagina} totalPaginas={contribPaginacion.totalPaginas} onChange={(p) => { contribPaginacion.setPagina(p); contribTopRef.current?.scrollIntoView({ behavior: "auto", block: "start" }); }} />
+          </div>
+
+          {/* Paginated Audit Trail table */}
+          <div style={{ marginTop: 40 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 12 }}>
+              <div>
+                <h2 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: 8 }}>{t("transp.auditTitle")}</h2>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                  {["Todos", "aprobar", "rechazar", "pausar", "reanudar", "upgrade"].map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setAuditFiltro(f)}
+                      style={{
+                        padding: "4px 10px", borderRadius: "var(--radius-sm)",
+                        fontFamily: "Inter, sans-serif", fontWeight: 500, fontSize: "0.75rem",
+                        cursor: "pointer", transition: "all 0.15s",
+                        background: auditFiltro === f ? "var(--navy)" : "var(--card)",
+                        color: auditFiltro === f ? "#fff" : "var(--text2)",
+                        border: `1px solid ${auditFiltro === f ? "var(--navy)" : "var(--border2)"}`,
+                      }}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <input type="text" placeholder="Actor address..." value={auditActor} onChange={e => setAuditActor(e.target.value)} style={{ padding: "4px 8px", fontSize: "0.75rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", width: 150 }} />
+                  <input type="date" value={auditStartDate} onChange={e => setAuditStartDate(e.target.value)} style={{ padding: "4px 8px", fontSize: "0.75rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)" }} />
+                  <input type="date" value={auditEndDate} onChange={e => setAuditEndDate(e.target.value)} style={{ padding: "4px 8px", fontSize: "0.75rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)" }} />
+                </div>
+              </div>
+              <a
+                href={`${API_URL}/audit?format=csv${auditFiltro !== "Todos" ? `&action=${auditFiltro}` : ""}${auditActor ? `&actor=${auditActor}` : ""}${auditStartDate ? `&start_date=${auditStartDate}` : ""}${auditEndDate ? `&end_date=${auditEndDate}` : ""}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  background: "var(--card)", border: "1px solid var(--border)",
+                  color: "var(--text)", padding: "6px 12px", borderRadius: "var(--radius-sm)",
+                  fontSize: "0.82rem", fontWeight: 600, textDecoration: "none",
+                  display: "flex", alignItems: "center", gap: 6,
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                {t("transp.auditExportCsv")}
+              </a>
+            </div>
+            
+            <div ref={auditTopRef} />
+            <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: "8px" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left", padding: 12 }}>{t("transp.auditTime")}</th>
+                    <th style={{ textAlign: "left", padding: 12 }}>{t("transp.auditAction")}</th>
+                    <th style={{ textAlign: "left", padding: 12 }}>{t("transp.auditActor")}</th>
+                    <th style={{ textAlign: "left", padding: 12 }}>{t("transp.auditTarget")}</th>
+                    <th style={{ textAlign: "center", padding: 12 }}>{t("transp.auditHash")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditPaginacion.cargando ? (
+                    <tr><td colSpan={5}><div style={{ padding: 12 }}><div className="skeleton" style={{ height: 140 }} /></div></td></tr>
+                  ) : auditPaginacion.datos.length === 0 ? (
+                    <tr><td colSpan={5} style={{ padding: 24, textAlign: "center", color: "var(--muted)" }}>{t("transp.auditEmpty")}</td></tr>
+                  ) : (
+                    auditPaginacion.datos.map((r) => (
+                      <tr key={r.id}>
+                        <td style={{ padding: 12 }}>{r.block_time ? new Date(r.block_time).toLocaleString() : "—"}</td>
+                        <td style={{ padding: 12 }}>
+                          <span style={{ background: "var(--bg)", padding: "2px 6px", borderRadius: "4px", fontSize: "0.8rem", border: "1px solid var(--border2)" }}>
+                            {r.action}
+                          </span>
+                        </td>
+                        <td style={{ padding: 12, fontFamily: "monospace" }}>
+                          <a
+                            href={urlExplorer("account", r.actor_address)}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ color: "var(--navy)", textDecoration: "none", fontWeight: 600, whiteSpace: "nowrap" }}
+                          >
+                            {r.actor_address ? `${r.actor_address.slice(0, 5)}…${r.actor_address.slice(-4)}` : "—"} ↗
+                          </a>
+                        </td>
+                        <td style={{ padding: 12 }}>{r.target}</td>
+                        <td style={{ padding: 12, textAlign: "center", fontFamily: "monospace" }}>
+                          {r.tx_hash ? (
+                            <a
+                              href={urlExplorer("tx", r.tx_hash)}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ color: "var(--navy)", textDecoration: "none", fontWeight: 600, whiteSpace: "nowrap" }}
+                            >
+                              {r.tx_hash.slice(0, 4)}…{r.tx_hash.slice(-4)} ↗
+                            </a>
+                          ) : "—"}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <Paginacion pagina={auditPaginacion.pagina} totalPaginas={auditPaginacion.totalPaginas} onChange={(p) => { auditPaginacion.setPagina(p); auditTopRef.current?.scrollIntoView({ behavior: "auto", block: "start" }); }} />
           </div>
         </>
       )}
