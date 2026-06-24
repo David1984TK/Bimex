@@ -57,6 +57,10 @@ stellar contract build
 | [Pilot project guide](docs/guia-proyecto-piloto.md) | First real-world project on Mainnet |
 | [FAQ (español)](docs/faq-es.md) | Preguntas frecuentes |
 | [FAQ (English)](docs/faq-en.md) | Frequently asked questions |
+| [Security policy](SECURITY.md) | Bug bounty program and responsible disclosure |
+| [Threat model](docs/THREAT-MODEL.md) | Assets, threat actors, and attack surface |
+| [Contract invariants](docs/CONTRACT-INVARIANTS.md) | Properties the smart contract must never violate |
+| [Bug bounty Tier 2](docs/SECURITY-BOUNTY-TIER2.md) | Platform decision and budget for the post-launch program |
 
 ## Contract addresses (Testnet)
 
