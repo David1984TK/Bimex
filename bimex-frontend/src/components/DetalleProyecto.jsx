@@ -431,7 +431,12 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                 </span>
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                <h1 style={{ margin: 0 }}>{proyecto.nombre}</h1>
+                <div style={{ minWidth: 0 }}>
+                  <h1 style={{ margin: 0 }}>{proyecto.nombre}</h1>
+                  <p style={{ margin: "8px 0 0", color: "var(--muted)", fontSize: "0.95rem" }}>
+                    🔥 {stroopsAMXNe(proyecto.aportado ?? 0)} recaudados · faltan {faltanteMXNe}
+                  </p>
+                </div>
                 <button
                   onClick={() => setMostrarQR(true)}
                   className="btn btn-outline btn-sm"
