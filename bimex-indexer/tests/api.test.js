@@ -12,17 +12,70 @@ process.env.API_PORT = '3009';
 // ─── Mock @supabase/supabase-js (prevents real createClient from throwing) ─
 vi.mock('@supabase/supabase-js', () => {
   const _mockSub = {
-    from: vi.fn().mockReturnThis(),
+    _activeTable: null,
+    _isInsert: false,
+    _isDelete: false,
+    _walletFilter: null,
+    _grantedAtFilter: null,
+    _data: null,
+    _error: null,
+    _rateLimitRecords: [],
+
+    from: vi.fn().mockImplementation(function(table) {
+      this._activeTable = table;
+      this._isInsert = false;
+      this._isDelete = false;
+      this._walletFilter = null;
+      this._grantedAtFilter = null;
+      return this;
+    }),
     rpc:    vi.fn(),
     select: vi.fn().mockReturnThis(),
     order:  vi.fn().mockReturnThis(),
     limit:  vi.fn().mockReturnThis(),
-    eq:     vi.fn().mockReturnThis(),
+    eq:     vi.fn().mockImplementation(function(col, val) {
+      if (col === 'wallet') {
+        this._walletFilter = val;
+      } else if (col === 'granted_at') {
+        this._grantedAtFilter = val;
+      }
+      return this;
+    }),
+    gte:    vi.fn().mockReturnThis(),
+    lte:    vi.fn().mockReturnThis(),
+    range:  vi.fn().mockReturnThis(),
     single: vi.fn().mockReturnThis(),
-    then: vi.fn().mockImplementation((resolve) =>
-      Promise.resolve({ data: _mockSub._data, error: _mockSub._error }).then(resolve)),
-    _data:  null,
-    _error: null,
+    insert: vi.fn().mockImplementation(function(row) {
+      this._isInsert = true;
+      if (this._activeTable === 'faucet_rate_limit') {
+        this._rateLimitRecords.push({
+          wallet: row.wallet,
+          granted_at: new Date().toISOString(),
+        });
+      }
+      return this;
+    }),
+    delete: vi.fn().mockImplementation(function() {
+      this._isDelete = true;
+      return this;
+    }),
+    then: vi.fn().mockImplementation(function(resolve) {
+      if (this._activeTable === 'faucet_rate_limit') {
+        if (this._isDelete) {
+          const idx = this._rateLimitRecords.findIndex(r => r.wallet === this._walletFilter && r.granted_at === this._grantedAtFilter);
+          if (idx !== -1) {
+            this._rateLimitRecords.splice(idx, 1);
+          }
+          return Promise.resolve({ error: null }).then(resolve);
+        }
+        if (!this._isInsert) {
+          // It's a select
+          const filtered = this._rateLimitRecords.filter(r => r.wallet === this._walletFilter);
+          return Promise.resolve({ data: filtered, error: null }).then(resolve);
+        }
+      }
+      return Promise.resolve({ data: this._data, error: this._error }).then(resolve);
+    }),
   };
   return { createClient: () => _mockSub };
 });
@@ -92,11 +145,17 @@ async function req(options, body = null) {
 describe('api.js REST Endpoints', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // reset thenable state
+    mockSupabase.from.mockImplementation(function(table) {
+      this._activeTable = table;
+      this._isInsert = false;
+      this._isDelete = false;
+      this._walletFilter = null;
+      this._grantedAtFilter = null;
+      return this;
+    });
     mockSupabase._data  = null;
     mockSupabase._error = null;
-    // reset from() to return this by default
-    mockSupabase.from.mockReturnThis();
+    mockSupabase._rateLimitRecords.length = 0;
   });
 
   // ── misc ────────────────────────────────────────────────────────────────
