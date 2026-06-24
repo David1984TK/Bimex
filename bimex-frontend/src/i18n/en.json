@@ -18,11 +18,11 @@
   },
   "lista": {
     "title": "Projects",
-    "subtitle": "Support real-impact projects. Your capital is always recoverable.",
+    "subtitle": "Support real-impact projects. Your money isn't locked up — you can withdraw it whenever you want.",
     "reload": "Reload",
     "create": "+ Create project",
     "howTitle": "How does it work?",
-    "howDesc": "Your MXNe enters the contract — not our account, the code. The yield funds the project and you recover your capital in full when the project ends.",
+    "howDesc": "Your MXNe enters the contract — not our account, the code. Your money isn't locked up — you can withdraw it whenever you want; the yield generated funds social projects.",
     "statTotal": "Total",
     "statProgress": "In progress",
     "statReleased": "Released",
@@ -104,6 +104,9 @@
     "myPosition": "My current position",
     "myCapital": "Capital contributed",
     "myYield": "Accumulated yield",
+    "liquidityGuarantee": "Your money isn't locked up — you can withdraw it whenever you want",
+    "canWithdrawStatus": "You can withdraw {{amount}} MXNe now",
+    "earlyWithdrawTransparency": "If you withdraw today, the project will stop receiving ~${{monthlyLoss}} MXNe/month from your contribution.",
     "locked": "Capital locked — available when project is released",
     "withdraw": "Withdraw capital",
     "youWillReceive": "You will receive in your wallet",
@@ -301,7 +304,7 @@
     "projectGetsSub": "{{pct}} annual yield",
     "youRecover": "You recover at close",
     "youRecoverSub": "Includes +${{amount}} yield ({{pct}} annual)",
-    "disclaimer": "Illustrative calculation based on the target yield distribution (CETES via Etherfuse + Stellar AMM). Rates are variable; your contributed capital is always 100% recoverable."
+    "disclaimer": "Illustrative calculation based on target yield distribution (CETES via Etherfuse + Stellar AMM). Rates are variable. Your money isn't locked up — you can withdraw your capital in full whenever you want."
   },
 
   "pagination": {

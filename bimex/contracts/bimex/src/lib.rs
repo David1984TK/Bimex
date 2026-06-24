@@ -464,10 +464,12 @@ impl BimexContrato {
              proyecto.estado == EstadoProyecto::EnProgreso);
 
         assert!(
-            proyecto.estado == EstadoProyecto::Liberado  ||
-            proyecto.estado == EstadoProyecto::Abandonado ||
+            proyecto.estado == EstadoProyecto::EtapaInicial ||
+            proyecto.estado == EstadoProyecto::EnProgreso   ||
+            proyecto.estado == EstadoProyecto::Liberado     ||
+            proyecto.estado == EstadoProyecto::Abandonado   ||
             plazo_vencido,
-            "Solo puedes retirar cuando el proyecto este liberado, abandonado o haya vencido el plazo"
+            "Solo puedes retirar cuando el proyecto este activo, liberado, abandonado o haya vencido el plazo"
         );
 
         let aportacion: Aportacion = env
@@ -521,6 +523,7 @@ impl BimexContrato {
     /// `retirar_principal` en ese caso) ni si el proyecto ya está Liberado
     /// o Abandonado.
     pub fn retiro_anticipado(env: Env, backer: Address, id_proyecto: u32) -> i128 {
+        verificar_no_pausado(&env);
         // AUTH FIRST
         backer.require_auth();
 
@@ -564,6 +567,12 @@ impl BimexContrato {
         }
 
         env.storage().persistent().set(&Clave::Proyecto(id_proyecto), &proyecto);
+
+        #[allow(deprecated)]
+        env.events().publish(
+            (symbol_short!("retiro"), backer.clone()),
+            (id_proyecto, monto, ahora),
+        );
 
         // INTERACTION last — devolver solo capital
         let token_mxne: Address = env.storage().instance().get(&Clave::TokenMXNe).unwrap();

@@ -18,11 +18,11 @@
   },
   "lista": {
     "title": "Proyectos",
-    "subtitle": "Apoya proyectos de impacto real. Tu capital siempre es recuperable.",
+    "subtitle": "Apoya proyectos de impacto real. Tu dinero no está bloqueado — puedes retirarlo cuando quieras.",
     "reload": "Recargar",
     "create": "+ Crear proyecto",
     "howTitle": "¿Cómo funciona?",
-    "howDesc": "Tu MXNe entra al contrato — no a nuestra cuenta, al código. El yield financia el proyecto y tu capital lo recuperas íntegro al finalizar el proyecto.",
+    "howDesc": "Tu MXNe entra al contrato — no a nuestra cuenta, al código. Puedes retirar tu dinero cuando quieras sin plazos forzosos; el rendimiento generado financia proyectos sociales.",
     "statTotal": "Total",
     "statProgress": "En progreso",
     "statReleased": "Liberados",
@@ -104,6 +104,9 @@
     "myPosition": "Mi posición actual",
     "myCapital": "Capital aportado",
     "myYield": "Yield acumulado",
+    "liquidityGuarantee": "Tu dinero no está bloqueado — puedes retirarlo cuando quieras",
+    "canWithdrawStatus": "Puedes retirar {{amount}} MXNe ahora",
+    "earlyWithdrawTransparency": "Si retiras hoy, el proyecto dejará de recibir ~${{monthlyLoss}} MXNe/mes provenientes de tu aportación.",
     "locked": "Capital bloqueado — disponible al liberar el proyecto",
     "withdraw": "Retirar capital",
     "youWillReceive": "Recibirás en tu wallet",
@@ -301,7 +304,7 @@
     "projectGetsSub": "Rendimiento del {{pct}} anual",
     "youRecover": "Recuperas al cierre",
     "youRecoverSub": "Incluye +${{amount}} de rendimiento ({{pct}} anual)",
-    "disclaimer": "Cálculo ilustrativo basado en la distribución objetivo del rendimiento (CETES vía Etherfuse + AMM Stellar). Las tasas son variables; tu capital aportado siempre es 100% recuperable."
+    "disclaimer": "Cálculo ilustrativo basado en la distribución objetivo del rendimiento (CETES vía Etherfuse + AMM Stellar). Las tasas son variables. Tu dinero no está bloqueado — puedes retirar tu capital íntegro cuando lo desees."
   },
 
   "pagination": {

@@ -20,7 +20,15 @@ import {
   CONFIG,
 } from "../stellar/contrato";
 import { aplicarMeta, crearMetaProyecto, DEFAULT_META } from "../utils/metaTags.js";
-import { calcProyeccion } from "../utils/rendimiento.js";
+import { calcProyeccion, TASAS } from "../utils/rendimiento.js";
+
+function calcMonthlyProjectLoss(aportacionStroops, modo = "inversor") {
+  const mxne = Number(stroopsAMXNe(aportacionStroops)) || 0;
+  const modoKey = String(modo ?? "inversor").toLowerCase();
+  const tasa = (TASAS[modoKey] ?? TASAS.inversor).proyecto;
+  const perdidaMensual = (mxne * tasa) / 12;
+  return perdidaMensual.toFixed(2);
+}
 
 const ESTADO_CONFIG = {
   EtapaInicial: { labelKey: "status.EtapaInicial", clase: "badge-muted" },
@@ -371,6 +379,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
         onToast?.(t("detalle.toastWithdrawn", { amount: stroopsAMXNe(miAportacion) }));
         setMiAportacion(BigInt(0));
         setMiYield(BigInt(0));
+        setVistaRetirar(false);
         await refrescar();
       });
     } catch (err) {
@@ -725,54 +734,39 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                 )}
 
                 {/* Capital bloqueado o retiro anticipado disponible */}
-                {miAportacion > BigInt(0) && (estado === "EtapaInicial" || estado === "EnProgreso") && (
-                  plazoVencido ? (
-                    <div className="detail-banner detail-banner--amber" style={{ marginTop: 8 }}>
+                {miAportacion > BigInt(0) && (
+                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px dashed var(--border)" }}>
+                    <div className="detail-banner detail-banner--green" style={{ background: "rgba(22,163,74,0.08)", color: "var(--green)", border: "1px solid rgba(22,163,74,0.22)", marginBottom: 10 }}>
                       <IconShield />
-                      <span>{t("detalle.expiredBanner")}</span>
+                      <span>{t("detalle.liquidityGuarantee", "Tu dinero no está bloqueado — puedes retirarlo cuando quieras")}</span>
                     </div>
-                  ) : (
-                    <>
-                      <div className="locked-notice">
-                        <IconShield />
-                        <span>{t("detalle.locked")}</span>
-                      </div>
-                      <button
-                        className="btn btn-ghost"
-                        style={{ width: "100%", justifyContent: "center", marginTop: 8, fontSize: "0.82rem", color: "var(--muted)" }}
-                        onClick={manejarRetiroAnticipado}
-                        disabled={cargando || !direccion}
-                        title={t("detalle.earlyWithdrawTitle")}
-                      >
-                        {cargando ? t("detalle.processing") : t("detalle.earlyWithdraw")}
-                      </button>
-                      <p style={{ fontSize: "0.72rem", color: "var(--muted)", textAlign: "center", marginTop: 4 }}>
-                        {t("detalle.earlyWithdrawNote")}
-                      </p>
-                    </>
-                  )
-                )}
 
-                {/* Retirar capital */}
-                {miAportacion > BigInt(0) && (estado === "Liberado" || estado === "Abandonado") && (
-                  <>
+                    <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--navy)", marginBottom: 8, textAlign: "center" }}>
+                      {t("detalle.canWithdrawStatus", "Puedes retirar {{amount}} MXNe ahora", { amount: stroopsAMXNe(miAportacion) })}
+                    </div>
+
                     {!vistaRetirar ? (
                       <button
                         className="btn btn-amber"
-                        style={{ width: "100%", justifyContent: "center", marginTop: aceptaFondos ? 0 : 4 }}
+                        style={{ width: "100%", justifyContent: "center" }}
                         onClick={() => setVistaRetirar(true)}
                         disabled={cargando || !direccion}
                       >
-                        {t("detalle.withdraw")}
+                        {t("detalle.withdraw", "Retirar capital")}
                       </button>
                     ) : (
                       <div className="withdraw-confirm">
                         <div style={{ textAlign: "center", marginBottom: 14 }}>
                           <div style={{ fontSize: "0.78rem", color: "var(--muted)", marginBottom: 4 }}>{t("detalle.youWillReceive")}</div>
                           <div style={{ fontFamily: "monospace", fontSize: "1.5rem", fontWeight: 700, color: "var(--navy)" }}>
-                            {stroopsAMXNe(miAportacion)}
+                            {stroopsAMXNe(miAportacion)} MXNe
                           </div>
                           <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: 4 }}>{t("detalle.exactAmount")}</div>
+                          {(estado === "EtapaInicial" || estado === "EnProgreso") && !plazoVencido && (
+                            <div style={{ fontSize: "0.75rem", color: "var(--amber, #D97706)", background: "rgba(217,119,6,0.1)", padding: "8px 10px", borderRadius: 6, marginTop: 8, lineHeight: 1.4, textAlign: "left" }}>
+                              {t("detalle.earlyWithdrawTransparency", "Si retiras hoy, el proyecto dejará de recibir ~${{monthlyLoss}} MXNe/mes provenientes de tu aportación.", { monthlyLoss: calcMonthlyProjectLoss(miAportacion, proyecto.modo) })}
+                            </div>
+                          )}
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
                           <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setVistaRetirar(false)}>
@@ -781,7 +775,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                           <button
                             className="btn btn-amber"
                             style={{ flex: 2, justifyContent: "center" }}
-                            onClick={manejarRetirar}
+                            onClick={estado === "EtapaInicial" || estado === "EnProgreso" ? manejarRetiroAnticipado : manejarRetirar}
                             disabled={cargando || !direccion}
                           >
                             {cargando ? t("detalle.processing") : t("detalle.confirmWithdraw")}
@@ -789,7 +783,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                         </div>
                       </div>
                     )}
-                  </>
+                  </div>
                 )}
 
                 {/* Reclamar yield (dueño, solo cuando proyecto liberado) */}
