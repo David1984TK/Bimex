@@ -519,9 +519,8 @@ VITE_RPC_URL
 VITE_ADMIN_ADDRESS
   Dirección pública (G...) del administrador. Controla acceso a AdminPanel.
 
-VITE_FAUCET_SECRET  (opcional, solo desarrollo)
-  Secret key del faucet de MXNe para testing.
-  NUNCA exponer en producción ni commitear.
+FAUCET_SECRET (backend, bimex-indexer/.env.example)
+  Secret key del faucet de MXNe para testing. Solo existe en el backend (NUNCA VITE_FAUCET_SECRET).
 
 ================================================================================
 10. VALIDACIONES Y MANEJO DE ERRORES
