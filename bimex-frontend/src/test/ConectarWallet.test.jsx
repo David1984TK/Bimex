@@ -41,7 +41,7 @@ describe("ConectarWallet", () => {
   it("muestra el botón de conexión cuando no hay wallet conectada", () => {
     render(<ConectarWallet autoConectar={false} />);
 
-    expect(screen.getByRole("button", { name: "Conectar con Freighter" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Freighter" })).toBeInTheDocument();
   });
 
   it("muestra la dirección truncada cuando ya existe una sesión autorizada", async () => {
@@ -67,7 +67,7 @@ describe("ConectarWallet", () => {
 
     render(<ConectarWallet autoConectar={false} onConectado={onConectado} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Conectar con Freighter" }));
+    await userEvent.click(screen.getByRole("button", { name: "Freighter" }));
 
     await waitFor(() => {
       expect(onConectado).toHaveBeenCalledWith(address);

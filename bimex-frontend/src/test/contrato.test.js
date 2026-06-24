@@ -29,6 +29,10 @@ vi.mock('@stellar/freighter-api', () => ({
   setAllowed: vi.fn(),
 }));
 
+vi.mock('passkey-kit', () => ({
+  PasskeyKit: class { sign = vi.fn() }
+}));
+
 import { stroopsAMXNe, mxneAStroops } from '../stellar/contrato.js';
 
 describe('stroopsAMXNe', () => {
