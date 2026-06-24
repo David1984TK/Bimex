@@ -3,30 +3,35 @@ import http from 'node:http';
 import { Contract, rpc, TransactionBuilder, Networks, Address, Keypair, nativeToScVal } from '@stellar/stellar-sdk';
 import supabase from './database.js';
 import { agregarCliente, eliminarCliente } from './sse.js';
+import {
+  corsHeaders,
+  createRateLimiter,
+  getClientIp,
+  getPublicEndpointPolicy,
+  getRateLimitConfig,
+  isIpWhitelisted,
+  setRateLimitHeaders,
+} from './rateLimiter.js';
 
 const PORT = parseInt(process.env.API_PORT ?? '3002', 10);
-
-// ─── Rate limiter: 3 requests per wallet per hour ────────────────────────
-const rateLimitMap = new Map();
-const RL_MAX = 3;
-const RL_WINDOW_MS = 60 * 60 * 1000;
-
-function checkRateLimit(wallet) {
-  const now = Date.now();
-  const entries = rateLimitMap.get(wallet) || [];
-  const recent = entries.filter(t => now - t < RL_WINDOW_MS);
-  if (recent.length >= RL_MAX) return false;
-  recent.push(now);
-  rateLimitMap.set(wallet, recent);
-  return true;
-}
+const rateLimitConfig = getRateLimitConfig();
+const rateLimiter = createRateLimiter({ supabase, config: rateLimitConfig });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
-function json(res, status, data) {
+function json(res, status, data, headers = {}) {
   const body = JSON.stringify(data);
-  res.writeHead(status, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    ...corsHeaders('*'),
+    ...headers,
+  });
   res.end(body);
+}
+
+function getUserAgent(req) {
+  const userAgent = req.headers['user-agent'];
+  return Array.isArray(userAgent) ? userAgent[0] : userAgent;
 }
 
 function readBody(req) {
@@ -39,6 +44,39 @@ function readBody(req) {
     });
     req.on('error', reject);
   });
+}
+
+async function enforcePublicRateLimit(req, res) {
+  const policy = getPublicEndpointPolicy(req, rateLimitConfig);
+  if (!policy) return true;
+
+  const ip = getClientIp(req, { trustProxy: rateLimitConfig.trustProxy });
+  if (isIpWhitelisted(ip, rateLimitConfig.whitelist)) return true;
+
+  const result = await rateLimiter.consumeFixedWindow({
+    ...policy,
+    identifier: ip,
+    ip,
+  });
+  setRateLimitHeaders(res, result);
+
+  if (result.allowed) return true;
+
+  await rateLimiter.logBlocked({
+    ip,
+    endpoint: policy.endpoint,
+    method: req.method,
+    limitName: policy.limitName,
+    identifier: ip,
+    retryAfterSeconds: result.retryAfterSeconds,
+    userAgent: getUserAgent(req),
+  });
+
+  json(res, 429, {
+    error: 'Rate limit exceeded',
+    message: `Máximo ${policy.limit} solicitudes cada ${Math.ceil(policy.windowMs / 1000)} segundos por IP para ${policy.endpoint}`,
+  });
+  return false;
 }
 
 // ─── Faucet — TESTNET ONLY ───────────────────────────────────────────────
@@ -96,11 +134,34 @@ async function route(req, res) {
     const { destino } = body;
     if (!destino) return json(res, 400, { error: 'Falta "destino" en el cuerpo' });
 
-    if (!checkRateLimit(destino))
+    const wallet = String(destino).trim();
+    if (!wallet) return json(res, 400, { error: 'Falta "destino" en el cuerpo' });
+
+    const faucetLimit = await rateLimiter.consumeFixedWindow({
+      limitName: 'faucet_wallet',
+      identifier: wallet,
+      ip: getClientIp(req, { trustProxy: rateLimitConfig.trustProxy }),
+      endpoint: '/faucet',
+      limit: rateLimitConfig.faucetLimit,
+      windowMs: rateLimitConfig.faucetWindowMs,
+    });
+    setRateLimitHeaders(res, faucetLimit);
+
+    if (!faucetLimit.allowed) {
+      await rateLimiter.logBlocked({
+        ip: getClientIp(req, { trustProxy: rateLimitConfig.trustProxy }),
+        endpoint: '/faucet',
+        method: req.method,
+        limitName: 'faucet_wallet',
+        identifier: wallet,
+        retryAfterSeconds: faucetLimit.retryAfterSeconds,
+        userAgent: getUserAgent(req),
+      });
       return json(res, 429, { error: 'Límite de 3 solicitudes por hora por wallet' });
+    }
 
     try {
-      await mintearMXNe(destino);
+      await mintearMXNe(wallet);
       return json(res, 200, { exito: true, cantidad: 100 });
     } catch (e) {
       return json(res, 500, { error: e.message });
@@ -172,15 +233,55 @@ async function route(req, res) {
 
   // GET /sse — Server-Sent Events stream
   if (parts[0] === 'sse' && !parts[1]) {
+    const ip = getClientIp(req, { trustProxy: rateLimitConfig.trustProxy });
+    const whitelisted = isIpWhitelisted(ip, rateLimitConfig.whitelist);
+    let sseLease = null;
+    let refreshTimer = null;
+
+    if (!whitelisted) {
+      sseLease = await rateLimiter.acquireSseConnection({
+        ip,
+        limit: rateLimitConfig.sseConnectionLimit,
+        ttlSeconds: rateLimitConfig.sseTtlSeconds,
+        userAgent: getUserAgent(req),
+      });
+      setRateLimitHeaders(res, sseLease.result);
+
+      if (!sseLease.result.allowed) {
+        await rateLimiter.logBlocked({
+          ip,
+          endpoint: '/sse',
+          method: req.method,
+          limitName: 'sse_connections',
+          identifier: ip,
+          retryAfterSeconds: sseLease.result.retryAfterSeconds,
+          userAgent: getUserAgent(req),
+        });
+        return json(res, 429, {
+          error: 'Too many SSE connections',
+          message: `Máximo ${rateLimitConfig.sseConnectionLimit} conexiones SSE simultáneas por IP`,
+        });
+      }
+
+      const refreshEveryMs = Math.max(15_000, Math.floor(rateLimitConfig.sseTtlSeconds * 500));
+      refreshTimer = setInterval(() => sseLease.refresh(), refreshEveryMs);
+      refreshTimer.unref?.();
+    }
+
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': process.env.FRONTEND_URL || '*',
+      'X-Accel-Buffering': 'no',
+      ...corsHeaders(process.env.FRONTEND_URL || '*'),
     });
     res.write(':ok\n\n');
     agregarCliente(res);
-    req.on('close', () => eliminarCliente(res));
+    req.on('close', async () => {
+      if (refreshTimer) clearInterval(refreshTimer);
+      eliminarCliente(res);
+      if (sseLease) await sseLease.release();
+    });
     return;
   }
 
@@ -190,13 +291,15 @@ async function route(req, res) {
 const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
+      ...corsHeaders('*'),
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     });
     return res.end();
   }
   try {
+    const allowed = await enforcePublicRateLimit(req, res);
+    if (!allowed) return;
     await route(req, res);
   } catch (err) {
     json(res, 500, { error: err.message });

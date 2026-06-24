@@ -1,9 +1,19 @@
-const { tmplBienvenida, tmplContribucion, tmplAprobacionHTML, tmplYieldDisponible } = require('./templates/htmlTemplates');
-const fs = require('fs');
-const path = require('path');
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import {
+  tmplAprobacionHTML,
+  tmplBienvenida,
+  tmplContribucion,
+  tmplYieldDisponible,
+} from './templates/htmlTemplates.js';
 
-const outputDir = path.join(__dirname, 'test-output');
-if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const outputDir = join(__dirname, 'test-output');
 
 const mockData = {
   nombre: 'Usuario de Prueba',
@@ -14,10 +24,19 @@ const mockData = {
   url: 'https://bimex-frontend.vercel.app/proyectos/1',
 };
 
-fs.writeFileSync(path.join(outputDir, 'bienvenida.html'), tmplBienvenida(mockData));
-fs.writeFileSync(path.join(outputDir, 'contribucion.html'), tmplContribucion(mockData));
-fs.writeFileSync(path.join(outputDir, 'aprobacion.html'), tmplAprobacionHTML(mockData));
-fs.writeFileSync(path.join(outputDir, 'yield-disponible.html'), tmplYieldDisponible(mockData));
+test('email templates render HTML previews', () => {
+  if (!existsSync(outputDir)) mkdirSync(outputDir);
 
-console.log('Templates generados en test-output/');
-console.log('Abre los archivos HTML en tu navegador para previsualizar.');
+  const previews = {
+    'bienvenida.html': tmplBienvenida(mockData),
+    'contribucion.html': tmplContribucion(mockData),
+    'aprobacion.html': tmplAprobacionHTML(mockData),
+    'yield-disponible.html': tmplYieldDisponible(mockData),
+  };
+
+  for (const [fileName, html] of Object.entries(previews)) {
+    assert.match(html, /<html|<!doctype html/i);
+    assert.ok(html.length > 500, `${fileName} should render a complete HTML email`);
+    writeFileSync(join(outputDir, fileName), html);
+  }
+});
