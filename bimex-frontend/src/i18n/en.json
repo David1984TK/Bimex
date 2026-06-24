@@ -402,6 +402,26 @@
     "ariaUnlocked": "View reward: {{name}}",
     "ariaLocked": "Locked reward: {{name}}. Requires {{amount}} MXNe"
   },
+  "wallet": {
+    "connect": "Connect",
+    "connecting": "Connecting…",
+    "passkey": "Fingerprint / Face ID",
+    "freighter": "Freighter",
+    "freighterMissing": "Freighter is not installed.",
+    "freighterInstall": "Install →",
+    "wrongNetwork": "Switch Freighter to Testnet",
+    "passkeyNoteLabel": "Note:",
+    "passkeyNote": "Your new Smart Wallet needs to be funded with MXNe. Contact us to receive tokens and set up the initial trustline.",
+    "trustlineMissing": "You need to enable MXNe on your account",
+    "trustlineDesc": "To receive MXNe (on-ramp or withdrawals) your Stellar account needs a trustline to the MXNe asset. This requires ~{{reserve}} XLM of additional reserve in your wallet.",
+    "trustlineAdd": "Enable MXNe",
+    "trustlineAdding": "Enabling MXNe…",
+    "trustlineSuccess": "MXNe trustline configured successfully",
+    "trustlineNoXlmTestnet": "You don't have enough XLM for the reserve (~0.5 XLM). On testnet, fund your account with Friendbot and try again.",
+    "trustlineNoXlmMainnet": "You don't have enough XLM for the reserve (~0.5 XLM). You need at least that balance in your wallet to enable MXNe.",
+    "trustlineNoAccount": "Your account is not yet active on the network (no XLM). You need to fund it first.",
+    "trustlineFriendbot": "Get XLM from Friendbot →"
+  },
   "tour": {
     "step1": { "title": "Your connected wallet", "content": "This is your connected wallet. Your Stellar address appears here securely." },
     "step2": { "title": "Explore impact projects", "content": "Here you'll find verified social impact projects. Each one shows its goal and real-time progress." },
