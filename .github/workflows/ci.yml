@@ -20,8 +20,27 @@ jobs:
           workspaces: bimex
       - name: cargo test
         run: cd bimex && cargo test
+      # cargo clippy step moved below
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+        working-directory: bimex
+      - name: Run cargo audit
+        run: cargo audit --deny warnings
+        working-directory: bimex
       - name: cargo clippy
         run: cd bimex && cargo clippy -- -D warnings
+
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+      - uses: github/codeql-action/analyze@v3
 
   frontend:
     name: Frontend React
