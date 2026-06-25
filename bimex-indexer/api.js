@@ -3,23 +3,16 @@ import http from 'node:http';
 import { Contract, rpc, TransactionBuilder, Networks, Address, Keypair, nativeToScVal } from '@stellar/stellar-sdk';
 import supabase from './database.js';
 import { agregarCliente, eliminarCliente } from './sse.js';
+import {
+  acquireSseConnection,
+  buildIpRateLimitKey,
+  buildWalletRateLimitKey,
+  enforceFixedWindowRateLimit,
+  getClientIp,
+  getRateLimitConfig,
+} from './rateLimiter.js';
 
 const PORT = parseInt(process.env.API_PORT ?? '3002', 10);
-
-// ─── Rate limiter: 3 requests per wallet per hour ────────────────────────
-const rateLimitMap = new Map();
-const RL_MAX = 3;
-const RL_WINDOW_MS = 60 * 60 * 1000;
-
-function checkRateLimit(wallet) {
-  const now = Date.now();
-  const entries = rateLimitMap.get(wallet) || [];
-  const recent = entries.filter(t => now - t < RL_WINDOW_MS);
-  if (recent.length >= RL_MAX) return false;
-  recent.push(now);
-  rateLimitMap.set(wallet, recent);
-  return true;
-}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
@@ -27,6 +20,20 @@ function json(res, status, data) {
   const body = JSON.stringify(data);
   res.writeHead(status, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
   res.end(body);
+}
+
+function rateLimitExceeded(res, result, message) {
+  return json(res, 429, {
+    error: message,
+    retry_after: result.retryAfter,
+  });
+}
+
+function publicRateLimitedEndpoint(parts) {
+  if (parts[0] === 'proyectos') return '/proyectos';
+  if (parts[0] === 'eventos' && !parts[1]) return '/eventos';
+  if (parts[0] === 'stats' && !parts[1]) return '/stats';
+  return null;
 }
 
 function readBody(req) {
@@ -86,6 +93,7 @@ async function mintearMXNe(destino, cantidad = BigInt(1_000_000_000)) {
 async function route(req, res) {
   const url = new URL(req.url, `http://localhost`);
   const parts = url.pathname.replace(/^\//, '').split('/');
+  const rateLimitConfig = getRateLimitConfig();
 
   // POST /faucet
   if (req.method === 'POST' && parts[0] === 'faucet' && !parts[1]) {
@@ -96,8 +104,16 @@ async function route(req, res) {
     const { destino } = body;
     if (!destino) return json(res, 400, { error: 'Falta "destino" en el cuerpo' });
 
-    if (!checkRateLimit(destino))
-      return json(res, 429, { error: 'Límite de 3 solicitudes por hora por wallet' });
+    const faucetLimit = await enforceFixedWindowRateLimit(req, res, {
+      scope: 'faucet',
+      route: '/faucet',
+      key: buildWalletRateLimitKey('faucet', destino),
+      limit: rateLimitConfig.faucetLimit,
+      windowMs: rateLimitConfig.faucetWindowMs,
+      honorIpWhitelist: false,
+    });
+    if (!faucetLimit.allowed)
+      return rateLimitExceeded(res, faucetLimit, 'Límite de 3 solicitudes por hora por wallet');
 
     try {
       await mintearMXNe(destino);
@@ -108,6 +124,21 @@ async function route(req, res) {
   }
 
   if (req.method !== 'GET') return json(res, 405, { error: 'Method not allowed' });
+
+  const limitedEndpoint = publicRateLimitedEndpoint(parts);
+  if (limitedEndpoint) {
+    const ip = getClientIp(req);
+    const publicLimit = await enforceFixedWindowRateLimit(req, res, {
+      scope: 'public-api',
+      route: limitedEndpoint,
+      key: buildIpRateLimitKey(limitedEndpoint, ip),
+      limit: rateLimitConfig.publicLimit,
+      windowMs: rateLimitConfig.publicWindowMs,
+    });
+    if (!publicLimit.allowed) {
+      return rateLimitExceeded(res, publicLimit, 'Demasiadas solicitudes. Intenta de nuevo más tarde.');
+    }
+  }
 
   // GET /proyectos[?estado=X]
   if (parts[0] === 'proyectos' && !parts[1]) {
@@ -172,6 +203,11 @@ async function route(req, res) {
 
   // GET /sse — Server-Sent Events stream
   if (parts[0] === 'sse' && !parts[1]) {
+    const sseLimit = await acquireSseConnection(req, res, { limit: rateLimitConfig.sseLimit, route: '/sse' });
+    if (!sseLimit.allowed) {
+      return rateLimitExceeded(res, sseLimit, 'Demasiadas conexiones SSE simultáneas desde esta IP.');
+    }
+
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -180,7 +216,10 @@ async function route(req, res) {
     });
     res.write(':ok\n\n');
     agregarCliente(res);
-    req.on('close', () => eliminarCliente(res));
+    req.on('close', () => {
+      sseLimit.release();
+      eliminarCliente(res);
+    });
     return;
   }
 
