@@ -72,3 +72,10 @@ stellar contract build
 - **Frontend**: React 19 + Vite + Stellar SDK v14
 - **Wallet**: Freighter
 - **Deploy**: Vercel (frontend) · Stellar Testnet (contract)
+
+## Security
+
+This repository has active **Secret Scanning** and **Push Protection** enabled to prevent accidental exposure of credentials and secrets (such as Stellar secret keys or Supabase service role tokens). 
+
+Please ensure you do not commit any secrets. Any push containing suspected secrets will be automatically blocked by GitHub.
+
