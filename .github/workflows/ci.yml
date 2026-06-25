@@ -24,8 +24,12 @@ jobs:
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked
         working-directory: bimex
+      - name: Configure cargo audit ignores
+        run: |
+          mkdir -p ~/.cargo
+          cp bimex/audit.toml ~/.cargo/audit.toml
       - name: Run cargo audit
-        run: cargo audit --deny warnings --config audit.toml
+        run: cargo audit --deny warnings
         working-directory: bimex
       - name: cargo clippy
         run: cd bimex && cargo clippy -- -D warnings
