@@ -185,32 +185,36 @@ async function route(req, res) {
     return error ? json(req, res, 500, { error: error.message }) : json(req, res, 200, data);
   }
 
-  // GET /eventos[?tipo=X&limit=N]
+  // GET /eventos[?tipo=X&limit=N&offset=M]
   if (parts[0] === 'eventos' && !parts[1]) {
     const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50', 10), 200);
-    let q = supabase.from('eventos').select('*').order('ledger', { ascending: false }).limit(limit);
+    const offset = parseInt(url.searchParams.get('offset') ?? '0', 10);
+    let q = supabase.from('eventos').select('*', { count: 'exact' }).order('ledger', { ascending: false }).range(offset, offset + limit - 1);
     if (url.searchParams.has('tipo')) q = q.eq('tipo', url.searchParams.get('tipo'));
-    const { data, error } = await q;
-    return error ? json(req, res, 500, { error: error.message }) : json(req, res, 200, data);
+    const { data, count, error } = await q;
+    return error ? json(req, res, 500, { error: error.message }) : json(req, res, 200, { data, count });
   }
 
   // GET /stats
   if (parts[0] === 'stats' && !parts[1]) {
     const [proyectos, aportaciones] = await Promise.all([
       supabase.from('proyectos').select('estado,total_aportado,yield_entregado,meta'),
-      supabase.from('aportaciones').select('monto,retirado'),
+      supabase.from('aportaciones').select('monto,retirado,contribuidor'),
     ]);
     if (proyectos.error) return json(req, res, 500, { error: proyectos.error.message });
 
     const ps = proyectos.data;
+    const aports = aportaciones.data ?? [];
+    const contribuidoresUnicos = new Set(aports.filter(a => a.contribuidor).map(a => a.contribuidor));
     const stats = {
       total_proyectos:   ps.length,
       activos:           ps.filter(p => ['EtapaInicial','EnProgreso','Liberado'].includes(p.estado)).length,
       total_aportado:    ps.reduce((s, p) => s + Number(p.total_aportado ?? 0), 0),
       total_yield:       ps.reduce((s, p) => s + Number(p.yield_entregado ?? 0), 0),
-      capital_activo:    (aportaciones.data ?? [])
+      capital_activo:    aports
                            .filter(a => !a.retirado)
                            .reduce((s, a) => s + Number(a.monto ?? 0), 0),
+      numero_contribuidores: contribuidoresUnicos.size,
     };
     return json(req, res, 200, stats);
   }
@@ -235,7 +239,7 @@ async function route(req, res) {
     }
     
     const { data, count, error } = await q;
-    if (error) return json(res, 500, { error: error.message });
+    if (error) return json(req, res, 500, { error: error.message });
 
     if (url.searchParams.get('format') === 'csv') {
       setCorsHeaders(req, res);
@@ -250,7 +254,79 @@ async function route(req, res) {
       });
       return res.end();
     }
-    return json(res, 200, { data, count });
+    return json(req, res, 200, { data, count });
+  }
+
+  // GET /impacto — Historical summary for completed projects
+  if (parts[0] === 'impacto' && !parts[1]) {
+    try {
+      const [proyectosRes, aportacionesRes, eventosRes] = await Promise.all([
+        supabase.from('proyectos').select('*').eq('estado', 'Liberado'),
+        supabase.from('aportaciones').select('*'),
+        supabase.from('eventos').select('tipo,data,tx_hash,ledger,timestamp')
+          .in('tipo', ['nueva_aportacion','retiro_principal','yield_reclamado'])
+          .order('ledger', { ascending: true }),
+      ]);
+      if (proyectosRes.error) return json(req, res, 500, { error: proyectosRes.error.message });
+
+      const proyectos = proyectosRes.data ?? [];
+      const aportaciones = aportacionesRes.data ?? [];
+      const eventos = eventosRes.data ?? [];
+
+      const aportMap = {};
+      for (const a of aportaciones) {
+        if (!aportMap[a.proyecto_id]) aportMap[a.proyecto_id] = [];
+        aportMap[a.proyecto_id].push(a);
+      }
+
+      const eventosMap = {};
+      for (const e of eventos) {
+        const edata = e.data;
+        if (!Array.isArray(edata) || edata.length === 0) continue;
+        const pid = Number(edata[0]);
+        if (isNaN(pid)) continue;
+        if (!eventosMap[pid]) eventosMap[pid] = [];
+        eventosMap[pid].push(e);
+      }
+
+      const completados = [];
+      for (const p of proyectos) {
+        const pAportaciones = aportMap[p.id] ?? [];
+        const pEventos = eventosMap[p.id] ?? [];
+
+        if (pAportaciones.filter(a => !a.retirado).length > 0) continue;
+
+        const totalContribuido = pAportaciones.reduce((s, a) => s + Number(a.monto ?? 0), 0);
+        const capitalDevuelto = pAportaciones.filter(a => a.retirado).reduce((s, a) => s + Number(a.monto ?? 0), 0);
+        const contribuciones = pEventos.filter(e => e.tipo === 'nueva_aportacion');
+        const retiros = pEventos.filter(e => e.tipo === 'retiro_principal');
+        const yieldEventos = pEventos.filter(e => e.tipo === 'yield_reclamado');
+
+        completados.push({
+          ...p,
+          total_contribuido: totalContribuido,
+          num_contribuidores: pAportaciones.length,
+          capital_devuelto: capitalDevuelto,
+          porcentaje_devuelto: totalContribuido > 0 ? Math.round((capitalDevuelto / totalContribuido) * 100) : 0,
+          yield_generado: Number(p.yield_entregado ?? 0),
+          timeline: {
+            creacion: p.created_at ?? null,
+            primera_contribucion: contribuciones[0]?.timestamp ?? null,
+            ultima_contribucion: contribuciones[contribuciones.length - 1]?.timestamp ?? null,
+            primer_retiro: retiros[0]?.timestamp ?? null,
+          },
+          tx_hashes: {
+            contribuciones: contribuciones.map(e => e.tx_hash).filter(Boolean),
+            retiros: retiros.map(e => e.tx_hash).filter(Boolean),
+            yield: yieldEventos.map(e => e.tx_hash).filter(Boolean),
+          },
+        });
+      }
+
+      return json(req, res, 200, completados);
+    } catch (err) {
+      return json(req, res, 500, { error: err.message });
+    }
   }
 
   // GET /sse — Server-Sent Events stream

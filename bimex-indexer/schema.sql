@@ -86,3 +86,18 @@ create index if not exists idx_faucet_rate_limit_wallet on faucet_rate_limit (wa
 -- Para limpiar registros antiguos, primero ve a Supabase Dashboard -> Database -> Extensions
 -- y habilita "pg_cron". Luego configura este job (SQL Editor):
 -- select cron.schedule('cleanup_faucet_rate_limit', '0 0 * * *', $$ delete from faucet_rate_limit where granted_at < now() - interval '24 hours' $$);
+
+-- Success Stories Evidence
+create table if not exists proyecto_evidencia (
+  id bigserial primary key,
+  proyecto_id integer references proyectos(id) on delete cascade,
+  tipo text not null default 'foto',
+  titulo text not null default '',
+  descripcion text default '',
+  url text not null,
+  cid text default '',
+  uploaded_at timestamptz default now()
+);
+
+create index if not exists idx_evidencia_proyecto on proyecto_evidencia (proyecto_id);
+create index if not exists idx_evidencia_tipo on proyecto_evidencia (tipo);
