@@ -224,7 +224,7 @@ describe('api.js REST Endpoints', () => {
 
       const res = await req({ path: '/eventos', method: 'GET' });
       expect(res.status).toBe(200);
-      expect(res.body).toEqual(events);
+      expect(res.body).toEqual({ data: events });
     });
   });
 
@@ -258,11 +258,12 @@ describe('api.js REST Endpoints', () => {
       const res = await req({ path: '/stats', method: 'GET' });
       expect(res.status).toBe(200);
       expect(res.body).toEqual({
-        total_proyectos: 2,
-        activos:         2,
-        total_aportado:  3000,
-        total_yield:     150,
-        capital_activo:  1000,
+        total_proyectos:       2,
+        activos:               2,
+        total_aportado:        3000,
+        total_yield:           150,
+        capital_activo:        1000,
+        numero_contribuidores: 0,
       });
     });
   });
