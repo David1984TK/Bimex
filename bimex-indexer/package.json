@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "api": "node api.js"
+    "api": "node api.js",
+    "test": "node --test scripts/test-scripts.js test/*.test.js"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^14.6.1",
