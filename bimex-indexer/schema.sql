@@ -202,3 +202,54 @@ $$;
 -- Enable Supabase realtime for live frontend updates
 alter publication supabase_realtime add table eventos;
 alter publication supabase_realtime add table proyectos;
+
+-- Audit Log for Admin Actions
+create table if not exists audit_log (
+  id bigserial primary key,
+  action text not null,
+  actor_address text not null,
+  target text,
+  metadata jsonb,
+  tx_hash text unique,
+  block_time timestamptz not null,
+  recorded_at timestamptz default now()
+);
+
+-- Row Level Security to enforce immutability
+alter table audit_log enable row level security;
+create policy "Allow public read" on audit_log for select using (true);
+create policy "Allow insert only" on audit_log for insert with check (true);
+-- No policies for update or delete means they are implicitly denied
+
+create index if not exists idx_audit_log_block_time on audit_log (block_time desc);
+create index if not exists idx_audit_log_actor_address on audit_log (actor_address);
+create index if not exists idx_audit_log_action on audit_log (action);
+
+-- Faucet Rate Limit
+create table if not exists faucet_rate_limit (
+  wallet text not null,
+  granted_at timestamptz not null default now(),
+  ip_hash text,
+  primary key (wallet, granted_at)
+);
+create index if not exists idx_faucet_rate_limit_wallet on faucet_rate_limit (wallet, granted_at desc);
+
+-- Nota: pg_cron NO viene habilitado por defecto.
+-- Para limpiar registros antiguos, primero ve a Supabase Dashboard -> Database -> Extensions
+-- y habilita "pg_cron". Luego configura este job (SQL Editor):
+-- select cron.schedule('cleanup_faucet_rate_limit', '0 0 * * *', $$ delete from faucet_rate_limit where granted_at < now() - interval '24 hours' $$);
+
+-- Success Stories Evidence
+create table if not exists proyecto_evidencia (
+  id bigserial primary key,
+  proyecto_id integer references proyectos(id) on delete cascade,
+  tipo text not null default 'foto',
+  titulo text not null default '',
+  descripcion text default '',
+  url text not null,
+  cid text default '',
+  uploaded_at timestamptz default now()
+);
+
+create index if not exists idx_evidencia_proyecto on proyecto_evidencia (proyecto_id);
+create index if not exists idx_evidencia_tipo on proyecto_evidencia (tipo);

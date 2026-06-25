@@ -20,7 +20,18 @@ import {
   CONFIG,
 } from "../stellar/contrato";
 import { aplicarMeta, crearMetaProyecto, DEFAULT_META } from "../utils/metaTags.js";
-import { calcProyeccion } from "../utils/rendimiento.js";
+import { calcProyeccion, TASAS } from "../utils/rendimiento.js";
+
+function calcMonthlyProjectLoss(aportacionStroops, modo = "inversor") {
+  const mxne = Number(stroopsAMXNe(aportacionStroops)) || 0;
+  const modoKey = String(modo ?? "inversor").toLowerCase();
+  const tasa = (TASAS[modoKey] ?? TASAS.inversor).proyecto;
+  const perdidaMensual = (mxne * tasa) / 12;
+  return perdidaMensual.toFixed(2);
+}
+
+const RAMP_URL = import.meta.env.VITE_ETHERFUSE_RAMP_URL || "https://app.etherfuse.com/ramp";
+const MIN_MXNE_THRESHOLD = BigInt(1_000_000_000); // 100 MXNe in Stroops
 
 const ESTADO_CONFIG = {
   EtapaInicial: { labelKey: "status.EtapaInicial", clase: "badge-muted" },
@@ -177,6 +188,8 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
   const aportado   = Number(proyecto.aportado ?? 0);
   const meta       = Number(proyecto.meta ?? 0);
   const porcentaje = meta > 0 ? Math.min((aportado / meta) * 100, 100) : 0;
+  const faltante   = Math.max(0, meta - aportado);
+  const faltanteMXNe = stroopsAMXNe(BigInt(faltante));
 
   const yieldDueno = useMemo(() => (
     esDueno
@@ -270,6 +283,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
 
   const cantidadNum    = Number(cantidad);
   const cantidadValida = cantidad !== "" && !isNaN(cantidadNum) && cantidadNum > 0;
+  const necesitaMXNe   = BigInt(balanceMXNe ?? 0) < MIN_MXNE_THRESHOLD;
   const superaBalance  = cantidadValida && balanceMXNe !== null && mxneAStroops(cantidadNum) > balanceMXNe;
   const errorCantidad  = !cantidadValida && cantidad !== ""
     ? t("detalle.errAmount")
@@ -371,6 +385,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
         onToast?.(t("detalle.toastWithdrawn", { amount: stroopsAMXNe(miAportacion) }));
         setMiAportacion(BigInt(0));
         setMiYield(BigInt(0));
+        setVistaRetirar(false);
         await refrescar();
       });
     } catch (err) {
@@ -429,7 +444,12 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                 </span>
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                <h1 style={{ margin: 0 }}>{proyecto.nombre}</h1>
+                <div style={{ minWidth: 0 }}>
+                  <h1 style={{ margin: 0 }}>{proyecto.nombre}</h1>
+                  <p style={{ margin: "8px 0 0", color: "var(--muted)", fontSize: "0.95rem" }}>
+                    🔥 {stroopsAMXNe(proyecto.aportado ?? 0)} recaudados · faltan {faltanteMXNe}
+                  </p>
+                </div>
                 <button
                   onClick={() => setMostrarQR(true)}
                   className="btn btn-outline btn-sm"
@@ -585,6 +605,10 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                 <p>{t("detalle.investIn")}</p>
                 <h3>{proyecto.nombre}</h3>
               </div>
+              <div style={{ margin: "14px 0 10px", color: "var(--muted)", fontSize: "0.95rem", display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                <span>🔥 Ya se recaudó {stroopsAMXNe(proyecto.aportado ?? 0)}</span>
+                <strong style={{ color: "var(--text)", whiteSpace: "nowrap" }}>Faltan {faltanteMXNe}</strong>
+              </div>
 
               <div className="invest-body">
 
@@ -639,6 +663,35 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                 {/* Forma de contribuir */}
                 {aceptaFondos && (
                   <>
+                    {necesitaMXNe && (
+                      <div className="mxne-ramp-card" role="region" aria-labelledby="mxne-ramp-title">
+                        <div className="mxne-ramp-card__eyebrow">{t("detalle.ramp.eyebrow")}</div>
+                        <h4 id="mxne-ramp-title" className="mxne-ramp-card__title">
+                          {t("detalle.ramp.title")}
+                        </h4>
+                        <p className="mxne-ramp-card__desc">
+                          {t("detalle.ramp.description")}
+                        </p>
+                        <ol className="mxne-ramp-card__steps" aria-label={t("detalle.ramp.stepsAria")}>
+                          <li>{t("detalle.ramp.stepKyc")}</li>
+                          <li>{t("detalle.ramp.stepSpei")}</li>
+                          <li>{t("detalle.ramp.stepWallet")}</li>
+                          <li>{t("detalle.ramp.stepBimex")}</li>
+                        </ol>
+                        <a
+                          className="btn btn-primary mxne-ramp-card__button"
+                          href={RAMP_URL}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {t("detalle.ramp.cta")}
+                        </a>
+                        <p className="mxne-ramp-card__note">
+                          {t("detalle.ramp.note")}
+                        </p>
+                      </div>
+                    )}
+
                     <div style={{ fontSize: "0.78rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", marginBottom: 8 }}>
                       {t("detalle.mode")}
                     </div>
@@ -725,54 +778,39 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                 )}
 
                 {/* Capital bloqueado o retiro anticipado disponible */}
-                {miAportacion > BigInt(0) && (estado === "EtapaInicial" || estado === "EnProgreso") && (
-                  plazoVencido ? (
-                    <div className="detail-banner detail-banner--amber" style={{ marginTop: 8 }}>
+                {miAportacion > BigInt(0) && (
+                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px dashed var(--border)" }}>
+                    <div className="detail-banner detail-banner--green" style={{ background: "rgba(22,163,74,0.08)", color: "var(--green)", border: "1px solid rgba(22,163,74,0.22)", marginBottom: 10 }}>
                       <IconShield />
-                      <span>{t("detalle.expiredBanner")}</span>
+                      <span>{t("detalle.liquidityGuarantee", "Tu dinero no está bloqueado — puedes retirarlo cuando quieras")}</span>
                     </div>
-                  ) : (
-                    <>
-                      <div className="locked-notice">
-                        <IconShield />
-                        <span>{t("detalle.locked")}</span>
-                      </div>
-                      <button
-                        className="btn btn-ghost"
-                        style={{ width: "100%", justifyContent: "center", marginTop: 8, fontSize: "0.82rem", color: "var(--muted)" }}
-                        onClick={manejarRetiroAnticipado}
-                        disabled={cargando || !direccion}
-                        title={t("detalle.earlyWithdrawTitle")}
-                      >
-                        {cargando ? t("detalle.processing") : t("detalle.earlyWithdraw")}
-                      </button>
-                      <p style={{ fontSize: "0.72rem", color: "var(--muted)", textAlign: "center", marginTop: 4 }}>
-                        {t("detalle.earlyWithdrawNote")}
-                      </p>
-                    </>
-                  )
-                )}
 
-                {/* Retirar capital */}
-                {miAportacion > BigInt(0) && (estado === "Liberado" || estado === "Abandonado") && (
-                  <>
+                    <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--navy)", marginBottom: 8, textAlign: "center" }}>
+                      {t("detalle.canWithdrawStatus", "Puedes retirar {{amount}} MXNe ahora", { amount: stroopsAMXNe(miAportacion) })}
+                    </div>
+
                     {!vistaRetirar ? (
                       <button
                         className="btn btn-amber"
-                        style={{ width: "100%", justifyContent: "center", marginTop: aceptaFondos ? 0 : 4 }}
+                        style={{ width: "100%", justifyContent: "center" }}
                         onClick={() => setVistaRetirar(true)}
                         disabled={cargando || !direccion}
                       >
-                        {t("detalle.withdraw")}
+                        {t("detalle.withdraw", "Retirar capital")}
                       </button>
                     ) : (
                       <div className="withdraw-confirm">
                         <div style={{ textAlign: "center", marginBottom: 14 }}>
                           <div style={{ fontSize: "0.78rem", color: "var(--muted)", marginBottom: 4 }}>{t("detalle.youWillReceive")}</div>
                           <div style={{ fontFamily: "monospace", fontSize: "1.5rem", fontWeight: 700, color: "var(--navy)" }}>
-                            {stroopsAMXNe(miAportacion)}
+                            {stroopsAMXNe(miAportacion)} MXNe
                           </div>
                           <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: 4 }}>{t("detalle.exactAmount")}</div>
+                          {(estado === "EtapaInicial" || estado === "EnProgreso") && !plazoVencido && (
+                            <div style={{ fontSize: "0.75rem", color: "var(--amber, #D97706)", background: "rgba(217,119,6,0.1)", padding: "8px 10px", borderRadius: 6, marginTop: 8, lineHeight: 1.4, textAlign: "left" }}>
+                              {t("detalle.earlyWithdrawTransparency", "Si retiras hoy, el proyecto dejará de recibir ~${{monthlyLoss}} MXNe/mes provenientes de tu aportación.", { monthlyLoss: calcMonthlyProjectLoss(miAportacion, proyecto.modo) })}
+                            </div>
+                          )}
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
                           <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setVistaRetirar(false)}>
@@ -781,7 +819,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                           <button
                             className="btn btn-amber"
                             style={{ flex: 2, justifyContent: "center" }}
-                            onClick={manejarRetirar}
+                            onClick={estado === "EtapaInicial" || estado === "EnProgreso" ? manejarRetiroAnticipado : manejarRetirar}
                             disabled={cargando || !direccion}
                           >
                             {cargando ? t("detalle.processing") : t("detalle.confirmWithdraw")}
@@ -789,7 +827,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                         </div>
                       </div>
                     )}
-                  </>
+                  </div>
                 )}
 
                 {/* Reclamar yield (dueño, solo cuando proyecto liberado) */}
