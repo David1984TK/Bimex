@@ -5,6 +5,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-
 import ConectarWallet   from "./components/ConectarWallet";
 import ListaProyectos   from "./components/ListaProyectos";
 import DetalleProyecto  from "./components/DetalleProyecto";
+import CasosDeExito     from "./components/CasosDeExito";
 import MiCuenta         from "./components/MiCuenta";
 import Changelog        from "./components/Changelog";
 import Terminos         from "./components/Terminos";
@@ -336,6 +337,7 @@ export default function App() {
   const esRutaProyectos = pathname === "/" || pathname === "/proyectos" || pathname.startsWith("/proyectos/");
   const esRutaCuenta = pathname === "/cuenta";
   const esRutaTransparencia = pathname === "/transparencia";
+  const esRutaImpacto = pathname === "/impacto";
 
   function formatearDir(dir) {
     if (!dir) return "";
@@ -489,6 +491,18 @@ export default function App() {
               >
                 {t("nav.transparency")}
               </button>
+              <button
+                type="button"
+                onClick={() => navigate("/impacto")}
+                style={{
+                  ...st.navTab,
+                  color: esRutaImpacto ? "var(--navy)" : "var(--muted)",
+                  borderBottom: esRutaImpacto ? "2px solid var(--navy)" : "2px solid transparent",
+                }}
+                aria-current={esRutaImpacto ? "page" : undefined}
+              >
+                {t("nav.impact")}
+              </button>
             </div>
           </div>
 
@@ -606,6 +620,7 @@ export default function App() {
               </Suspense>
             }
           />
+          <Route path="/impacto" element={<CasosDeExito />} />
           <Route path="/novedades" element={<div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)" }}><button type="button" className="btn btn-ghost" onClick={() => navigate(direccion ? "/proyectos" : "/")} style={{ fontSize: "0.84rem" }}>← Volver</button><Changelog /></div>} />
           <Route path="/terminos" element={<Terminos onVolver={() => navigate(direccion ? "/proyectos" : "/")} />} />
           <Route path="/privacidad" element={<Privacidad onVolver={() => navigate(direccion ? "/proyectos" : "/")} />} />
