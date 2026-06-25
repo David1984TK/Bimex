@@ -40,7 +40,6 @@ http.createServer(async (req, res) => {
       supabaseOk: supabaseOk,
       eventsLastHour: eventsLastHour ?? 0,
       uptime: uptimeSeconds,
-      ...getSseMetrics(),
     }));
     return;
   } else {

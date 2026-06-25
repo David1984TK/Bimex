@@ -21,18 +21,45 @@ function setCorsHeaders(req, res) {
 const PORT = parseInt(process.env.API_PORT ?? '3002', 10);
 
 // ─── Rate limiter: 3 requests per wallet per hour ────────────────────────
-const rateLimitMap = new Map();
 const RL_MAX = 3;
 const RL_WINDOW_MS = 60 * 60 * 1000;
 
-function checkRateLimit(wallet) {
-  const now = Date.now();
-  const entries = rateLimitMap.get(wallet) || [];
-  const recent = entries.filter(t => now - t < RL_WINDOW_MS);
-  if (recent.length >= RL_MAX) return false;
-  recent.push(now);
-  rateLimitMap.set(wallet, recent);
-  return true;
+async function checkRateLimit(wallet) {
+  const oneHourAgo = new Date(Date.now() - RL_WINDOW_MS).toISOString();
+
+  // Intentar insertar primero para prevenir condiciones de carrera (race condition)
+  const { error: insertError } = await supabase.from('faucet_rate_limit').insert({ wallet });
+  if (insertError) {
+    console.error('Rate limit insert error:', insertError);
+    return { allowed: false, retryAfter: 3600 };
+  }
+
+  const { data, error } = await supabase
+    .from('faucet_rate_limit')
+    .select('granted_at')
+    .eq('wallet', wallet)
+    .gte('granted_at', oneHourAgo)
+    .order('granted_at', { ascending: true });
+
+  if (error) {
+    console.error('Rate limit DB error:', error);
+    return { allowed: false, retryAfter: 3600 };
+  }
+
+  // data.length incluye el registro que acabamos de insertar
+  if (data.length > RL_MAX) {
+    // Revertir el insert excedente
+    const latest = data[data.length - 1].granted_at;
+    await supabase.from('faucet_rate_limit').delete()
+      .eq('wallet', wallet)
+      .eq('granted_at', latest);
+
+    const oldest = new Date(data[0].granted_at).getTime();
+    const retryAfterSeconds = Math.ceil((oldest + RL_WINDOW_MS - Date.now()) / 1000);
+    return { allowed: false, retryAfter: Math.max(1, retryAfterSeconds) };
+  }
+
+  return { allowed: true };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
@@ -111,8 +138,11 @@ async function route(req, res) {
     const { destino } = body;
     if (!destino) return json(req, res, 400, { error: 'Falta "destino" en el cuerpo' });
 
-    if (!checkRateLimit(destino))
+    const rl = await checkRateLimit(destino);
+    if (!rl.allowed) {
+      res.setHeader('Retry-After', rl.retryAfter.toString());
       return json(req, res, 429, { error: 'Límite de 3 solicitudes por hora por wallet' });
+    }
 
     try {
       await mintearMXNe(destino);

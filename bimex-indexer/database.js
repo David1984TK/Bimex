@@ -76,6 +76,15 @@ export async function getLastIndexedLedger() {
   });
 }
 
+<<<<<<< monitoring-updates
+export async function countEventsLastHour() {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { count, error } = await supabase.from('eventos')
+    .select('id', { count: 'exact', head: true })
+    .gt('timestamp', oneHourAgo);
+  if (error) throw error;
+  return count ?? 0;
+=======
 export async function insertAuditLog(audit) {
   return conRetry(async () => {
     const { error } = await supabase
@@ -83,6 +92,7 @@ export async function insertAuditLog(audit) {
       .upsert(audit, { onConflict: 'tx_hash', ignoreDuplicates: true });
     if (error) throw error;
   });
+>>>>>>> main
 }
 
 export default supabase;

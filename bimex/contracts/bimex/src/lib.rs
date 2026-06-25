@@ -312,6 +312,7 @@ impl BimexContrato {
         extender_ttl_proyecto(&env, id_proyecto);
         extender_ttl_aportacion(&env, id_proyecto, &backer);
 
+        #[allow(deprecated)]
         env.events().publish(
             (symbol_short!("aportar"), backer.clone()),
             (id_proyecto, cantidad, ahora),
