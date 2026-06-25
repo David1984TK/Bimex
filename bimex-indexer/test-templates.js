@@ -2,6 +2,13 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmplBienvenida, tmplContribucion, tmplAprobacionHTML, tmplYieldDisponible } from './templates/htmlTemplates.js';
+import { tmplBienvenida, tmplContribucion, tmplAprobacionHTML, tmplYieldDisponible } from './templates/htmlTemplates.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -11,11 +18,12 @@ if (!existsSync(outputDir)) mkdirSync(outputDir);
 
 const mockData = {
   nombre: 'Usuario de Prueba',
-  proyecto: 'Proyecto Solar Comunitario',
+  nombreProyecto: 'Proyecto Solar Comunitario',
   monto: '5,000.00',
-  fecha: new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }),
+  progreso: '65',
   yield: '250.00',
-  url: 'https://bimex-frontend.vercel.app/proyectos/1',
+  fecha: new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }),
+  proyectoUrl: 'https://bimex-frontend.vercel.app/proyectos/1',
 };
 
 writeFileSync(join(outputDir, 'bienvenida.html'), tmplBienvenida(mockData));
