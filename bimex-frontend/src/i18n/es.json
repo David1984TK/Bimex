@@ -162,6 +162,22 @@
     "earlyWithdrawTitle": "Recuperas tu capital completo, el rendimiento acumulado se queda en el proyecto",
     "earlyWithdrawNote": "Recuperas el 100% de tu capital. El rendimiento generado hasta hoy se dona al proyecto."
   },
+  "sello": {
+    "label": "Documentación verificada en IPFS",
+    "abrirModal": "Ver documentos verificados del proyecto",
+    "modalTitulo": "Documentación verificada",
+    "modalDesc": "Los documentos del proyecto fueron verificados por el equipo de Bimex y almacenados en IPFS de forma permanente.",
+    "docINE": "Identificación oficial — Responsable",
+    "docPlan": "Plan del proyecto",
+    "docPresupuesto": "Presupuesto desglosado",
+    "documento": "Documento",
+    "verificada": "Verificada",
+    "verDoc": "Ver en IPFS:",
+    "privacidadNota": "La identificación oficial es privada y solo fue verificada por el equipo de Bimex. El plan y el presupuesto son públicos.",
+    "cerrar": "Cerrar",
+    "fallbackLabel": "Documentos verificados (hash)",
+    "fallbackTitle": "Los documentos fueron verificados con SHA-256. No están en IPFS pero su integridad fue confirmada por el equipo de Bimex."
+  },
   "crear": {
     "title": "Registrar proyecto",
     "closeAria": "Cerrar formulario de creación",

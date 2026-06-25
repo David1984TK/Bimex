@@ -21,6 +21,8 @@ import {
 } from "../stellar/contrato";
 import { aplicarMeta, crearMetaProyecto, DEFAULT_META } from "../utils/metaTags.js";
 import { calcProyeccion, TASAS } from "../utils/rendimiento.js";
+import { parsearDocHash } from "../utils/ipfs.js";
+import SelloVerificado from "./SelloVerificado.jsx";
 
 function calcMonthlyProjectLoss(aportacionStroops, modo = "inversor") {
   const mxne = Number(stroopsAMXNe(aportacionStroops)) || 0;
@@ -197,17 +199,8 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
       : BigInt(0)
   ), [esDueno, proyecto.aportado, proyecto.capital_en_cetes, proyecto.capital_en_amm, proyecto.timestamp_inicio]);
 
-  // Documentos IPFS: "CID1|CID2|CID3" → array
-  const DOC_LABELS = [
-    t("detalle.docINE"),
-    t("detalle.docPlan"),
-    t("detalle.docPresupuesto"),
-  ];
-  const docs = useMemo(() => (
-    proyecto.doc_hash
-      ? proyecto.doc_hash.split("|").filter(Boolean)
-      : []
-  ), [proyecto.doc_hash]);
+  // Documentos IPFS: "CID1|CID2|CID3" → { cids, fallbackHash, esFallback }
+  const docInfo = useMemo(() => parsearDocHash(proyecto.doc_hash), [proyecto.doc_hash]);
 
   useEffect(() => {
     if (!proyecto?.id) return () => aplicarMeta(DEFAULT_META);
@@ -544,21 +537,15 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
               </div>
             </div>
 
-            {/* Documentos IPFS */}
-            {docs.length > 0 && (
+            {/* Sello de documentación verificada */}
+            {(docInfo.cids.length > 0 || docInfo.esFallback) && (
               <div className="detail-section">
                 <h3>{t("detalle.verifiedDocs")}</h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {docs.map((cid, i) => (
-                    <div key={cid} className="doc-row">
-                      <span style={{ color: "var(--muted)" }}><IconFile /></span>
-                      <span style={{ fontSize: "0.85rem", flex: 1 }}>{DOC_LABELS[i] ?? `Documento ${i + 1}`}</span>
-                      <span style={{ fontSize: "0.75rem", color: "var(--muted)", fontFamily: "monospace" }}>
-                        IPFS: {cid.slice(0, 8)}…
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                <SelloVerificado
+                  cids={docInfo.cids}
+                  fallbackHash={docInfo.fallbackHash}
+                  esFallback={docInfo.esFallback}
+                />
               </div>
             )}
 
