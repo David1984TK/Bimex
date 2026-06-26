@@ -338,7 +338,8 @@ async function route(req, res) {
       'Connection': 'keep-alive',
     });
     res.write(':ok\n\n');
-    agregarCliente(res);
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    agregarCliente(res, ip);
     req.on('close', () => eliminarCliente(res));
     return;
   }

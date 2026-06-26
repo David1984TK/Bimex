@@ -3,7 +3,7 @@ import http from 'node:http';
 import { rpc } from '@stellar/stellar-sdk';
 import { parseEvent } from './eventParser.js';
 import { upsertProyecto, upsertAportacion, insertEvento, insertAuditLog, getLastIndexedLedger, supabaseOk } from './database.js';
-import { notificarClientes } from './sse.js';
+import { notificarClientes, getSseMetrics } from './sse.js';
 import './api.js'; // start HTTP + SSE server in the same process
 
 const RPC_URL         = process.env.STELLAR_RPC_URL;
@@ -31,6 +31,7 @@ http.createServer(async (req, res) => {
     const uptimeSeconds = Math.floor((Date.now() - estadoIndexer.processStartTime) / 1000);
     // Simple lag estimation: difference between current time and last ledger (assuming 1 ledger per second)
     const lagSeconds = Math.max(0, Math.floor(Date.now() / 1000) - estadoIndexer.ultimoLedger);
+    const sseMetrics = getSseMetrics();
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
     res.end(JSON.stringify({
       ok: true,
@@ -40,6 +41,7 @@ http.createServer(async (req, res) => {
       supabaseOk: supabaseOk,
       eventsLastHour: eventsLastHour ?? 0,
       uptime: uptimeSeconds,
+      sseConnections: sseMetrics,
     }));
     return;
   } else {
