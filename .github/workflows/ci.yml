@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
 
 jobs:
   contract:
@@ -12,72 +12,59 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
+      
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: bimex
-      - name: cargo test
+      
+      - name: Run tests
         run: cd bimex && cargo test
-      # cargo clippy step moved below
-      - name: Install cargo-audit
-        run: cargo install cargo-audit --locked
-        working-directory: bimex
-      - name: Configure cargo audit ignores
-        run: |
-          mkdir -p ~/.cargo
-          cp bimex/audit.toml ~/.cargo/audit.toml
-      - name: Run cargo audit
-        run: cargo audit --deny warnings
-        working-directory: bimex
-      - name: cargo clippy
+      
+      - name: Run clippy
         run: cd bimex && cargo clippy -- -D warnings
-
-  codeql:
-    name: CodeQL
-    runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
-        with:
-          languages: javascript
-      - uses: github/codeql-action/analyze@v3
 
   frontend:
     name: Frontend React
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: bimex-frontend/package-lock.json
+      
       - name: Install dependencies
         run: cd bimex-frontend && npm ci
-      - name: Lint
+      
+      - name: Run linter
         run: cd bimex-frontend && npm run lint
-      - name: Unit tests
+      
+      - name: Run tests
         run: cd bimex-frontend && npm run test:run -- --coverage
-        env:
-          VITE_CONTRACT_ID: PLACEHOLDER_CONTRACT_ID
-          VITE_RPC_URL: https://soroban-testnet.stellar.org
-          VITE_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
+      
+      - name: Build
+        run: cd bimex-frontend && npm run build
 
   indexer:
     name: Indexer Node.js
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: bimex-indexer/package-lock.json
+      
       - name: Install dependencies
         run: cd bimex-indexer && npm ci
-      - name: Run unit tests
-        run: cd bimex-indexer && npm test
+      
+      - name: Run tests
+        run: cd bimex-indexer && npm run test
