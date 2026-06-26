@@ -19,6 +19,8 @@
 | [Security Policy / Bug Bounty](../SECURITY.md) | Política de seguridad, programa de recompensas Tier 1 y proceso de divulgación responsable |
 | [Threat Model](THREAT-MODEL.md) | Modelo de amenazas, activos, actores y superficie de ataque |
 | [Contract Invariants](CONTRACT-INVARIANTS.md) | Invariantes críticos del contrato inteligente |
+| [Auditoría externa](AUDITORIA.md) | Reporte de auditoría del contrato y estado de hallazgos (#136) |
+| [Alcance de auditoría](AUDIT-SCOPE.md) | Alcance congelado y checklist del SDF Audit Bank |
 | [Bug Bounty Tier 2](SECURITY-BOUNTY-TIER2.md) | Decisión de plataforma y presupuesto para el programa post-lanzamiento |
 
 ## 🚀 Proyecto Piloto (Mainnet)

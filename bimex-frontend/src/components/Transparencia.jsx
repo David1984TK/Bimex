@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import usePaginacion from "../hooks/usePaginacion";
 import usePaginacionLocal from "../hooks/usePaginacionLocal";
 import Paginacion from "./Paginacion";
+import AuditoriaBadge from "./AuditoriaBadge";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
@@ -176,6 +177,8 @@ export default function Transparencia({ onVolver }) {
           </a>
         </p>
       </div>
+
+      <AuditoriaBadge variant="full" />
 
       {errorCarga && (
         <div role="alert" style={{
