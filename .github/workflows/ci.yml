@@ -58,6 +58,8 @@ jobs:
           cache-dependency-path: bimex-frontend/package-lock.json
       - name: Install dependencies
         run: cd bimex-frontend && npm ci
+      - name: Audit dependencies
+        run: cd bimex-frontend && npm audit --audit-level=high
       - name: Lint
         run: cd bimex-frontend && npm run lint
       - name: Unit tests
@@ -79,5 +81,7 @@ jobs:
           cache-dependency-path: bimex-indexer/package-lock.json
       - name: Install dependencies
         run: cd bimex-indexer && npm ci
+      - name: Audit dependencies
+        run: cd bimex-indexer && npm audit --audit-level=high
       - name: Run unit tests
         run: cd bimex-indexer && npm test

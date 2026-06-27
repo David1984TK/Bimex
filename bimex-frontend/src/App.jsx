@@ -12,6 +12,7 @@ import Terminos         from "./components/Terminos";
 import Privacidad       from "./components/Privacidad";
 import OnboardingTour from "./components/OnboardingTour";
 import SimuladorImpacto from "./components/SimuladorImpacto";
+import AuditoriaBadge from "./components/AuditoriaBadge";
 import { shouldShowTour } from "./utils/onboardingUtils";
 import { getStorage }   from "./utils/storage";
 import { parsearError } from "./utils/errores";
@@ -737,6 +738,9 @@ function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTe
             <div style={st.heroBadge}>
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--green)", display: "inline-block" }} />
               Tu dinero no está bloqueado — puedes retirarlo cuando quieras
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <AuditoriaBadge variant="compact" />
             </div>
             <h1 id="hero-titulo" style={st.heroH1}>
               Invierte. Impacta.<br />
