@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   validarArchivo,
   TIPOS_PERMITIDOS,
@@ -6,6 +6,7 @@ import {
   esCID,
   cidAUrl,
   parsearDocHash,
+  subirAIPFS,
 } from '../utils/ipfs.js';
 
 describe('validarArchivo', () => {
@@ -120,5 +121,25 @@ describe('parsearDocHash', () => {
   it('trims whitespace around CIDs', () => {
     const result = parsearDocHash(` ${CID0} | ${CID1} `);
     expect(result.cids).toEqual([CID0, CID1]);
+  });
+});
+
+describe('subirAIPFS', () => {
+  it('uploads through the indexer proxy without exposing Pinata headers', async () => {
+    vi.stubEnv('VITE_API_URL', 'https://api.example.test');
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ IpfsHash: 'QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG' }),
+    }));
+
+    const cid = await subirAIPFS(new File(['pdf'], 'doc.pdf', { type: 'application/pdf' }));
+
+    expect(cid).toBe('QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG');
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://api.example.test/upload-ipfs',
+      expect.objectContaining({ method: 'POST', body: expect.any(FormData) }),
+    );
+    expect(global.fetch.mock.calls[0][1].headers).toBeUndefined();
+    vi.unstubAllEnvs();
   });
 });
