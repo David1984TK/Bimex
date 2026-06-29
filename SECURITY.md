@@ -17,8 +17,9 @@
 7. [Severity and rewards](#severity-and-rewards)
 8. [Rules of engagement](#rules-of-engagement)
 9. [Hall of Fame](#hall-of-fame)
-10. [Security resources](#security-resources)
-11. [Preguntas frecuentes / FAQ](#preguntas-frecuentes--faq)
+10. [Dependency and supply-chain security](#dependency-and-supply-chain-security)
+11. [Security resources](#security-resources)
+12. [Preguntas frecuentes / FAQ](#preguntas-frecuentes--faq)
 
 ---
 
@@ -238,10 +239,46 @@ To be added to this list, submit a valid in-scope report and opt-in to public re
 
 ---
 
+## Dependency and supply-chain security
+
+We continuously monitor third-party dependencies for known vulnerabilities across all ecosystems.
+
+### Automated scanning (CI)
+
+Every push and pull request runs a vulnerability gate in [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+
+| Ecosystem | Tool | Gate |
+|---|---|---|
+| Rust contract (`bimex`) | `cargo audit --deny warnings` | Fails CI on any advisory |
+| Frontend (`bimex-frontend`) | `npm audit --audit-level=high` | Fails CI on high/critical CVEs |
+| Indexer (`bimex-indexer`) | `npm audit --audit-level=high` | Fails CI on high/critical CVEs |
+
+### Automated updates (Dependabot)
+
+[`.github/dependabot.yml`](.github/dependabot.yml) opens **weekly** pull requests, grouped per ecosystem, for:
+
+- `npm` — `bimex-frontend` and `bimex-indexer`
+- `cargo` — `bimex` (smart contract)
+- `github-actions` — workflow action versions
+
+### Remediation SLA
+
+| Advisory severity | Action |
+|---|---|
+| **Critical / High (security update)** | Reviewed and merged within **72 hours** of the Dependabot PR or audit alert. |
+| Moderate | Triaged within one week; merged on the next dependency cycle. |
+| Low / informational | Batched into routine maintenance. |
+
+Security-driven dependency updates take priority over feature work. If a high/critical CVE cannot be fixed within 72 hours (e.g. no patch is available), the team documents a mitigation and tracks it via a private advisory.
+
+---
+
 ## Security resources
 
 - [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md) — Threat model, assets, and attack vectors.
 - [`docs/CONTRACT-INVARIANTS.md`](docs/CONTRACT-INVARIANTS.md) — Critical properties the contract must never violate.
+- [`docs/AUDITORIA.md`](docs/AUDITORIA.md) — External audit report and findings status (issue #136).
+- [`docs/AUDIT-SCOPE.md`](docs/AUDIT-SCOPE.md) — Frozen audit scope and SDF Audit Bank application checklist.
 - [`docs/SECURITY-BOUNTY-TIER2.md`](docs/SECURITY-BOUNTY-TIER2.md) — Tier 2 platform decision and budget tracking.
 - [Testnet contract addresses](README.md#contract-addresses-testnet)
 - [CI workflow](.github/workflows/ci.yml) — Automated contract and frontend tests.

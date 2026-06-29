@@ -178,6 +178,15 @@
     "fallbackLabel": "Documents verified (hash)",
     "fallbackTitle": "Documents were verified with SHA-256. They are not on IPFS but their integrity was confirmed by the Bimex team."
   },
+  "auditoria": {
+    "pendiente": "External audit: in preparation",
+    "enProgreso": "Audit in progress — {{firma}}",
+    "completada": "Contract audited by {{firma}}",
+    "firmaTbd": "firm to be confirmed",
+    "verReporte": "View full report",
+    "notaPendiente": "The contract will be audited by an external firm before the Mainnet launch. The report will be published here.",
+    "tooltip": "No public audit report yet. It will not custody real funds on Mainnet until the audit is complete."
+  },
   "crear": {
     "title": "Register project",
     "closeAria": "Close creation form",

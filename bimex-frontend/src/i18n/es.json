@@ -178,6 +178,15 @@
     "fallbackLabel": "Documentos verificados (hash)",
     "fallbackTitle": "Los documentos fueron verificados con SHA-256. No están en IPFS pero su integridad fue confirmada por el equipo de Bimex."
   },
+  "auditoria": {
+    "pendiente": "Auditoría externa: en preparación",
+    "enProgreso": "Auditoría en curso — {{firma}}",
+    "completada": "Contrato auditado por {{firma}}",
+    "firmaTbd": "firma por confirmar",
+    "verReporte": "Ver reporte completo",
+    "notaPendiente": "El contrato será auditado por una firma externa antes del lanzamiento en Mainnet. El reporte se publicará aquí.",
+    "tooltip": "Aún no hay reporte de auditoría público. No custodia fondos reales en Mainnet hasta completarla."
+  },
   "crear": {
     "title": "Registrar proyecto",
     "closeAria": "Cerrar formulario de creación",
