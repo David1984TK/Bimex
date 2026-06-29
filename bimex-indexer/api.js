@@ -387,7 +387,7 @@ async function route(req, res) {
       'Connection': 'keep-alive',
     });
     res.write(':ok\n\n');
-    agregarCliente(res);
+    agregarCliente(res, getClientIp(req));
     req.on('close', () => {
       sseLimit.release();
       eliminarCliente(res);

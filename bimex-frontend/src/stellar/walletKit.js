@@ -1,4 +1,4 @@
-import { StellarWalletsKit, WalletConnectModule } from "@creit.tech/stellar-wallets-kit";
+import { StellarWalletsKit, WalletConnectModule, FreighterModule } from "@creit.tech/stellar-wallets-kit";
 import { Networks } from "@stellar/stellar-sdk";
 import { CONFIG } from "./contrato.js";
 
@@ -10,15 +10,16 @@ let currentWallet = null;
 function initializeKit() {
   if (kit) return kit;
 
+  const wcProjectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
+
   const modules = [
-    new WalletConnectModule({
-      projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "c4f79cc821944d9680842e34466bfda0",
-      name: "Bimex",
-    }),
+    new FreighterModule(),
+    ...(wcProjectId ? [new WalletConnectModule({ projectId: wcProjectId, name: "Bimex" })] : []),
   ];
 
   kit = new StellarWalletsKit({
     network: _isMainnet ? Networks.PUBLIC : Networks.TESTNET,
+    selectedWalletId: "freighter",
     modules,
   });
 
