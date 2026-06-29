@@ -21,11 +21,11 @@ function setMetaTag(selector, attrs) {
 export function crearMetaProyecto(proyecto) {
   if (!proyecto) return DEFAULT_META;
   const nombre = proyecto.nombre || "Proyecto Bimex";
-  const raised = stroopsAMXNe(proyecto.aportado ?? 0);
-  const remaining = stroopsAMXNe((proyecto.meta ?? 0) > (proyecto.aportado ?? 0) ? (proyecto.meta - proyecto.aportado) : 0n);
+  const meta = stroopsAMXNe(proyecto.meta ?? 0n);
+  const estado = proyecto.estado ?? '';
   return {
     title: `${nombre} — Bimex`,
-    description: `${raised} recaudados · faltan ${remaining} para la meta`,
+    description: estado ? `Meta: ${meta} · ${estado}` : `Meta: ${meta}`,
     image: DEFAULT_META.image,
     url: `${SITE_URL}/proyectos/${proyecto.id}`,
   };
