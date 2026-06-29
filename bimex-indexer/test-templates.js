@@ -11,11 +11,12 @@ if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
 
 const mockData = {
   nombre: 'Usuario de Prueba',
-  proyecto: 'Proyecto Solar Comunitario',
+  nombreProyecto: 'Proyecto Solar Comunitario',
   monto: '5,000.00',
-  fecha: new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }),
+  progreso: '65',
   yield: '250.00',
-  url: 'https://bimex-frontend.vercel.app/proyectos/1',
+  fecha: new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }),
+  proyectoUrl: 'https://bimex-frontend.vercel.app/proyectos/1',
 };
 
 fs.writeFileSync(path.join(outputDir, 'bienvenida.html'), tmplBienvenida(mockData));

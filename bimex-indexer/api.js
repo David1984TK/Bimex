@@ -3,6 +3,14 @@ import http from 'node:http';
 import { Contract, rpc, TransactionBuilder, Networks, Address, Keypair, nativeToScVal } from '@stellar/stellar-sdk';
 import supabase from './database.js';
 import { agregarCliente, eliminarCliente } from './sse.js';
+import {
+  acquireSseConnection,
+  buildIpRateLimitKey,
+  buildWalletRateLimitKey,
+  enforceFixedWindowRateLimit,
+  getClientIp,
+  getRateLimitConfig,
+} from './rateLimiter.js';
 
 const ALLOWED_ORIGINS = new Set([
   'https://bimex.vercel.app',
@@ -27,7 +35,6 @@ const RL_WINDOW_MS = 60 * 60 * 1000;
 async function checkRateLimit(wallet) {
   const oneHourAgo = new Date(Date.now() - RL_WINDOW_MS).toISOString();
 
-  // Intentar insertar primero para prevenir condiciones de carrera (race condition)
   const { error: insertError } = await supabase.from('faucet_rate_limit').insert({ wallet });
   if (insertError) {
     console.error('Rate limit insert error:', insertError);
@@ -46,9 +53,7 @@ async function checkRateLimit(wallet) {
     return { allowed: false, retryAfter: 3600 };
   }
 
-  // data.length incluye el registro que acabamos de insertar
   if (data.length > RL_MAX) {
-    // Revertir el insert excedente
     const latest = data[data.length - 1].granted_at;
     await supabase.from('faucet_rate_limit').delete()
       .eq('wallet', wallet)
@@ -69,6 +74,20 @@ function json(req, res, status, data) {
   setCorsHeaders(req, res);
   res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(body);
+}
+
+function rateLimitExceeded(req, res, result, message) {
+  return json(req, res, 429, {
+    error: message,
+    retry_after: result.retryAfter,
+  });
+}
+
+function publicRateLimitedEndpoint(parts) {
+  if (parts[0] === 'proyectos') return '/proyectos';
+  if (parts[0] === 'eventos' && !parts[1]) return '/eventos';
+  if (parts[0] === 'stats' && !parts[1]) return '/stats';
+  return null;
 }
 
 function readBody(req) {
@@ -128,6 +147,7 @@ async function mintearMXNe(destino, cantidad = BigInt(1_000_000_000)) {
 async function route(req, res) {
   const url = new URL(req.url, `http://localhost`);
   const parts = url.pathname.replace(/^\//, '').split('/');
+  const rateLimitConfig = getRateLimitConfig();
 
   // POST /faucet
   if (req.method === 'POST' && parts[0] === 'faucet' && !parts[1]) {
@@ -137,6 +157,17 @@ async function route(req, res) {
 
     const { destino } = body;
     if (!destino) return json(req, res, 400, { error: 'Falta "destino" en el cuerpo' });
+
+    const faucetLimit = await enforceFixedWindowRateLimit(req, res, {
+      scope: 'faucet',
+      route: '/faucet',
+      key: buildWalletRateLimitKey('faucet', destino),
+      limit: rateLimitConfig.faucetLimit,
+      windowMs: rateLimitConfig.faucetWindowMs,
+      honorIpWhitelist: false,
+    });
+    if (!faucetLimit.allowed)
+      return rateLimitExceeded(req, res, faucetLimit, 'Límite de 3 solicitudes por hora por wallet');
 
     const rl = await checkRateLimit(destino);
     if (!rl.allowed) {
@@ -153,6 +184,20 @@ async function route(req, res) {
   }
 
   if (req.method !== 'GET') return json(req, res, 405, { error: 'Method not allowed' });
+
+  const limitedEndpoint = publicRateLimitedEndpoint(parts);
+  if (limitedEndpoint) {
+    const ip = getClientIp(req);
+    const publicLimit = await enforceFixedWindowRateLimit(req, res, {
+      scope: 'public-api',
+      route: limitedEndpoint,
+      key: buildIpRateLimitKey(limitedEndpoint, ip),
+      limit: rateLimitConfig.publicLimit,
+      windowMs: rateLimitConfig.publicWindowMs,
+    });
+    if (!publicLimit.allowed)
+      return rateLimitExceeded(req, res, publicLimit, 'Demasiadas solicitudes. Intenta de nuevo más tarde.');
+  }
 
   // GET /proyectos[?estado=X]
   if (parts[0] === 'proyectos' && !parts[1]) {
@@ -331,6 +376,10 @@ async function route(req, res) {
 
   // GET /sse — Server-Sent Events stream
   if (parts[0] === 'sse' && !parts[1]) {
+    const sseLimit = await acquireSseConnection(req, res, { limit: rateLimitConfig.sseLimit, route: '/sse' });
+    if (!sseLimit.allowed)
+      return rateLimitExceeded(req, res, sseLimit, 'Demasiadas conexiones SSE simultáneas desde esta IP.');
+
     setCorsHeaders(req, res);
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -339,7 +388,10 @@ async function route(req, res) {
     });
     res.write(':ok\n\n');
     agregarCliente(res);
-    req.on('close', () => eliminarCliente(res));
+    req.on('close', () => {
+      sseLimit.release();
+      eliminarCliente(res);
+    });
     return;
   }
 

@@ -21,6 +21,8 @@ import {
 } from "../stellar/contrato";
 import { aplicarMeta, crearMetaProyecto, DEFAULT_META } from "../utils/metaTags.js";
 import { calcProyeccion, TASAS } from "../utils/rendimiento.js";
+import { parsearDocHash } from "../utils/ipfs.js";
+import SelloVerificado from "./SelloVerificado.jsx";
 
 function calcMonthlyProjectLoss(aportacionStroops, modo = "inversor") {
   const mxne = Number(stroopsAMXNe(aportacionStroops)) || 0;
@@ -188,6 +190,8 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
   const aportado   = Number(proyecto.aportado ?? 0);
   const meta       = Number(proyecto.meta ?? 0);
   const porcentaje = meta > 0 ? Math.min((aportado / meta) * 100, 100) : 0;
+  const faltante   = Math.max(0, meta - aportado);
+  const faltanteMXNe = stroopsAMXNe(BigInt(faltante));
 
   const yieldDueno = useMemo(() => (
     esDueno
@@ -195,17 +199,8 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
       : BigInt(0)
   ), [esDueno, proyecto.aportado, proyecto.capital_en_cetes, proyecto.capital_en_amm, proyecto.timestamp_inicio]);
 
-  // Documentos IPFS: "CID1|CID2|CID3" → array
-  const DOC_LABELS = [
-    t("detalle.docINE"),
-    t("detalle.docPlan"),
-    t("detalle.docPresupuesto"),
-  ];
-  const docs = useMemo(() => (
-    proyecto.doc_hash
-      ? proyecto.doc_hash.split("|").filter(Boolean)
-      : []
-  ), [proyecto.doc_hash]);
+  // Documentos IPFS: "CID1|CID2|CID3" → { cids, fallbackHash, esFallback }
+  const docInfo = useMemo(() => parsearDocHash(proyecto.doc_hash), [proyecto.doc_hash]);
 
   useEffect(() => {
     if (!proyecto?.id) return () => aplicarMeta(DEFAULT_META);
@@ -442,7 +437,12 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                 </span>
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                <h1 style={{ margin: 0 }}>{proyecto.nombre}</h1>
+                <div style={{ minWidth: 0 }}>
+                  <h1 style={{ margin: 0 }}>{proyecto.nombre}</h1>
+                  <p style={{ margin: "8px 0 0", color: "var(--muted)", fontSize: "0.95rem" }}>
+                    🔥 {stroopsAMXNe(proyecto.aportado ?? 0)} recaudados · faltan {faltanteMXNe}
+                  </p>
+                </div>
                 <button
                   onClick={() => setMostrarQR(true)}
                   className="btn btn-outline btn-sm"
@@ -537,21 +537,15 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
               </div>
             </div>
 
-            {/* Documentos IPFS */}
-            {docs.length > 0 && (
+            {/* Sello de documentación verificada */}
+            {(docInfo.cids.length > 0 || docInfo.esFallback) && (
               <div className="detail-section">
                 <h3>{t("detalle.verifiedDocs")}</h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {docs.map((cid, i) => (
-                    <div key={cid} className="doc-row">
-                      <span style={{ color: "var(--muted)" }}><IconFile /></span>
-                      <span style={{ fontSize: "0.85rem", flex: 1 }}>{DOC_LABELS[i] ?? `Documento ${i + 1}`}</span>
-                      <span style={{ fontSize: "0.75rem", color: "var(--muted)", fontFamily: "monospace" }}>
-                        IPFS: {cid.slice(0, 8)}…
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                <SelloVerificado
+                  cids={docInfo.cids}
+                  fallbackHash={docInfo.fallbackHash}
+                  esFallback={docInfo.esFallback}
+                />
               </div>
             )}
 
@@ -597,6 +591,10 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
               <div className="invest-panel-head">
                 <p>{t("detalle.investIn")}</p>
                 <h3>{proyecto.nombre}</h3>
+              </div>
+              <div style={{ margin: "14px 0 10px", color: "var(--muted)", fontSize: "0.95rem", display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                <span>🔥 Ya se recaudó {stroopsAMXNe(proyecto.aportado ?? 0)}</span>
+                <strong style={{ color: "var(--text)", whiteSpace: "nowrap" }}>Faltan {faltanteMXNe}</strong>
               </div>
 
               <div className="invest-body">
