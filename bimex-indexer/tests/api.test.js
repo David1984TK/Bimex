@@ -305,3 +305,59 @@ describe('api.js REST Endpoints', () => {
     });
   });
 });
+
+describe('POST /upload-ipfs', () => {
+  const boundary = '----bimex-test-boundary';
+  const multipart = (content, type = 'application/pdf', filename = 'doc.pdf') => [
+    `--${boundary}`,
+    `Content-Disposition: form-data; name="file"; filename="${filename}"`,
+    `Content-Type: ${type}`,
+    '',
+    content,
+    `--${boundary}--`,
+    '',
+  ].join('\r\n');
+
+  beforeEach(() => {
+    process.env.PINATA_JWT = 'backend-secret-jwt';
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ IpfsHash: 'QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG' }),
+    }));
+  });
+
+  afterEach(() => {
+    delete process.env.PINATA_JWT;
+    vi.unstubAllGlobals();
+  });
+
+  it('uploads a valid file through the backend Pinata proxy', async () => {
+    const res = await req({
+      path: '/upload-ipfs',
+      method: 'POST',
+      headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
+    }, multipart('pdf-content'));
+
+    expect(res.status).toBe(200);
+    expect(res.body.IpfsHash).toBe('QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG');
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://api.pinata.cloud/pinning/pinFileToIPFS',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { Authorization: 'Bearer backend-secret-jwt' },
+      }),
+    );
+  });
+
+  it('rejects disallowed file types before calling Pinata', async () => {
+    const res = await req({
+      path: '/upload-ipfs',
+      method: 'POST',
+      headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
+    }, multipart('bad', 'application/x-msdownload', 'bad.exe'));
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Tipo no permitido');
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+});

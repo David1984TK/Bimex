@@ -27,6 +27,9 @@ function setCorsHeaders(req, res) {
 }
 
 const PORT = parseInt(process.env.API_PORT ?? '3002', 10);
+const PINATA_URL = 'https://api.pinata.cloud/pinning/pinFileToIPFS';
+const IPFS_ALLOWED_TYPES = new Set(['application/pdf', 'image/png', 'image/jpeg', 'image/jpg']);
+const IPFS_MAX_BYTES = 10 * 1024 * 1024;
 
 // ─── Rate limiter: 3 requests per wallet per hour ────────────────────────
 const RL_MAX = 3;
@@ -102,6 +105,78 @@ function readBody(req) {
   });
 }
 
+// ─── IPFS proxy ──────────────────────────────────────────────────────────
+
+function validarArchivoIpfs(file) {
+  if (!file) return 'No se seleccionó ningún archivo';
+  if (!IPFS_ALLOWED_TYPES.has(file.type)) return 'Tipo no permitido. Usa: .pdf, .png, .jpg, .jpeg';
+  if (file.buffer.length > IPFS_MAX_BYTES) return 'El archivo supera el límite de 10MB';
+  return null;
+}
+
+function parseMultipartFile(req) {
+  return new Promise((resolve, reject) => {
+    const contentType = req.headers['content-type'] ?? '';
+    const match = contentType.match(/boundary=(?:"([^"]+)"|([^;]+))/i);
+    if (!match) return reject(new Error('Content-Type multipart/form-data inválido'));
+
+    const chunks = [];
+    let total = 0;
+    req.on('data', chunk => {
+      total += chunk.length;
+      if (total > IPFS_MAX_BYTES + 1024 * 1024) {
+        req.destroy(new Error('El archivo supera el límite de 10MB'));
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      const body = Buffer.concat(chunks);
+      const boundary = match[1] ?? match[2];
+      const raw = body.toString('binary');
+      for (const part of raw.split(`--${boundary}`)) {
+        const headerEnd = part.indexOf('\r\n\r\n');
+        if (headerEnd === -1) continue;
+        const headers = part.slice(0, headerEnd);
+        const disposition = headers.match(/content-disposition:([^\r\n]*)/i)?.[1] ?? '';
+        const name = disposition.match(/(?:^|;\s*)name="([^"]+)"/i)?.[1];
+        if (name !== 'file') continue;
+        const filename = disposition.match(/(?:^|;\s*)filename="([^"]*)"/i)?.[1];
+        const type = headers.match(/content-type:\s*([^\r\n]+)/i)?.[1]?.trim() ?? 'application/octet-stream';
+        let content = part.slice(headerEnd + 4);
+        if (content.endsWith('\r\n')) content = content.slice(0, -2);
+        return resolve({
+          name: filename || 'upload',
+          type,
+          buffer: Buffer.from(content, 'binary'),
+        });
+      }
+      reject(new Error('Falta el campo multipart "file"'));
+    });
+    req.on('error', reject);
+  });
+}
+
+async function uploadToPinata(file) {
+  if (!process.env.PINATA_JWT && (!process.env.PINATA_API_KEY || !process.env.PINATA_SECRET)) {
+    throw new Error('Pinata no configurado en backend');
+  }
+
+  const formData = new FormData();
+  formData.append('file', new Blob([file.buffer], { type: file.type }), file.name);
+
+  const headers = process.env.PINATA_JWT
+    ? { Authorization: `Bearer ${process.env.PINATA_JWT}` }
+    : {
+        pinata_api_key: process.env.PINATA_API_KEY,
+        pinata_secret_api_key: process.env.PINATA_SECRET,
+      };
+
+  const res = await fetch(PINATA_URL, { method: 'POST', headers, body: formData });
+  if (!res.ok) throw new Error(`Pinata error: ${res.status}`);
+  return res.json();
+}
+
 // ─── Faucet — TESTNET ONLY ───────────────────────────────────────────────
 
 const FAUCET_RPC        = new rpc.Server(process.env.STELLAR_RPC_URL, { allowHttp: false });
@@ -148,6 +223,31 @@ async function route(req, res) {
   const url = new URL(req.url, `http://localhost`);
   const parts = url.pathname.replace(/^\//, '').split('/');
   const rateLimitConfig = getRateLimitConfig();
+
+  // POST /upload-ipfs
+  if (req.method === 'POST' && parts[0] === 'upload-ipfs' && !parts[1]) {
+    const ip = getClientIp(req);
+    const ipfsLimit = await enforceFixedWindowRateLimit(req, res, {
+      scope: 'ipfs-upload',
+      route: '/upload-ipfs',
+      key: buildIpRateLimitKey('/upload-ipfs', ip),
+      limit: 20,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!ipfsLimit.allowed)
+      return rateLimitExceeded(req, res, ipfsLimit, 'Límite de uploads IPFS alcanzado. Intenta de nuevo en una hora.');
+
+    try {
+      const file = await parseMultipartFile(req);
+      const error = validarArchivoIpfs(file);
+      if (error) return json(req, res, 400, { error });
+      const data = await uploadToPinata(file);
+      return json(req, res, 200, { IpfsHash: data.IpfsHash });
+    } catch (e) {
+      const status = e.message.includes('límite') || e.message.includes('multipart') || e.message.includes('Falta') ? 400 : 502;
+      return json(req, res, status, { error: e.message });
+    }
+  }
 
   // POST /faucet
   if (req.method === 'POST' && parts[0] === 'faucet' && !parts[1]) {

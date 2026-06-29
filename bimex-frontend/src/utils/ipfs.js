@@ -14,23 +14,33 @@ export function validarArchivo(archivo) {
   return { valido: true, error: null };
 }
 
-const PINATA_URL = "https://api.pinata.cloud/pinning/pinFileToIPFS";
-
 export async function subirAIPFS(archivo) {
-  const apiKey    = import.meta.env.VITE_PINATA_API_KEY;
-  const apiSecret = import.meta.env.VITE_PINATA_SECRET;
-  if (!apiKey || !apiSecret) throw new Error("Pinata keys not configured");
+  const validacion = validarArchivo(archivo);
+  if (!validacion.valido) throw new Error(validacion.error);
+  const API_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+  if (!API_URL) throw new Error('Indexer API not configured');
 
   const formData = new FormData();
-  formData.append("file", archivo);
+  formData.append('file', archivo);
 
-  const res = await fetch(PINATA_URL, {
-    method: "POST",
-    headers: { pinata_api_key: apiKey, pinata_secret_api_key: apiSecret },
+  const res = await fetch(`${API_URL}/upload-ipfs`, {
+    method: 'POST',
     body: formData,
   });
-  if (!res.ok) throw new Error(`Pinata error: ${res.status}`);
+
+  if (!res.ok) {
+    let message = `IPFS proxy error: ${res.status}`;
+    try {
+      const data = await res.json();
+      if (data?.error) message = data.error;
+    } catch {
+      // Keep generic status message when the proxy does not return JSON.
+    }
+    throw new Error(message);
+  }
+
   const data = await res.json();
+  if (!data?.IpfsHash) throw new Error('IPFS proxy response missing IpfsHash');
   return data.IpfsHash;
 }
 
