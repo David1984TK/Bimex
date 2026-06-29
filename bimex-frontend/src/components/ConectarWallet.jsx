@@ -1,8 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  isConnected, isAllowed, requestAccess, getAddress, getNetwork,
-} from "@stellar/freighter-api";
 import { parsearError } from "../utils/errores.js";
 import {
   passkeyKit,
@@ -11,7 +8,8 @@ import {
   crearTrustlineMXNe,
   urlFriendbot,
 } from "../stellar/contrato.js";
-import { Fingerprint } from "lucide-react";
+import { getWalletKit, openWalletModal } from "../stellar/walletKit.js";
+import { Fingerprint, Wallet } from "lucide-react";
 
 const RESERVA_XLM_POR_TRUSTLINE = 0.5;
 
@@ -93,12 +91,21 @@ export default function ConectarWallet({ onConectado, autoConectar = true, inNav
     if (!autoConectar) return;
     (async () => {
       try {
-        const { isConnected: conectado } = await isConnected();
-        if (!conectado) return;
-        const { isAllowed: permitido } = await isAllowed();
-        if (!permitido) return;
-        const { address } = await getAddress();
-        if (address) conectarDireccion(address);
+        const kit = getWalletKit();
+        const lastWalletId = localStorage.getItem("lastWallet");
+
+        if (lastWalletId) {
+          try {
+            const wallet = kit.getWallet(lastWalletId);
+            if (wallet) {
+              await wallet.connect();
+              const address = await wallet.getPublicKey();
+              if (address) conectarDireccion(address);
+            }
+          } catch {
+            localStorage.removeItem("lastWallet");
+          }
+        }
       } catch (err) {
         console.warn("No se pudo restaurar la sesión:", err);
       }
@@ -128,20 +135,22 @@ export default function ConectarWallet({ onConectado, autoConectar = true, inNav
   }
 
   async function conectar() {
-    setEstado("verificando"); setError("");
+    setEstado("verificando");
+    setError("");
     try {
-      const { isConnected: conectado } = await isConnected();
-      if (!conectado) { setEstado("sin_extension"); return; }
-      await requestAccess();
-      const { networkPassphrase } = await getNetwork();
-      if (!networkPassphrase) { setError("Freighter no devolvió la red activa. Asegúrate de que esté desbloqueado."); setEstado("error"); return; }
-      if (networkPassphrase !== CONFIG.NETWORK_PASSPHRASE) { setEstado("red_incorrecta"); return; }
-      const { address } = await getAddress();
+      const wallet = await openWalletModal();
+      if (!wallet) {
+        setEstado("inactivo");
+        return;
+      }
+
+      const address = await wallet.getPublicKey();
       if (!address || address.length < 10) {
         setError("No se pudo obtener la dirección de la wallet. Intenta de nuevo.");
         setEstado("error");
         return;
       }
+
       conectarDireccion(address);
     } catch (e) {
       setError(parsearError(e));
@@ -274,27 +283,14 @@ export default function ConectarWallet({ onConectado, autoConectar = true, inNav
         <button
           onClick={conectar}
           disabled={verificando}
-          className="btn"
-          style={{ flex: 1, padding: "14px 20px", fontSize: "0.95rem", opacity: verificando ? 0.65 : 1, background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)" }}
+          className="btn btn-primary"
+          style={{ flex: 1, padding: "14px 20px", fontSize: "0.95rem", opacity: verificando ? 0.65 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
         >
-          {t("wallet.freighter")}
+          <Wallet size={18} />
+          {verificando ? t("wallet.connecting") : t("wallet.connect")}
         </button>
       </div>
 
-      {estado === "sin_extension" && (
-        <p style={{ color: "var(--amber)", fontSize: "0.82rem", margin: 0, marginTop: 8 }}>
-          {t("wallet.freighterMissing")}{" "}
-          <a href="https://freighter.app" target="_blank" rel="noreferrer"
-             style={{ color: "var(--navy)", fontWeight: 600 }}>
-            {t("wallet.freighterInstall")}
-          </a>
-        </p>
-      )}
-      {estado === "red_incorrecta" && (
-        <p style={{ color: "var(--amber)", fontSize: "0.82rem", margin: 0 }}>
-          {t("wallet.wrongNetwork")}
-        </p>
-      )}
       {estado === "error" && (
         <p style={{ color: "var(--error, #DC2626)", fontSize: "0.82rem", margin: 0 }}>{error}</p>
       )}
