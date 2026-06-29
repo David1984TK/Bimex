@@ -85,6 +85,7 @@ export default function Transparencia({ onVolver }) {
     }
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { cargar(); }, []);
 
   // Paginated contributions across platform (Supabase)

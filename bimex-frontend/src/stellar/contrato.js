@@ -154,7 +154,7 @@ async function firmarYEnviar(txPreparada, cuentaPublica) {
       const res = await enviarPorLaunchtube(txFirmada.toXDR());
       envioHash = res.hash;
     } catch (err) {
-      throw new Error(`Launchtube rechazó la transacción: ${err.message}`);
+      throw new Error(`Launchtube rechazó la transacción: ${err.message}`, { cause: err });
     }
   } else {
     const signedTxXdr = await signWithWalletKit(txPreparada, cuentaPublica);
