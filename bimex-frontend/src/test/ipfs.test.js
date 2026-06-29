@@ -127,7 +127,7 @@ describe('parsearDocHash', () => {
 describe('subirAIPFS', () => {
   it('uploads through the indexer proxy without exposing Pinata headers', async () => {
     vi.stubEnv('VITE_API_URL', 'https://api.example.test');
-    global.fetch = vi.fn(async () => ({
+    globalThis.fetch = vi.fn(async () => ({
       ok: true,
       json: async () => ({ IpfsHash: 'QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG' }),
     }));
@@ -135,11 +135,11 @@ describe('subirAIPFS', () => {
     const cid = await subirAIPFS(new File(['pdf'], 'doc.pdf', { type: 'application/pdf' }));
 
     expect(cid).toBe('QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG');
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(globalThis.fetch).toHaveBeenCalledWith(
       'https://api.example.test/upload-ipfs',
       expect.objectContaining({ method: 'POST', body: expect.any(FormData) }),
     );
-    expect(global.fetch.mock.calls[0][1].headers).toBeUndefined();
+    expect(globalThis.fetch.mock.calls[0][1].headers).toBeUndefined();
     vi.unstubAllEnvs();
   });
 });
