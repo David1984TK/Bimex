@@ -14,8 +14,8 @@ import {
   nativeToScVal,
   scValToNative,
 } from "@stellar/stellar-sdk";
-import { signTransaction } from "@stellar/freighter-api";
 import { PasskeyKit } from "passkey-kit";
+import { signWithWalletKit } from "./walletKit.js";
 import { formatearMXNe } from "../utils/formato.js";
 
 // ─── Configuración ────────────────────────────────────────────────────────────
@@ -148,7 +148,6 @@ async function construirTx(cuentaPublica, metodo, args = []) {
 async function firmarYEnviar(txPreparada, cuentaPublica) {
   let envioHash;
 
-  // Si es un smart wallet (empieza por C) -> Firmamos con passkeyKit y enviamos por Launchtube
   if (cuentaPublica.startsWith("C")) {
     const txFirmada = await passkeyKit.sign(txPreparada);
     try {
@@ -158,17 +157,10 @@ async function firmarYEnviar(txPreparada, cuentaPublica) {
       throw new Error(`Launchtube rechazó la transacción: ${err.message}`);
     }
   } else {
-    // Es una cuenta normal (G...), usamos Freighter
-    const { signedTxXdr, error: errorFirma } = await signTransaction(
-      txPreparada.toXDR(),
-      { networkPassphrase: CONFIG.NETWORK_PASSPHRASE, address: cuentaPublica }
-    );
+    const signedTxXdr = await signWithWalletKit(txPreparada, cuentaPublica);
 
-    if (errorFirma) {
-      throw new Error(`Freighter rechazó la firma: ${errorFirma?.message || JSON.stringify(errorFirma)}`);
-    }
     if (!signedTxXdr) {
-      throw new Error("Freighter no devolvió una transacción firmada.");
+      throw new Error("Wallet no devolvió una transacción firmada.");
     }
 
     const txFirmada = TransactionBuilder.fromXDR(signedTxXdr, CONFIG.NETWORK_PASSPHRASE);
@@ -548,16 +540,10 @@ export async function crearTrustlineMXNe(direccion) {
     .setTimeout(300)
     .build();
 
-  const { signedTxXdr, error: errorFirma } = await signTransaction(tx.toXDR(), {
-    networkPassphrase: CONFIG.NETWORK_PASSPHRASE,
-    address: direccion,
-  });
+  const signedTxXdr = await signWithWalletKit(tx, direccion);
 
-  if (errorFirma) {
-    throw new Error(errorFirma?.message || "User declined");
-  }
   if (!signedTxXdr) {
-    throw new Error("Freighter no devolvió una transacción firmada.");
+    throw new Error("Wallet no devolvió una transacción firmada.");
   }
 
   const txFirmada = TransactionBuilder.fromXDR(signedTxXdr, CONFIG.NETWORK_PASSPHRASE);
