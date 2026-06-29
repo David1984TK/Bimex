@@ -1,24 +1,24 @@
-import { StellarWalletsKit, WalletConnectModule, FreighterModule } from "@creit.tech/stellar-wallets-kit";
-import { Networks } from "@stellar/stellar-sdk";
+import { StellarWalletsKit, FreighterModule, WalletNetwork } from "@creit.tech/stellar-wallets-kit";
 import { CONFIG } from "./contrato.js";
 
 const _isMainnet = CONFIG.NETWORK === "mainnet";
 
 let kit = null;
-let currentWallet = null;
 
 function initializeKit() {
   if (kit) return kit;
 
   const wcProjectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
+  const modules = [new FreighterModule()];
 
-  const modules = [
-    new FreighterModule(),
-    ...(wcProjectId ? [new WalletConnectModule({ projectId: wcProjectId, name: "Bimex" })] : []),
-  ];
+  if (wcProjectId) {
+    import("@creit.tech/stellar-wallets-kit/modules/walletconnect.module").then(({ WalletConnectModule }) => {
+      kit.setWallet && modules.push(new WalletConnectModule({ projectId: wcProjectId, name: "Bimex" }));
+    }).catch(() => {});
+  }
 
   kit = new StellarWalletsKit({
-    network: _isMainnet ? Networks.PUBLIC : Networks.TESTNET,
+    network: _isMainnet ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET,
     selectedWalletId: "freighter",
     modules,
   });
@@ -32,58 +32,48 @@ export function getWalletKit() {
 
 export async function openWalletModal() {
   const walletKit = getWalletKit();
-  const wallet = await walletKit.openModal();
 
-  if (wallet) {
-    localStorage.setItem("lastWallet", wallet.id);
-    currentWallet = wallet;
-  }
-
-  return wallet;
+  return new Promise((resolve) => {
+    walletKit.openModal({
+      onWalletSelected: async (option) => {
+        walletKit.setWallet(option.id);
+        localStorage.setItem("lastWallet", option.id);
+        try {
+          const { address } = await walletKit.getAddress();
+          resolve(address || null);
+        } catch {
+          resolve(null);
+        }
+      },
+      onClosed: () => resolve(null),
+    });
+  });
 }
 
-export async function getConnectedWallet() {
-  if (currentWallet) {
-    return currentWallet;
-  }
-
+export async function getConnectedAddress() {
   const walletKit = getWalletKit();
   const lastWalletId = localStorage.getItem("lastWallet");
+  if (!lastWalletId) return null;
 
-  if (lastWalletId) {
-    try {
-      const wallet = walletKit.getWallet(lastWalletId);
-      if (wallet) {
-        await wallet.connect();
-        currentWallet = wallet;
-        return wallet;
-      }
-    } catch {
-      localStorage.removeItem("lastWallet");
-    }
+  walletKit.setWallet(lastWalletId);
+  try {
+    const { address } = await walletKit.getAddress({ skipRequestAccess: true });
+    return address || null;
+  } catch {
+    localStorage.removeItem("lastWallet");
+    return null;
   }
-
-  return null;
 }
 
 export async function signWithWalletKit(tx, address) {
-  let wallet = currentWallet;
+  const walletKit = getWalletKit();
+  const lastWalletId = localStorage.getItem("lastWallet");
+  if (lastWalletId) walletKit.setWallet(lastWalletId);
 
-  if (!wallet) {
-    wallet = await getConnectedWallet();
-  }
-
-  if (!wallet) {
-    wallet = await openWalletModal();
-  }
-
-  if (!wallet) {
-    throw new Error("No wallet selected");
-  }
-
-  const result = await wallet.signTransaction(tx.toXDR(), {
+  const { signedTxXdr } = await walletKit.signTransaction(tx.toXDR(), {
     networkPassphrase: CONFIG.NETWORK_PASSPHRASE,
+    address,
   });
 
-  return result;
+  return signedTxXdr;
 }

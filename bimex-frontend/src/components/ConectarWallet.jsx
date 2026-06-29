@@ -8,7 +8,7 @@ import {
   crearTrustlineMXNe,
   urlFriendbot,
 } from "../stellar/contrato.js";
-import { getWalletKit, openWalletModal } from "../stellar/walletKit.js";
+import { getConnectedAddress, openWalletModal } from "../stellar/walletKit.js";
 import { Fingerprint, Wallet } from "lucide-react";
 
 const RESERVA_XLM_POR_TRUSTLINE = 0.5;
@@ -91,21 +91,8 @@ export default function ConectarWallet({ onConectado, autoConectar = true, inNav
     if (!autoConectar) return;
     (async () => {
       try {
-        const kit = getWalletKit();
-        const lastWalletId = localStorage.getItem("lastWallet");
-
-        if (lastWalletId) {
-          try {
-            const wallet = kit.getWallet(lastWalletId);
-            if (wallet) {
-              await wallet.connect();
-              const address = await wallet.getPublicKey();
-              if (address) conectarDireccion(address);
-            }
-          } catch {
-            localStorage.removeItem("lastWallet");
-          }
-        }
+        const address = await getConnectedAddress();
+        if (address) conectarDireccion(address);
       } catch (err) {
         console.warn("No se pudo restaurar la sesión:", err);
       }
@@ -138,14 +125,13 @@ export default function ConectarWallet({ onConectado, autoConectar = true, inNav
     setEstado("verificando");
     setError("");
     try {
-      const wallet = await openWalletModal();
-      if (!wallet) {
+      const address = await openWalletModal();
+      if (!address) {
         setEstado("inactivo");
         return;
       }
 
-      const address = await wallet.getPublicKey();
-      if (!address || address.length < 10) {
+      if (address.length < 10) {
         setError("No se pudo obtener la dirección de la wallet. Intenta de nuevo.");
         setEstado("error");
         return;

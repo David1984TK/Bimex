@@ -18,7 +18,7 @@
     "postinstall": "node scripts/fix-freighter-tsconfig.mjs"
   },
   "dependencies": {
-    "@creit.tech/stellar-wallets-kit": "^5.9.4",
+    "@creit.tech/stellar-wallets-kit": "^1.9.5",
     "@sentry/react": "^10.62.0",
     "@stellar/freighter-api": "^6.0.1",
     "@stellar/stellar-sdk": "^16.0.1",
@@ -34,6 +34,9 @@
     "react-i18next": "^17.0.8",
     "react-router-dom": "^7.13.1",
     "vite-plugin-node-polyfills": "^0.28.0"
+  },
+  "overrides": {
+    "protobufjs": ">=7.6.3"
   },
   "devDependencies": {
     "@axe-core/react": "^4.12.1",
