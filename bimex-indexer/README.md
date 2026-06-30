@@ -20,6 +20,26 @@ El indexer es un servicio en Node.js que realiza polling del RPC de Stellar para
    npm start
    ```
 
+## CORS
+
+El indexer solo acepta solicitudes cross-origin desde orígenes conocidos definidos en la variable de entorno `ALLOWED_ORIGINS` (coma-separados, sin espacios).
+
+### Agregar un origen
+
+1. Edita `ALLOWED_ORIGINS` en el `.env` del indexer:
+   ```env
+   ALLOWED_ORIGINS=https://bimex.vercel.app,https://bimex.mx,https://tudominio.com
+   ```
+2. Si el nuevo origen necesita acceder a endpoints protegidos (faucet, SSE), debe estar en esta lista.
+3. Los endpoints públicos de solo lectura (`/proyectos`, `/eventos`, `/stats`) también respetan esta lista.
+
+### Orígenes por defecto (fallback)
+
+Si no se define `ALLOWED_ORIGINS`, el indexer permite:
+- `https://bimex.vercel.app`
+- `https://bimex.mx`
+- `http://localhost:5173` (solo cuando `NODE_ENV=development`)
+
 ## Endpoint de Salud (`GET /health`)
 
 El indexer expone un endpoint de salud HTTP básico en el puerto configurado por la variable de entorno `HEALTH_PORT` (por defecto `3001`).

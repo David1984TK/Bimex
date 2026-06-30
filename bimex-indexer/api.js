@@ -12,13 +12,21 @@ import {
   getRateLimitConfig,
 } from './rateLimiter.js';
 
-const ALLOWED_ORIGINS = new Set([
-  'https://bimex.vercel.app',
-  'https://bimex.mx',
-  process.env.NODE_ENV === 'development' && 'http://localhost:5173'
-].filter(Boolean));
+function buildAllowedOrigins() {
+  const envOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+  const defaults = [
+    'https://bimex.vercel.app',
+    'https://bimex.mx',
+    process.env.NODE_ENV === 'development' && 'http://localhost:5173',
+  ].filter(Boolean);
+  return new Set([...envOrigins, ...defaults]);
+}
 
-function setCorsHeaders(req, res) {
+const ALLOWED_ORIGINS = buildAllowedOrigins();
+
+export function setCorsHeaders(req, res) {
   const origin = req.headers.origin;
   if (ALLOWED_ORIGINS.has(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
