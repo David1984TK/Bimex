@@ -6,10 +6,10 @@ import { esDireccionValida, esContractIdValido } from '../utils/stellar.js';
 // valid base32 charset) so StrKey can decode them properly.
 
 // Valid Ed25519 public key (G-address) — 56 chars, correct checksum.
-const DIRECCION_VALIDA = 'GAAHI26FKE4GGBHMMXFYUTGOXJB6ZGLHOMVQIBOIIZH2KFZJBVFCMVH';
+const DIRECCION_VALIDA = 'GCWXHQPEOQEVUJ2NLIVNAOMYOJ5N5L4W753EPV7R4PU7WWNBSEJMZSU2';
 
 // Valid Soroban contract ID (C-address) — 56 chars, correct checksum.
-const CONTRACT_ID_VALIDO = 'CAHJJJKK6EXBRUXZGPQE5ZDDPVB5ZFJFUQKDNQZUBQLBQ6HB5PQHGJZ';
+const CONTRACT_ID_VALIDO = 'CCWXHQPEOQEVUJ2NLIVNAOMYOJ5N5L4W753EPV7R4PU7WWNBSEJMYWRD';
 
 describe('esDireccionValida', () => {
   it('returns true for a valid G-address', () => {

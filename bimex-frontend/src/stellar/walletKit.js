@@ -1,8 +1,6 @@
 import { StellarWalletsKit, FreighterModule, WalletNetwork } from "@creit.tech/stellar-wallets-kit";
 import { CONFIG } from "./contrato.js";
 
-const _isMainnet = CONFIG.NETWORK === "mainnet";
-
 let kit = null;
 
 function initializeKit() {
@@ -17,8 +15,10 @@ function initializeKit() {
     }).catch(() => {});
   }
 
+  const isMainnet = CONFIG.NETWORK === "mainnet";
+
   kit = new StellarWalletsKit({
-    network: _isMainnet ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET,
+    network: isMainnet ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET,
     selectedWalletId: "freighter",
     modules,
   });
