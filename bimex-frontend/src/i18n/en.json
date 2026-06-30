@@ -504,6 +504,11 @@
     "trustlineNoAccount": "Your account is not yet active on the network (no XLM). You need to fund it first.",
     "trustlineFriendbot": "Get XLM from Friendbot →"
   },
+  "validation": {
+    "direccionInvalida": "Invalid Stellar address. It must start with 'G' and be 56 characters long.",
+    "contractIdInvalido": "Invalid contract ID. It must start with 'C' and be 56 characters long.",
+    "requerido": "This field is required."
+  },
   "tour": {
     "step1": { "title": "Your connected wallet", "content": "This is your connected wallet. Your Stellar address appears here securely." },
     "step2": { "title": "Explore impact projects", "content": "Here you'll find verified social impact projects. Each one shows its goal and real-time progress." },

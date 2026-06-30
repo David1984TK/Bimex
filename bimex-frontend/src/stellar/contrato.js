@@ -17,6 +17,7 @@ import {
 import { PasskeyKit } from "passkey-kit";
 import { signWithWalletKit } from "./walletKit.js";
 import { formatearMXNe } from "../utils/formato.js";
+import { esDireccionValida, esContractIdValido } from "../utils/stellar.js";
 
 // ─── Configuración ────────────────────────────────────────────────────────────
 
@@ -279,6 +280,9 @@ export async function obtenerProyecto(id) {
 }
 
 export async function calcularYield(idProyecto, direccionBacker) {
+  if (!esDireccionValida(direccionBacker) && !esContractIdValido(direccionBacker)) {
+    return BigInt(0);
+  }
   try {
     const raw = await simularLectura("calcular_yield", [
       nativeToScVal(idProyecto, { type: "u32" }),
@@ -291,6 +295,9 @@ export async function calcularYield(idProyecto, direccionBacker) {
 }
 
 export async function obtenerAportacion(idProyecto, direccionBacker) {
+  if (!esDireccionValida(direccionBacker) && !esContractIdValido(direccionBacker)) {
+    return BigInt(0);
+  }
   try {
     const raw = await simularLectura("obtener_aportacion", [
       nativeToScVal(idProyecto, { type: "u32" }),
@@ -558,6 +565,9 @@ export function urlFriendbot(direccion) {
 export async function mintearMXNePrueba(direccionDestino) {
   if (CONFIG.NETWORK_PASSPHRASE !== Networks.TESTNET) {
     throw new Error("mintearMXNePrueba solo está disponible en Testnet.");
+  }
+  if (!esDireccionValida(direccionDestino) && !esContractIdValido(direccionDestino)) {
+    throw new Error("Dirección Stellar inválida.");
   }
 
   const res = await fetch(`${FAUCET_API_URL}/faucet`, {
