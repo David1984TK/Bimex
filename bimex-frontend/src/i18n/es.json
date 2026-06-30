@@ -504,6 +504,11 @@
     "trustlineNoAccount": "Tu cuenta aún no está activa en la red (sin XLM). Primero necesitas fondearla.",
     "trustlineFriendbot": "Obtener XLM con Friendbot →"
   },
+  "validation": {
+    "direccionInvalida": "La dirección Stellar no es válida. Debe comenzar con 'G' y tener 56 caracteres.",
+    "contractIdInvalido": "El ID de contrato no es válido. Debe comenzar con 'C' y tener 56 caracteres.",
+    "requerido": "Este campo es obligatorio."
+  },
   "tour": {
     "step1": { "title": "Tu wallet conectada", "content": "Esta es tu wallet conectada. Tu dirección Stellar aparece aquí de forma segura." },
     "step2": { "title": "Explora proyectos de impacto", "content": "Aquí encuentras proyectos de impacto social verificados. Cada uno muestra su meta y progreso en tiempo real." },
