@@ -27,6 +27,7 @@ describe("Bimex metadata", () => {
       id: 42,
       nombre: "Biblioteca Solar",
       meta: 200000000n,
+      aportado: 100000000n,
       estado: "Liberado",
     });
 
@@ -34,9 +35,15 @@ describe("Bimex metadata", () => {
 
     expect(document.title).toBe("Biblioteca Solar — Bimex");
     expect(document.head.querySelector('meta[property="og:title"]')?.content).toBe("Biblioteca Solar — Bimex");
-    expect(document.head.querySelector('meta[property="og:description"]')?.content).toBe("Meta: 20 MXNe · Liberado");
+    expect(document.head.querySelector('meta[property="og:description"]')?.content).toBe("10 MXNe recaudados · faltan 10 MXNe para la meta");
     expect(document.head.querySelector('meta[property="og:url"]')?.content).toBe("https://bimex-frontend.vercel.app/proyectos/42");
     expect(document.head.querySelector('meta[name="twitter:image"]')?.content).toBe("https://bimex-frontend.vercel.app/og-image.png");
+  });
+
+  it("defaults missing aportado/meta to zero without crashing on BigInt arithmetic", () => {
+    const meta = crearMetaProyecto({ id: 7, nombre: "Sin datos" });
+
+    expect(meta.description).toBe("0 MXNe recaudados · faltan 0 MXNe para la meta");
   });
 
   it("parses project IDs from share paths", () => {
