@@ -11,13 +11,13 @@ test.describe('Landing – sin wallet', () => {
     await page.goto('/')
   })
 
-  test('muestra el botón "Freighter" en el hero', async ({ page }) => {
-    const heroBtn = page.getByRole('button', { name: /freighter/i }).first()
-    await expect(heroBtn).toBeVisible()
+  test('muestra los botones de conexión en el hero', async ({ page }) => {
+    const hero = page.locator('.landing-hero-section')
+    await expect(hero.getByRole('button', { name: /huella|face id|passkey|conectar/i }).first()).toBeVisible()
   })
 
   test('muestra el botón "Conectar" en la navbar del landing', async ({ page }) => {
-    const navBtn = page.getByRole('button', { name: /^conectar$/i })
+    const navBtn = page.locator('nav[aria-label="Navegación principal"]').getByRole('button', { name: /conectar/i })
     await expect(navBtn).toBeVisible()
   })
 

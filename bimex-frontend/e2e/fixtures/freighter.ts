@@ -38,6 +38,9 @@ export async function mockFreighterConnected(page: Page): Promise<void> {
       // isConnected() short-circuits when window.freighter is truthy
       ;(window as any).freighter = true
 
+      // walletKit.getConnectedAddress() requires this to attempt auto-reconnect
+      localStorage.setItem('lastWallet', 'freighter')
+
       // Intercept postMessage to fake Freighter extension responses
       const _postMessage = window.postMessage.bind(window)
       window.postMessage = (data: any, targetOrigin: any, transfer?: any) => {
@@ -79,6 +82,7 @@ export async function mockFreighterConnected(page: Page): Promise<void> {
 export async function mockFreighterDisconnected(page: Page): Promise<void> {
   await page.addInitScript(() => {
     ;(window as any).freighter = undefined
+    localStorage.removeItem('lastWallet')
 
     const _postMessage = window.postMessage.bind(window)
     window.postMessage = (data: any, targetOrigin: any, transfer?: any) => {
