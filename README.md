@@ -2,6 +2,7 @@
 
 > Zero-loss social impact crowdfunding on Stellar/Soroban
 
+[![CI](https://github.com/David1984TK/Bimex/actions/workflows/ci.yml/badge.svg)](https://github.com/David1984TK/Bimex/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Network: Testnet](https://img.shields.io/badge/Network-Stellar%20Testnet-brightgreen)](https://stellar.expert/explorer/testnet/)
 [![Contract](https://img.shields.io/badge/Contract-Soroban-orange)](https://soroban.stellar.org)
@@ -57,6 +58,7 @@ stellar contract build
 | [Project creator guide](docs/guia-creador-proyecto.md) | How to launch a project on Bimex |
 | [Technical integration guide](docs/guia-tecnica-integracion.md) | ABI, CLI examples, JS SDK integration |
 | [Pilot project guide](docs/guia-proyecto-piloto.md) | First real-world project on Mainnet |
+| [API reference](docs/api.md) | Indexer endpoints, rate limits, configuration |
 | [FAQ (español)](docs/faq-es.md) | Preguntas frecuentes |
 | [FAQ (English)](docs/faq-en.md) | Frequently asked questions |
 | [Security policy](SECURITY.md) | Bug bounty program and responsible disclosure |
@@ -84,4 +86,3 @@ stellar contract build
 This repository has active **Secret Scanning** and **Push Protection** enabled to prevent accidental exposure of credentials and secrets (such as Stellar secret keys or Supabase service role tokens). 
 
 Please ensure you do not commit any secrets. Any push containing suspected secrets will be automatically blocked by GitHub.
-

@@ -14,9 +14,10 @@ import {
   nativeToScVal,
   scValToNative,
 } from "@stellar/stellar-sdk";
-import { signTransaction } from "@stellar/freighter-api";
 import { PasskeyKit } from "passkey-kit";
+import { signWithWalletKit } from "./walletKit.js";
 import { formatearMXNe } from "../utils/formato.js";
+import { esDireccionValida, esContractIdValido } from "../utils/stellar.js";
 
 // ─── Configuración ────────────────────────────────────────────────────────────
 
@@ -148,27 +149,19 @@ async function construirTx(cuentaPublica, metodo, args = []) {
 async function firmarYEnviar(txPreparada, cuentaPublica) {
   let envioHash;
 
-  // Si es un smart wallet (empieza por C) -> Firmamos con passkeyKit y enviamos por Launchtube
   if (cuentaPublica.startsWith("C")) {
     const txFirmada = await passkeyKit.sign(txPreparada);
     try {
       const res = await enviarPorLaunchtube(txFirmada.toXDR());
       envioHash = res.hash;
     } catch (err) {
-      throw new Error(`Launchtube rechazó la transacción: ${err.message}`);
+      throw new Error(`Launchtube rechazó la transacción: ${err.message}`, { cause: err });
     }
   } else {
-    // Es una cuenta normal (G...), usamos Freighter
-    const { signedTxXdr, error: errorFirma } = await signTransaction(
-      txPreparada.toXDR(),
-      { networkPassphrase: CONFIG.NETWORK_PASSPHRASE, address: cuentaPublica }
-    );
+    const signedTxXdr = await signWithWalletKit(txPreparada, cuentaPublica);
 
-    if (errorFirma) {
-      throw new Error(`Freighter rechazó la firma: ${errorFirma?.message || JSON.stringify(errorFirma)}`);
-    }
     if (!signedTxXdr) {
-      throw new Error("Freighter no devolvió una transacción firmada.");
+      throw new Error("Wallet no devolvió una transacción firmada.");
     }
 
     const txFirmada = TransactionBuilder.fromXDR(signedTxXdr, CONFIG.NETWORK_PASSPHRASE);
@@ -287,6 +280,9 @@ export async function obtenerProyecto(id) {
 }
 
 export async function calcularYield(idProyecto, direccionBacker) {
+  if (!esDireccionValida(direccionBacker) && !esContractIdValido(direccionBacker)) {
+    return BigInt(0);
+  }
   try {
     const raw = await simularLectura("calcular_yield", [
       nativeToScVal(idProyecto, { type: "u32" }),
@@ -299,6 +295,9 @@ export async function calcularYield(idProyecto, direccionBacker) {
 }
 
 export async function obtenerAportacion(idProyecto, direccionBacker) {
+  if (!esDireccionValida(direccionBacker) && !esContractIdValido(direccionBacker)) {
+    return BigInt(0);
+  }
   try {
     const raw = await simularLectura("obtener_aportacion", [
       nativeToScVal(idProyecto, { type: "u32" }),
@@ -548,16 +547,10 @@ export async function crearTrustlineMXNe(direccion) {
     .setTimeout(300)
     .build();
 
-  const { signedTxXdr, error: errorFirma } = await signTransaction(tx.toXDR(), {
-    networkPassphrase: CONFIG.NETWORK_PASSPHRASE,
-    address: direccion,
-  });
+  const signedTxXdr = await signWithWalletKit(tx, direccion);
 
-  if (errorFirma) {
-    throw new Error(errorFirma?.message || "User declined");
-  }
   if (!signedTxXdr) {
-    throw new Error("Freighter no devolvió una transacción firmada.");
+    throw new Error("Wallet no devolvió una transacción firmada.");
   }
 
   const txFirmada = TransactionBuilder.fromXDR(signedTxXdr, CONFIG.NETWORK_PASSPHRASE);
@@ -572,6 +565,9 @@ export function urlFriendbot(direccion) {
 export async function mintearMXNePrueba(direccionDestino) {
   if (CONFIG.NETWORK_PASSPHRASE !== Networks.TESTNET) {
     throw new Error("mintearMXNePrueba solo está disponible en Testnet.");
+  }
+  if (!esDireccionValida(direccionDestino) && !esContractIdValido(direccionDestino)) {
+    throw new Error("Dirección Stellar inválida.");
   }
 
   const res = await fetch(`${FAUCET_API_URL}/faucet`, {

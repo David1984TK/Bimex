@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockLoadAccount = vi.fn();
 const mockSubmitTransaction = vi.fn();
-const mockSignTransaction = vi.fn();
+const mockSignWithWalletKit = vi.fn();
 
 vi.mock('@stellar/stellar-sdk', () => ({
   Contract: vi.fn(),
@@ -42,7 +42,6 @@ vi.mock('@stellar/stellar-sdk', () => ({
 }));
 
 vi.mock('@stellar/freighter-api', () => ({
-  signTransaction: (...args) => mockSignTransaction(...args),
   isConnected: vi.fn(),
   isAllowed: vi.fn(),
   requestAccess: vi.fn(),
@@ -53,6 +52,10 @@ vi.mock('@stellar/freighter-api', () => ({
 
 vi.mock('passkey-kit', () => ({
   PasskeyKit: class { sign = vi.fn() }
+}));
+
+vi.mock('../stellar/walletKit.js', () => ({
+  signWithWalletKit: (...args) => mockSignWithWalletKit(...args),
 }));
 
 import {
@@ -190,15 +193,12 @@ describe('trustline MXNe', () => {
         sequenceNumber: () => '1',
       });
 
-    mockSignTransaction.mockResolvedValueOnce({
-      signedTxXdr: 'signed-xdr',
-      error: null,
-    });
+    mockSignWithWalletKit.mockResolvedValueOnce('signed-xdr');
     mockSubmitTransaction.mockResolvedValueOnce({ hash: 'trust-hash' });
 
     const resultado = await crearTrustlineMXNe('GABC1234567890WXYZ');
     expect(resultado.hash).toBe('trust-hash');
-    expect(mockSignTransaction).toHaveBeenCalled();
+    expect(mockSignWithWalletKit).toHaveBeenCalled();
     expect(mockSubmitTransaction).toHaveBeenCalled();
   });
 

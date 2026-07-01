@@ -2,10 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { obtenerTodosLosProyectos, calcularYieldDetallado, stroopsAMXNe, urlExplorer, CONFIG } from "../stellar/contrato";
 import { parsearError } from "../utils/errores.js";
+import { esDireccionValida } from "../utils/stellar.js";
 import { createClient } from "@supabase/supabase-js";
 import usePaginacion from "../hooks/usePaginacion";
 import usePaginacionLocal from "../hooks/usePaginacionLocal";
 import Paginacion from "./Paginacion";
+import AuditoriaBadge from "./AuditoriaBadge";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
@@ -48,6 +50,7 @@ export default function Transparencia({ onVolver }) {
   const [filtro, setFiltro] = useState("Todos");
   const [auditFiltro, setAuditFiltro] = useState("Todos");
   const [auditActor, setAuditActor] = useState("");
+  const [auditActorError, setAuditActorError] = useState("");
   const [auditStartDate, setAuditStartDate] = useState("");
   const [auditEndDate, setAuditEndDate] = useState("");
   const [totalYield, setTotalYield] = useState(BigInt(0));
@@ -84,6 +87,7 @@ export default function Transparencia({ onVolver }) {
     }
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { cargar(); }, []);
 
   // Paginated contributions across platform (Supabase)
@@ -103,7 +107,7 @@ export default function Transparencia({ onVolver }) {
     async (desde, hasta) => {
       const params = new URLSearchParams({ limit: hasta - desde + 1, offset: desde });
       if (auditFiltro !== "Todos") params.set("action", auditFiltro);
-      if (auditActor.trim()) params.set("actor", auditActor.trim());
+      if (auditActor.trim() && esDireccionValida(auditActor.trim())) params.set("actor", auditActor.trim());
       if (auditStartDate) params.set("start_date", auditStartDate);
       if (auditEndDate) params.set("end_date", auditEndDate);
       const res = await fetch(`${API_URL}/audit?${params}`);
@@ -176,6 +180,8 @@ export default function Transparencia({ onVolver }) {
           </a>
         </p>
       </div>
+
+      <AuditoriaBadge variant="full" />
 
       {errorCarga && (
         <div role="alert" style={{
@@ -383,14 +389,46 @@ export default function Transparencia({ onVolver }) {
                     </button>
                   ))}
                 </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <input type="text" placeholder="Actor address..." value={auditActor} onChange={e => setAuditActor(e.target.value)} style={{ padding: "4px 8px", fontSize: "0.75rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", width: 150 }} />
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-start" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <input
+                      type="text"
+                      placeholder="Actor address..."
+                      value={auditActor}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setAuditActor(val);
+                        if (val.trim() === "" || esDireccionValida(val.trim())) {
+                          setAuditActorError("");
+                        } else {
+                          setAuditActorError(t("validation.direccionInvalida"));
+                        }
+                      }}
+                      aria-invalid={!!auditActorError}
+                      aria-describedby={auditActorError ? "audit-actor-error" : undefined}
+                      style={{
+                        padding: "4px 8px", fontSize: "0.75rem",
+                        borderRadius: "var(--radius-sm)",
+                        border: `1px solid ${auditActorError ? "var(--error, #DC2626)" : "var(--border)"}`,
+                        background: "var(--bg)", color: "var(--text)", width: 220,
+                      }}
+                    />
+                    {auditActorError && (
+                      <span
+                        id="audit-actor-error"
+                        role="alert"
+                        style={{ fontSize: "0.7rem", color: "var(--error, #DC2626)", maxWidth: 220 }}
+                      >
+                        {auditActorError}
+                      </span>
+                    )}
+                  </div>
                   <input type="date" value={auditStartDate} onChange={e => setAuditStartDate(e.target.value)} style={{ padding: "4px 8px", fontSize: "0.75rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)" }} />
                   <input type="date" value={auditEndDate} onChange={e => setAuditEndDate(e.target.value)} style={{ padding: "4px 8px", fontSize: "0.75rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)" }} />
                 </div>
               </div>
               <a
-                href={`${API_URL}/audit?format=csv${auditFiltro !== "Todos" ? `&action=${auditFiltro}` : ""}${auditActor ? `&actor=${auditActor}` : ""}${auditStartDate ? `&start_date=${auditStartDate}` : ""}${auditEndDate ? `&end_date=${auditEndDate}` : ""}`}
+                href={`${API_URL}/audit?format=csv${auditFiltro !== "Todos" ? `&action=${auditFiltro}` : ""}${auditActor && esDireccionValida(auditActor.trim()) ? `&actor=${auditActor.trim()}` : ""}${auditStartDate ? `&start_date=${auditStartDate}` : ""}${auditEndDate ? `&end_date=${auditEndDate}` : ""}`}
                 target="_blank"
                 rel="noreferrer"
                 style={{

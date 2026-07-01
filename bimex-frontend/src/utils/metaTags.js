@@ -21,9 +21,10 @@ function setMetaTag(selector, attrs) {
 export function crearMetaProyecto(proyecto) {
   if (!proyecto) return DEFAULT_META;
   const nombre = proyecto.nombre || "Proyecto Bimex";
-  const meta = stroopsAMXNe(proyecto.meta ?? 0);
-  const raised = stroopsAMXNe(proyecto.aportado ?? 0);
-  const remaining = stroopsAMXNe((proyecto.meta ?? 0) > (proyecto.aportado ?? 0) ? (proyecto.meta - proyecto.aportado) : 0n);
+  const meta = BigInt(proyecto.meta ?? 0);
+  const aportado = BigInt(proyecto.aportado ?? 0);
+  const raised = stroopsAMXNe(aportado);
+  const remaining = stroopsAMXNe(meta > aportado ? meta - aportado : 0n);
   return {
     title: `${nombre} — Bimex`,
     description: `${raised} recaudados · faltan ${remaining} para la meta`,

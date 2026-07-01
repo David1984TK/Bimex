@@ -178,6 +178,15 @@
     "fallbackLabel": "Documents verified (hash)",
     "fallbackTitle": "Documents were verified with SHA-256. They are not on IPFS but their integrity was confirmed by the Bimex team."
   },
+  "auditoria": {
+    "pendiente": "External audit: in preparation",
+    "enProgreso": "Audit in progress — {{firma}}",
+    "completada": "Contract audited by {{firma}}",
+    "firmaTbd": "firm to be confirmed",
+    "verReporte": "View full report",
+    "notaPendiente": "The contract will be audited by an external firm before the Mainnet launch. The report will be published here.",
+    "tooltip": "No public audit report yet. It will not custody real funds on Mainnet until the audit is complete."
+  },
   "crear": {
     "title": "Register project",
     "closeAria": "Close creation form",
@@ -494,6 +503,11 @@
     "trustlineNoXlmMainnet": "You don't have enough XLM for the reserve (~0.5 XLM). You need at least that balance in your wallet to enable MXNe.",
     "trustlineNoAccount": "Your account is not yet active on the network (no XLM). You need to fund it first.",
     "trustlineFriendbot": "Get XLM from Friendbot →"
+  },
+  "validation": {
+    "direccionInvalida": "Invalid Stellar address. It must start with 'G' and be 56 characters long.",
+    "contractIdInvalido": "Invalid contract ID. It must start with 'C' and be 56 characters long.",
+    "requerido": "This field is required."
   },
   "tour": {
     "step1": { "title": "Your connected wallet", "content": "This is your connected wallet. Your Stellar address appears here securely." },
