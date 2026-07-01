@@ -1,13 +1,13 @@
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { tmplBienvenida, tmplContribucion, tmplAprobacionHTML, tmplYieldDisponible } from './templates/htmlTemplates.js';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = dirname(__filename);
 
-const outputDir = path.join(__dirname, 'test-output');
-if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
+const outputDir = join(__dirname, 'test-output');
+if (!existsSync(outputDir)) mkdirSync(outputDir);
 
 const mockData = {
   nombre: 'Usuario de Prueba',
@@ -19,10 +19,10 @@ const mockData = {
   proyectoUrl: 'https://bimex-frontend.vercel.app/proyectos/1',
 };
 
-fs.writeFileSync(path.join(outputDir, 'bienvenida.html'), tmplBienvenida(mockData));
-fs.writeFileSync(path.join(outputDir, 'contribucion.html'), tmplContribucion(mockData));
-fs.writeFileSync(path.join(outputDir, 'aprobacion.html'), tmplAprobacionHTML(mockData));
-fs.writeFileSync(path.join(outputDir, 'yield-disponible.html'), tmplYieldDisponible(mockData));
+writeFileSync(join(outputDir, 'bienvenida.html'), tmplBienvenida(mockData));
+writeFileSync(join(outputDir, 'contribucion.html'), tmplContribucion(mockData));
+writeFileSync(join(outputDir, 'aprobacion.html'), tmplAprobacionHTML(mockData));
+writeFileSync(join(outputDir, 'yield-disponible.html'), tmplYieldDisponible(mockData));
 
 console.log('Templates generados en test-output/');
 console.log('Abre los archivos HTML en tu navegador para previsualizar.');

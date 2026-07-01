@@ -9,6 +9,9 @@
     "reporte-mensual": "node jobs/reporteMensual.js",
     "reporte-mensual:dry-run": "node jobs/reporteMensual.js --dry-run",
     "test": "vitest run",
+
+    "test:scripts": "node --test scripts/test-scripts.js test/*.test.js",
+
     "test:coverage": "vitest run --coverage",
     "test:load": "artillery run tests/sse-load-test.yml"
   },
