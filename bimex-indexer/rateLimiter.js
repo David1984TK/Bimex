@@ -40,25 +40,6 @@ export function getRateLimitConfig() {
 
 export function normalizeIp(ip) {
   if (!ip) return 'unknown';
-
-
-  let value = String(ip).trim();
-  if (!value) return 'unknown';
-
-  // X-Forwarded-For may contain a chain; the original client is first.
-  if (value.includes(',')) value = value.split(',')[0].trim();
-
-  // Remove surrounding brackets from IPv6 literals.
-  if (value.startsWith('[') && value.includes(']')) {
-    value = value.slice(1, value.indexOf(']'));
-  }
-
-  // Normalize IPv4-mapped IPv6 addresses emitted by Node/proxies.
-  if (value.startsWith('::ffff:')) value = value.slice('::ffff:'.length);
-  if (value === '::1') return '127.0.0.1';
-
-  // For IPv4 values with a port (e.g. 203.0.113.4:12345), strip the port.
-
   let value = String(ip).trim();
   if (!value) return 'unknown';
   if (value.includes(',')) value = value.split(',')[0].trim();
@@ -67,13 +48,10 @@ export function normalizeIp(ip) {
   }
   if (value.startsWith('::ffff:')) value = value.slice('::ffff:'.length);
   if (value === '::1') return '127.0.0.1';
-
   const lastColon = value.lastIndexOf(':');
   if (lastColon > -1 && value.indexOf(':') === lastColon && value.includes('.')) {
     value = value.slice(0, lastColon);
   }
-
-
   return value || 'unknown';
 }
 
@@ -132,22 +110,11 @@ export class MemoryFixedWindowStore {
     const now = this.now();
     const normalizedKey = String(key);
     let bucket = this.buckets.get(normalizedKey);
-
-
-    if (!bucket || bucket.resetAt <= now) {
-      bucket = { count: 0, resetAt: now + windowMs };
-    }
-
-    bucket.count += 1;
-    this.buckets.set(normalizedKey, bucket);
-
-
     if (!bucket || bucket.resetAt <= now) {
       bucket = { count: 0, resetAt: now + windowMs };
     }
     bucket.count += 1;
     this.buckets.set(normalizedKey, bucket);
-
     const retryAfter = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
     return {
       allowed: bucket.count <= limit,
@@ -173,7 +140,6 @@ export class MemorySseConnectionStore {
   acquire(key, limit) {
     const normalizedKey = String(key);
     const current = this.activeConnections.get(normalizedKey) ?? 0;
-
     if (current >= limit) {
       return {
         allowed: false,
@@ -186,14 +152,8 @@ export class MemorySseConnectionStore {
         release: () => {},
       };
     }
-
-
     const active = current + 1;
     this.activeConnections.set(normalizedKey, active);
-
-    const active = current + 1;
-    this.activeConnections.set(normalizedKey, active);
-
     let released = false;
     return {
       allowed: true,
@@ -237,25 +197,12 @@ export function setRateLimitHeaders(res, result, { retryAfter = false, policyWin
   res.setHeader('RateLimit-Limit', String(limit));
   res.setHeader('RateLimit-Remaining', String(remaining));
   res.setHeader('RateLimit-Reset', String(resetSeconds));
-
-
-  if (policyWindowMs) {
-    res.setHeader('RateLimit-Policy', `${limit};w=${Math.ceil(policyWindowMs / 1000)}`);
-  }
-
-  // Legacy/compatibility headers requested by the issue.
-  res.setHeader('X-RateLimit-Limit', String(limit));
-  res.setHeader('X-RateLimit-Remaining', String(remaining));
-  if (result.resetAt) res.setHeader('X-RateLimit-Reset', String(Math.ceil(result.resetAt / 1000)));
-
-
   if (policyWindowMs) {
     res.setHeader('RateLimit-Policy', `${limit};w=${Math.ceil(policyWindowMs / 1000)}`);
   }
   res.setHeader('X-RateLimit-Limit', String(limit));
   res.setHeader('X-RateLimit-Remaining', String(remaining));
   if (result.resetAt) res.setHeader('X-RateLimit-Reset', String(Math.ceil(result.resetAt / 1000)));
-
   if (retryAfter) {
     res.setHeader('Retry-After', String(Math.max(1, Math.ceil(result.retryAfter ?? resetSeconds ?? 1))));
   }
@@ -275,29 +222,16 @@ function canUseSupabaseStore(config) {
   return Date.now() >= supabaseDisabledUntil;
 }
 
-
-async function consumeSupabaseFixedWindow(key, limit, windowMs, config) {
-
 async function consumeSupabaseFixedWindow(key, limit, windowMs) {
-
   const supabase = await getSupabaseClient();
   const { data, error } = await supabase.rpc('consume_rate_limit_bucket', {
     p_key: String(key),
     p_limit: limit,
     p_window_seconds: Math.ceil(windowMs / 1000),
   });
-
-
-  if (error) throw error;
-
-  const row = Array.isArray(data) ? data[0] : data;
-  if (!row || typeof row !== 'object') throw new Error('Respuesta inválida de consume_rate_limit_bucket');
-
-
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;
   if (!row || typeof row !== 'object') throw new Error('Respuesta inválida de consume_rate_limit_bucket');
-
   return {
     allowed: Boolean(row.allowed),
     key: String(key),
@@ -306,9 +240,6 @@ async function consumeSupabaseFixedWindow(key, limit, windowMs) {
     resetAt: Number(row.resetAt ?? row.reset_at ?? Date.now() + windowMs),
     retryAfter: Math.max(1, Number(row.retryAfter ?? row.retry_after ?? Math.ceil(windowMs / 1000))),
     store: 'supabase',
-
-    config,
-
   };
 }
 
@@ -321,35 +252,18 @@ async function acquireSupabaseSseConnection(key, limit, config) {
     p_connection_id: connectionId,
     p_ttl_seconds: config.sseSupabaseTtlSeconds,
   });
-
-
-  if (error) throw error;
-
-  const row = Array.isArray(data) ? data[0] : data;
-  if (!row || typeof row !== 'object') throw new Error('Respuesta inválida de acquire_sse_connection');
-
-
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;
   if (!row || typeof row !== 'object') throw new Error('Respuesta inválida de acquire_sse_connection');
-
   let heartbeat;
   const release = async () => {
     if (heartbeat) clearInterval(heartbeat);
     try {
       await supabase.rpc('release_sse_connection', { p_connection_id: connectionId });
-
-    } catch (error) {
-      console.warn('[rate-limit] failed to release Supabase SSE slot:', error.message);
-    }
-  };
-
-
     } catch (err) {
       console.warn('[rate-limit] failed to release Supabase SSE slot:', err.message);
     }
   };
-
   if (row.allowed) {
     heartbeat = setInterval(() => {
       void supabase.rpc('heartbeat_sse_connection', {
@@ -359,9 +273,6 @@ async function acquireSupabaseSseConnection(key, limit, config) {
     }, config.sseSupabaseHeartbeatMs);
     heartbeat.unref?.();
   }
-
-
-
   return {
     allowed: Boolean(row.allowed),
     key: String(key),
@@ -379,64 +290,29 @@ export async function consumeFixedWindow(key, limit, windowMs, config = getRateL
   if (!canUseSupabaseStore(config)) {
     return memoryFixedWindowStore.consume(key, limit, windowMs);
   }
-
-
-  try {
-    return await consumeSupabaseFixedWindow(key, limit, windowMs, config);
-  } catch (error) {
-    supabaseDisabledUntil = Date.now() + config.supabaseBackoffMs;
-    console.warn('[rate-limit] Supabase store unavailable; falling back to in-memory buckets temporarily:', error.message);
-
   try {
     return await consumeSupabaseFixedWindow(key, limit, windowMs);
   } catch (err) {
     supabaseDisabledUntil = Date.now() + config.supabaseBackoffMs;
     console.warn('[rate-limit] Supabase store unavailable; falling back to in-memory:', err.message);
-
     return memoryFixedWindowStore.consume(key, limit, windowMs);
   }
 }
 
 export async function recordRateLimitBlock({ ip, scope, route, key, limit, retryAfter, userAgent }) {
-
-  const safeLog = {
-    ip,
-    scope,
-    route,
-    key,
-    limit,
-    retryAfter,
-  };
-  console.warn('[rate-limit] blocked request', safeLog);
-
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) return;
-
-  try {
-    const supabase = await getSupabaseClient();
-    await supabase.from('rate_limit_blocked_events').insert({
-      ip,
-      scope,
-      route,
-
   console.warn('[rate-limit] blocked request', { ip, scope, route, key, limit, retryAfter });
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) return;
   try {
     const supabase = await getSupabaseClient();
     await supabase.from('rate_limit_blocked_events').insert({
       ip, scope, route,
-
       bucket_key: key,
       limit_value: limit,
       retry_after_seconds: retryAfter,
       user_agent: userAgent ?? null,
     });
-
-  } catch (error) {
-    console.warn('[rate-limit] failed to persist blocked request log:', error.message);
-
   } catch (err) {
     console.warn('[rate-limit] failed to persist blocked request log:', err.message);
-
   }
 }
 
@@ -448,48 +324,20 @@ export function buildWalletRateLimitKey(scope, wallet) {
   return `${scope}:wallet:${String(wallet).trim().toLowerCase()}`;
 }
 
-
-export async function enforceFixedWindowRateLimit(req, res, {
-  scope,
-  route,
-  key,
-  limit,
-  windowMs,
-  honorIpWhitelist = true,
-}) {
-
 export async function enforceFixedWindowRateLimit(req, res, { scope, route, key, limit, windowMs, honorIpWhitelist = true }) {
-
   const ip = getClientIp(req);
   if (honorIpWhitelist && isIpWhitelisted(ip)) {
     return { allowed: true, whitelisted: true, ip, limit, remaining: limit };
   }
-
-
-  const result = await consumeFixedWindow(key, limit, windowMs);
-  setRateLimitHeaders(res, result, { retryAfter: !result.allowed, policyWindowMs: windowMs });
-
-  if (!result.allowed) {
-    await recordRateLimitBlock({
-      ip,
-      scope,
-      route,
-      key,
-      limit,
-
   const result = await consumeFixedWindow(key, limit, windowMs);
   setRateLimitHeaders(res, result, { retryAfter: !result.allowed, policyWindowMs: windowMs });
   if (!result.allowed) {
     await recordRateLimitBlock({
       ip, scope, route, key, limit,
-
       retryAfter: result.retryAfter,
       userAgent: req.headers?.['user-agent'],
     });
   }
-
-
-
   return { ...result, ip, scope, route };
 }
 
@@ -499,23 +347,6 @@ export async function acquireSseConnection(req, res, { limit = getRateLimitConfi
   if (isIpWhitelisted(ip)) {
     return { allowed: true, whitelisted: true, ip, limit, remaining: limit, release: () => {} };
   }
-
-
-  const key = buildIpRateLimitKey('sse', ip);
-  let result;
-
-  if (canUseSupabaseStore(config)) {
-    try {
-      result = await acquireSupabaseSseConnection(key, limit, config);
-    } catch (error) {
-      supabaseDisabledUntil = Date.now() + config.supabaseBackoffMs;
-      console.warn('[rate-limit] Supabase SSE store unavailable; falling back to in-memory connection counters temporarily:', error.message);
-    }
-  }
-
-  if (!result) result = memorySseConnectionStore.acquire(key, limit);
-
-
   const key = buildIpRateLimitKey('sse', ip);
   let result;
   if (canUseSupabaseStore(config)) {
@@ -527,32 +358,17 @@ export async function acquireSseConnection(req, res, { limit = getRateLimitConfi
     }
   }
   if (!result) result = memorySseConnectionStore.acquire(key, limit);
-
   setRateLimitHeaders(res, { ...result, resetAt: result.resetAt ?? Date.now() + 60_000 }, {
     retryAfter: !result.allowed,
     policyWindowMs: 60_000,
   });
-
-
-  if (!result.allowed) {
-    void recordRateLimitBlock({
-      ip,
-      scope: 'sse',
-      route,
-      key,
-      limit,
-
   if (!result.allowed) {
     void recordRateLimitBlock({
       ip, scope: 'sse', route, key, limit,
-
       retryAfter: result.retryAfter,
       userAgent: req.headers?.['user-agent'],
     });
   }
-
-
-
   return { ...result, ip, route };
 }
 

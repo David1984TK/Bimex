@@ -12,8 +12,6 @@ import {
   getRateLimitConfig,
 } from './rateLimiter.js';
 
-
-
 function buildAllowedOrigins() {
   const envOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
@@ -25,7 +23,6 @@ function buildAllowedOrigins() {
   ].filter(Boolean);
   return new Set([...envOrigins, ...defaults]);
 }
-
 
 const ALLOWED_ORIGINS = buildAllowedOrigins();
 
@@ -87,13 +84,8 @@ function json(req, res, status, data) {
   res.end(body);
 }
 
-
-function rateLimitExceeded(res, result, message) {
-  return json(res, 429, {
-
 function rateLimitExceeded(req, res, result, message) {
   return json(req, res, 429, {
-
     error: message,
     retry_after: result.retryAfter,
   });
@@ -183,11 +175,7 @@ async function route(req, res) {
       honorIpWhitelist: false,
     });
     if (!faucetLimit.allowed)
-
-      return rateLimitExceeded(res, faucetLimit, 'Límite de 3 solicitudes por hora por wallet');
-
       return rateLimitExceeded(req, res, faucetLimit, 'Límite de 3 solicitudes por hora por wallet');
-
 
     const rl = await checkRateLimit(destino);
     if (!rl.allowed) {
@@ -215,14 +203,8 @@ async function route(req, res) {
       limit: rateLimitConfig.publicLimit,
       windowMs: rateLimitConfig.publicWindowMs,
     });
-
-    if (!publicLimit.allowed) {
-      return rateLimitExceeded(res, publicLimit, 'Demasiadas solicitudes. Intenta de nuevo más tarde.');
-    }
-
     if (!publicLimit.allowed)
       return rateLimitExceeded(req, res, publicLimit, 'Demasiadas solicitudes. Intenta de nuevo más tarde.');
-
   }
 
   // GET /proyectos[?estado=X]
@@ -403,14 +385,8 @@ async function route(req, res) {
   // GET /sse — Server-Sent Events stream
   if (parts[0] === 'sse' && !parts[1]) {
     const sseLimit = await acquireSseConnection(req, res, { limit: rateLimitConfig.sseLimit, route: '/sse' });
-
-    if (!sseLimit.allowed) {
-      return rateLimitExceeded(res, sseLimit, 'Demasiadas conexiones SSE simultáneas desde esta IP.');
-    }
-
     if (!sseLimit.allowed)
       return rateLimitExceeded(req, res, sseLimit, 'Demasiadas conexiones SSE simultáneas desde esta IP.');
-
 
     setCorsHeaders(req, res);
     res.writeHead(200, {
@@ -419,11 +395,7 @@ async function route(req, res) {
       'Connection': 'keep-alive',
     });
     res.write(':ok\n\n');
-
-    agregarCliente(res);
-
     agregarCliente(res, getClientIp(req));
-
     req.on('close', () => {
       sseLimit.release();
       eliminarCliente(res);
