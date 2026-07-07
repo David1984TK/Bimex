@@ -13,7 +13,7 @@
  */
 
 import 'dotenv/config';
-import { SorobanRpc } from '@stellar/stellar-sdk';
+import { rpc as StellarRpc } from '@stellar/stellar-sdk';
 import { parseTx } from '../eventParser.js';
 import { upsertProyecto, upsertAportacion, insertEvento } from '../database.js';
 import supabase from '../database.js';
@@ -39,7 +39,7 @@ if (!options.fromLedger) {
   options.fromLedger = parseInt(process.env.START_LEDGER ?? '0', 10);
 }
 
-const rpc = new SorobanRpc.Server(RPC_URL, { allowHttp: false });
+const rpc = new StellarRpc.Server(RPC_URL, { allowHttp: false });
 
 // Statistics
 const stats = {

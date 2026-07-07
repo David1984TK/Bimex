@@ -1,4 +1,5 @@
-import { StellarWalletsKit, FreighterModule, WalletNetwork } from "@creit.tech/stellar-wallets-kit";
+import { StellarWalletsKit, Networks } from "@creit.tech/stellar-wallets-kit";
+import { FreighterModule } from "@creit.tech/stellar-wallets-kit/modules/freighter";
 import { CONFIG } from "./contrato.js";
 
 let kit = null;
@@ -10,7 +11,7 @@ function initializeKit() {
   const modules = [new FreighterModule()];
 
   if (wcProjectId) {
-    import("@creit.tech/stellar-wallets-kit/modules/walletconnect.module").then(({ WalletConnectModule }) => {
+    import("@creit.tech/stellar-wallets-kit/modules/wallet-connect").then(({ WalletConnectModule }) => {
       kit.setWallet && modules.push(new WalletConnectModule({ projectId: wcProjectId, name: "Bimex" }));
     }).catch(() => {});
   }
@@ -18,7 +19,7 @@ function initializeKit() {
   const isMainnet = CONFIG.NETWORK === "mainnet";
 
   kit = new StellarWalletsKit({
-    network: isMainnet ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET,
+    network: isMainnet ? Networks.PUBLIC : Networks.TESTNET,
     selectedWalletId: "freighter",
     modules,
   });
