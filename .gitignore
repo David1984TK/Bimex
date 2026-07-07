@@ -32,7 +32,6 @@ dist-ssr/
 # ===== RUST / SOROBAN =====
 target/
 **/*.rs.bk
-Cargo.lock
 
 # ===== MACOS =====
 .DS_Store
