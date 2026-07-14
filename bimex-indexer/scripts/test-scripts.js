@@ -22,7 +22,7 @@ try {
   const checks = [
     { name: 'Has shebang', test: reindexContent.includes('#!/usr/bin/env node') },
     { name: 'Imports dotenv', test: reindexContent.includes("import 'dotenv/config'") },
-    { name: 'Imports SorobanRpc', test: reindexContent.includes('SorobanRpc') },
+    { name: 'Imports rpc from stellar-sdk', test: reindexContent.includes('rpc as StellarRpc') },
     { name: 'Has --dry-run option', test: reindexContent.includes('--dry-run') },
     { name: 'Has --clear option', test: reindexContent.includes('--clear') },
     { name: 'Has --from-ledger option', test: reindexContent.includes('--from-ledger') },
