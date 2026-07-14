@@ -2,7 +2,7 @@
 
 <!-- Explica brevemente qué hace este PR y por qué -->
 
-Closes #<!-- número de issue -->
+Closes #<!-- número de issue. OBLIGATORIO si resuelve un issue existente: GitHub lo cierra solo al mergear. Si este PR reaplica el trabajo de otro PR/persona, el "Closes #" debe ir aquí, no solo en el original. Borra esta línea si no aplica. -->
 
 ## Cambios
 

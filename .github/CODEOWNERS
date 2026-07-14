@@ -1,0 +1,14 @@
+# CODEOWNERS — revisor por defecto para cada área del repo.
+# Ver https://docs.github.com/articles/about-code-owners
+#
+# Esto NO aplica solo hasta que se active "Require review from Code Owners"
+# en Settings → Branches → Branch protection rules para `main`.
+
+# Default: todo pasa por el owner del repo si no hay regla más específica abajo.
+*                     @David1984TK
+
+# Contrato Soroban — lógica financiera, requiere revisión extra.
+/bimex/               @David1984TK
+
+# CI/CD, dependabot, y este mismo archivo de ownership.
+/.github/             @David1984TK

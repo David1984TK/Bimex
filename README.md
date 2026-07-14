@@ -74,6 +74,8 @@ stellar contract build
 | MXNe SAC token | `CDDIGHPVTW4PSCQCU67NQ4NXZ4NX5GDLNL3O67WT5RQ4GT6RXIEYPC4T` |
 | Soroban RPC | `https://soroban-testnet.stellar.org` |
 
+> Mainnet addresses for the pilot project are tracked in [`docs/guia-proyecto-piloto.md`](docs/guia-proyecto-piloto.md), not here — this table is testnet-only. Network is selected via `VITE_NETWORK` (`testnet` default, `mainnet` opt-in).
+
 ## Stack
 
 - **Smart contract**: Rust / Soroban SDK (WASM)
