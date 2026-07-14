@@ -1,29 +1,27 @@
-import { StellarWalletsKit, FreighterModule, WalletNetwork } from "@creit.tech/stellar-wallets-kit";
+import { StellarWalletsKit, Networks } from "@creit.tech/stellar-wallets-kit";
+import { FreighterModule } from "@creit.tech/stellar-wallets-kit/modules/freighter";
 import { CONFIG } from "./contrato.js";
 
-let kit = null;
+let initialized = false;
 
 function initializeKit() {
-  if (kit) return kit;
+  if (initialized) return StellarWalletsKit;
+  initialized = true;
 
   const wcProjectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
   const modules = [new FreighterModule()];
+  const network = CONFIG.NETWORK === "mainnet" ? Networks.PUBLIC : Networks.TESTNET;
+
+  StellarWalletsKit.init({ network, modules, selectedWalletId: "freighter" });
 
   if (wcProjectId) {
-    import("@creit.tech/stellar-wallets-kit/modules/walletconnect.module").then(({ WalletConnectModule }) => {
-      kit.setWallet && modules.push(new WalletConnectModule({ projectId: wcProjectId, name: "Bimex" }));
+    import("@creit.tech/stellar-wallets-kit/modules/wallet-connect").then(({ WalletConnectModule }) => {
+      modules.push(new WalletConnectModule({ projectId: wcProjectId, name: "Bimex" }));
+      StellarWalletsKit.init({ network, modules, selectedWalletId: "freighter" });
     }).catch(() => {});
   }
 
-  const isMainnet = CONFIG.NETWORK === "mainnet";
-
-  kit = new StellarWalletsKit({
-    network: isMainnet ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET,
-    selectedWalletId: "freighter",
-    modules,
-  });
-
-  return kit;
+  return StellarWalletsKit;
 }
 
 export function getWalletKit() {
@@ -33,21 +31,13 @@ export function getWalletKit() {
 export async function openWalletModal() {
   const walletKit = getWalletKit();
 
-  return new Promise((resolve) => {
-    walletKit.openModal({
-      onWalletSelected: async (option) => {
-        walletKit.setWallet(option.id);
-        localStorage.setItem("lastWallet", option.id);
-        try {
-          const { address } = await walletKit.getAddress();
-          resolve(address || null);
-        } catch {
-          resolve(null);
-        }
-      },
-      onClosed: () => resolve(null),
-    });
-  });
+  try {
+    const { address } = await walletKit.authModal();
+    if (address) localStorage.setItem("lastWallet", walletKit.selectedModule.productId);
+    return address || null;
+  } catch {
+    return null;
+  }
 }
 
 export async function getConnectedAddress() {
@@ -55,9 +45,9 @@ export async function getConnectedAddress() {
   const lastWalletId = localStorage.getItem("lastWallet");
   if (!lastWalletId) return null;
 
-  walletKit.setWallet(lastWalletId);
   try {
-    const { address } = await walletKit.getAddress({ skipRequestAccess: true });
+    walletKit.setWallet(lastWalletId);
+    const { address } = await walletKit.fetchAddress();
     return address || null;
   } catch {
     localStorage.removeItem("lastWallet");
