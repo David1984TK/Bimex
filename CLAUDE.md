@@ -3,9 +3,11 @@
 ## Qué es Bimex
 Plataforma de crowdfunding de impacto social construida sobre Stellar/Soroban. Los contribuidores aportan MXNe (peso mexicano estable) a proyectos; el capital siempre es recuperable. El rendimiento (CETES ~9.45% + AMM Stellar ~4%) financia el proyecto. Al finalizar, cada contribuidor recupera exactamente lo que aportó.
 
-**Deploy:** https://bimex-frontend.vercel.app  
-**Repo:** https://github.com/David1984TK/Bimex  
-**Branch de trabajo:** `claude/bimex-review-wlvPQ`
+**Deploy:** https://bimex-frontend.vercel.app (Vercel, despliega desde `main`)
+**Repo:** https://github.com/David1984TK/Bimex
+**Red:** el contrato corre en Testnet y Mainnet según `VITE_NETWORK` (`bimex-frontend/src/stellar/contrato.js`). El piloto real (ver `docs/guia-proyecto-piloto.md`) apunta a Mainnet; no hay una única "rama de trabajo" fija — este repo usa trunk-based development, ver `CONTRIBUTING.md`.
+
+> **Nota de mantenimiento de este archivo:** no listes PRs individuales aquí — con 50+ colaboradores el historial vive en GitHub (`git log --oneline main` o la pestaña Pull Requests), no en este doc. Actualiza solo las secciones de abajo cuando cambie algo estructural (stack, invariantes, convenciones), no cuando se mergee un PR más.
 
 ## Stack
 - **Smart contract:** Rust / Soroban (Stellar)
@@ -34,34 +36,18 @@ scripts/                → Scripts de deploy y prueba
 - `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` — notificaciones
 - `VITE_PINATA_API_KEY` / `VITE_PINATA_SECRET` — IPFS (opcional, fallback SHA-256)
 
-## Lo que se hizo en esta sesión
-
-### PRs mergeados a main
-| PR | Autor | Contenido |
-|---|---|---|
-| #23 | Ejirowebfi | Seguridad contrato (CEI, overfunding cap, bounds check) |
-| #22 | Dennis-Ritchie1 | Indexer on-chain (bimex-indexer) |
-| #24 | Dennis-Ritchie1 | UI mobile responsive |
-| #25 | Ejirowebfi | Recompensas / badges |
-| #27 | Dennis-Ritchie1 | i18n ES/EN |
-| #28 | Dennis-Ritchie1 | Contrato usa IPFS CID (String) en vez de SHA-256 (BytesN<32>) |
-| #26 | Ejirowebfi | Sistema de notificaciones email (Resend + Supabase) |
-| #29 | JoesWalker | Script deploy Mainnet + env vars |
-| #30 | JoesWalker | 19 tests adicionales (cobertura 100%) |
-| #34 | Darkdante9 | Documentación técnica v2 |
-| #35 | Darkdante9 | Docs onboarding comunidad (docs/) |
-| #40 | Zarmaijemimah | Docs proyecto piloto + scripts bash |
-| #41 | Zarmaijemimah | Specs página transparencia pública (.kiro/specs/) |
-| #32 | JoesWalker | IPFS Pinata integrado en CrearProyecto.jsx |
-
-### Fixes directos a main (rama `claude/bimex-review-wlvPQ`)
-- **Navbar landing mobile:** padding `clamp(14px,4vw,48px)`, prop `inNavbar` en `ConectarWallet`, badge TESTNET oculto en móvil (`navbar-hide-tablet`)
-- **IPFS completo:** `src/utils/ipfs.js` + integración real en `avanzarAPaso3` (sube INE/Plan/Presupuesto en paralelo, fallback SHA-256)
+## Cómo contribuir
+Ver `CONTRIBUTING.md`: trunk-based (ramas cortas directo a `main`, sin `develop`), CI en verde obligatorio antes de mergear, `Closes #NN` en cada PR que resuelve un issue. `.github/CODEOWNERS` define el revisor por defecto.
 
 ## Notas importantes
 - El contrato almacena `doc_cid: String` (no `BytesN<32>`) desde PR #28
 - Si IPFS está configurado: `docCid = "CID1|CID2|CID3"` (3 docs separados por `|`)
 - Si Pinata no está configurado: fallback automático a SHA-256 hex
-- Vercel despliega desde `main`. El root directory debe apuntarse a `bimex-frontend/` en el dashboard de Vercel
+- El root directory de Vercel debe apuntar a `bimex-frontend/` en el dashboard de Vercel
 - Admin address en `VITE_ADMIN_ADDRESS` o hardcoded como fallback en `App.jsx`
-- Tests del contrato: 39 tests, 0 failures (`cd bimex && cargo test`)
+- `bimex/Cargo.lock` está commiteado a propósito (reproducibilidad de builds) — no lo agregues a `.gitignore`. CI corre `cargo test`/`cargo audit` sin `--locked`, así que un `cargo update` local antes de un PR puede cambiar versiones; verifica con `cargo test --locked` que el lock commiteado sigue siendo válido.
+- Tests del contrato: `cd bimex && cargo test` (64 tests a la fecha de este doc, 0 failures)
+
+## Pendientes conocidos
+- **Issue #145 (seguridad, abierto):** `VITE_PINATA_SECRET` se bundlea en el JS público del frontend (`bimex-frontend/src/utils/ipfs.js`). Falta mover el upload a un proxy backend en `bimex-indexer`. Un intento previo (PR #200) se cerró sin mergear.
+- **Branch protection en `main`:** no está configurado vía este repo (requiere acceso admin en GitHub Settings, fuera del alcance de las herramientas de Claude Code). Recomendado: requerir CI verde + review de CODEOWNERS antes de mergear.
