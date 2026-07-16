@@ -84,6 +84,18 @@ function json(req, res, status, data) {
   res.end(body);
 }
 
+// Variante cacheable para los GET públicos de solo-lectura: permite que el
+// navegador (y cualquier CDN/proxy delante del indexer) reutilice la respuesta
+// unos segundos en vez de repetir la query a Supabase en cada visita.
+const CACHE_PUBLICO_S = parseInt(process.env.PUBLIC_CACHE_SECONDS ?? '15', 10);
+
+function jsonCacheable(req, res, status, data) {
+  if (status === 200 && CACHE_PUBLICO_S > 0) {
+    res.setHeader('Cache-Control', `public, max-age=${CACHE_PUBLICO_S}, stale-while-revalidate=${CACHE_PUBLICO_S * 2}`);
+  }
+  return json(req, res, status, data);
+}
+
 function rateLimitExceeded(req, res, result, message) {
   return json(req, res, 429, {
     error: message,
@@ -212,7 +224,7 @@ async function route(req, res) {
     let q = supabase.from('proyectos').select('*').order('id');
     if (url.searchParams.has('estado')) q = q.eq('estado', url.searchParams.get('estado'));
     const { data, error } = await q;
-    return error ? json(req, res, 500, { error: error.message }) : json(req, res, 200, data);
+    return error ? json(req, res, 500, { error: error.message }) : jsonCacheable(req, res, 200, data);
   }
 
   // GET /proyectos/:id
@@ -220,14 +232,14 @@ async function route(req, res) {
     const { data, error } = await supabase
       .from('proyectos').select('*').eq('id', parts[1]).single();
     if (error) return json(req, res, error.code === 'PGRST116' ? 404 : 500, { error: error.message });
-    return json(req, res, 200, data);
+    return jsonCacheable(req, res, 200, data);
   }
 
   // GET /proyectos/:id/aportaciones
   if (parts[0] === 'proyectos' && parts[1] && parts[2] === 'aportaciones') {
     const { data, error } = await supabase
       .from('aportaciones').select('*').eq('proyecto_id', parts[1]).order('timestamp');
-    return error ? json(req, res, 500, { error: error.message }) : json(req, res, 200, data);
+    return error ? json(req, res, 500, { error: error.message }) : jsonCacheable(req, res, 200, data);
   }
 
   // GET /backers/:address/aportaciones
@@ -235,7 +247,7 @@ async function route(req, res) {
     const { data, error } = await supabase
       .from('aportaciones').select('*, proyectos(nombre,estado)')
       .eq('contribuidor', parts[1]).order('timestamp');
-    return error ? json(req, res, 500, { error: error.message }) : json(req, res, 200, data);
+    return error ? json(req, res, 500, { error: error.message }) : jsonCacheable(req, res, 200, data);
   }
 
   // GET /eventos[?tipo=X&limit=N&offset=M]
@@ -245,7 +257,7 @@ async function route(req, res) {
     let q = supabase.from('eventos').select('*', { count: 'exact' }).order('ledger', { ascending: false }).range(offset, offset + limit - 1);
     if (url.searchParams.has('tipo')) q = q.eq('tipo', url.searchParams.get('tipo'));
     const { data, count, error } = await q;
-    return error ? json(req, res, 500, { error: error.message }) : json(req, res, 200, { data, count });
+    return error ? json(req, res, 500, { error: error.message }) : jsonCacheable(req, res, 200, { data, count });
   }
 
   // GET /stats
@@ -269,7 +281,7 @@ async function route(req, res) {
                            .reduce((s, a) => s + Number(a.monto ?? 0), 0),
       numero_contribuidores: contribuidoresUnicos.size,
     };
-    return json(req, res, 200, stats);
+    return jsonCacheable(req, res, 200, stats);
   }
 
   // GET /audit[?action=X&limit=N&offset=M&format=csv]
