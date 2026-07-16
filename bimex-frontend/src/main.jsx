@@ -11,6 +11,23 @@ import App from './App.jsx'
 
 registerSW({ immediate: true })
 
+// Preconnect a los orígenes que la app consulta en el primer render (RPC de
+// Stellar y Supabase): adelanta DNS + TCP + TLS mientras React monta. Las URLs
+// vienen de env, por eso se inyectan aquí y no en index.html estático.
+for (const url of [
+  import.meta.env.VITE_RPC_URL ?? 'https://soroban-testnet.stellar.org',
+  import.meta.env.VITE_SUPABASE_URL,
+]) {
+  try {
+    if (!url) continue
+    const link = document.createElement('link')
+    link.rel = 'preconnect'
+    link.href = new URL(url).origin
+    link.crossOrigin = 'anonymous'
+    document.head.appendChild(link)
+  } catch { /* URL inválida en env: no bloquear el arranque */ }
+}
+
 if (import.meta.env.VITE_SENTRY_DSN) {
   Sentry.init({
     dsn: import.meta.env.VITE_SENTRY_DSN,
