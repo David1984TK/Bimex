@@ -14,14 +14,29 @@ jobs:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: wasm32-unknown-unknown
+          # wasm32v1-none: target requerido por soroban-sdk 27+ (Rust 1.84+);
+          # wasm32-unknown-unknown quedó sin soporte en el Soroban Environment.
+          targets: wasm32v1-none
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: bimex
+      # --locked: CI valida exactamente el Cargo.lock commiteado. Sin esto,
+      # cada run re-resuelve dependencias y una release upstream incompatible
+      # (o un crate yanked) rompe CI sin que nadie haya tocado el repo
+      # (ver postmortem del 2026-07-14: ed25519-dalek 3.0 / spin yanked).
       - name: cargo test
-        run: cd bimex && cargo test
+        run: cd bimex && cargo test --locked
+      - name: Build wasm (release)
+        run: cd bimex && cargo build --release --target wasm32v1-none --locked
       # cargo clippy step moved below
+      - name: Cache cargo-audit binary
+        id: cache-cargo-audit
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/cargo-audit
+          key: cargo-audit-bin-${{ runner.os }}-v0.22
       - name: Install cargo-audit
+        if: steps.cache-cargo-audit.outputs.cache-hit != 'true'
         run: cargo install cargo-audit --locked
         working-directory: bimex
       - name: Configure cargo audit ignores
@@ -32,7 +47,7 @@ jobs:
         run: cargo audit --deny warnings
         working-directory: bimex
       - name: cargo clippy
-        run: cd bimex && cargo clippy -- -D warnings
+        run: cd bimex && cargo clippy --locked -- -D warnings
 
   codeql:
     name: CodeQL
