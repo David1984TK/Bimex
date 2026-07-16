@@ -184,7 +184,12 @@ async function firmarYEnviar(txPreparada, cuentaPublica) {
   while (intentos < 20) {
     await new Promise((r) => setTimeout(r, 2000));
     const estado = await servidor.getTransaction(envioHash);
-    if (estado.status === rpc.Api.GetTransactionStatus.SUCCESS) return estado;
+    if (estado.status === rpc.Api.GetTransactionStatus.SUCCESS) {
+      // Toda escritura confirmada puede cambiar el estado de los proyectos:
+      // la siguiente lectura debe ir al RPC, no al cache.
+      invalidarCacheProyectos();
+      return estado;
+    }
     if (estado.status === rpc.Api.GetTransactionStatus.FAILED) {
       const xdrFallo = estado.resultXdr ? estado.resultXdr.toXDR("base64") : envioHash;
       throw new Error(`La transacción falló en la red. XDR: ${xdrFallo}`);
@@ -339,21 +344,56 @@ export async function obtenerEstadoCapital(idProyecto) {
   }
 }
 
-export async function obtenerTodosLosProyectos({ propagarError = false } = {}) {
-  const total = await obtenerTotalProyectos({ propagarError });
-  if (total === 0) return [];
-  const resultados = await Promise.allSettled(
-    Array.from({ length: total }, (_, i) => obtenerProyecto(i))
-  );
-  const proyectos = resultados
-    .filter((resultado) => resultado.status === "fulfilled" && resultado.value)
-    .map((resultado) => resultado.value);
+// Cache en memoria de la lista completa de proyectos. Cinco vistas distintas
+// (ListaProyectos, MiCuenta, Transparencia, Recompensas, AdminPanel) llaman a
+// obtenerTodosLosProyectos al montar; sin cache cada navegación dispara
+// 1 + N simulaciones contra el RPC. TTL corto: los datos on-chain cambian
+// lento y cualquier escritura propia invalida el cache explícitamente.
+const CACHE_PROYECTOS_TTL_MS = 30_000;
+let _cacheProyectos = null; // { data, timestamp, propagarError }
+let _cacheProyectosPromesa = null; // dedup de llamadas concurrentes
 
-  if (propagarError && proyectos.length === 0 && resultados.some((resultado) => resultado.status === "rejected")) {
-    throw new Error("No se pudieron cargar los proyectos desde Stellar.");
+export function invalidarCacheProyectos() {
+  _cacheProyectos = null;
+  _cacheProyectosPromesa = null;
+}
+
+export async function obtenerTodosLosProyectos({ propagarError = false, forzar = false } = {}) {
+  const ahora = Date.now();
+  if (!forzar && _cacheProyectos && ahora - _cacheProyectos.timestamp < CACHE_PROYECTOS_TTL_MS) {
+    return _cacheProyectos.data;
   }
+  // Si ya hay un fetch en vuelo (dos vistas montando a la vez), reutilizarlo
+  if (!forzar && _cacheProyectosPromesa) return _cacheProyectosPromesa;
 
-  return proyectos;
+  _cacheProyectosPromesa = (async () => {
+    const total = await obtenerTotalProyectos({ propagarError });
+    if (total === 0) return [];
+    const resultados = await Promise.allSettled(
+      Array.from({ length: total }, (_, i) => obtenerProyecto(i))
+    );
+    const proyectos = resultados
+      .filter((resultado) => resultado.status === "fulfilled" && resultado.value)
+      .map((resultado) => resultado.value);
+
+    if (propagarError && proyectos.length === 0 && resultados.some((resultado) => resultado.status === "rejected")) {
+      throw new Error("No se pudieron cargar los proyectos desde Stellar.");
+    }
+
+    return proyectos;
+  })();
+
+  try {
+    const data = await _cacheProyectosPromesa;
+    _cacheProyectos = { data, timestamp: Date.now() };
+    return data;
+  } catch (err) {
+    // No cachear errores: el siguiente intento vuelve a pegarle al RPC
+    _cacheProyectos = null;
+    throw err;
+  } finally {
+    _cacheProyectosPromesa = null;
+  }
 }
 
 // ─── Funciones de ESCRITURA ───────────────────────────────────────────────────
