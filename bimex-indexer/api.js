@@ -98,10 +98,25 @@ function publicRateLimitedEndpoint(parts) {
   return null;
 }
 
+// Tope para cuerpos JSON de la API: evita que un cliente malicioso agote la
+// memoria mandando un cuerpo gigante (los endpoints actuales usan payloads
+// de menos de 1KB).
+const MAX_BODY_BYTES = parseInt(process.env.MAX_BODY_BYTES ?? String(64 * 1024), 10);
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let raw = '';
-    req.on('data', chunk => raw += chunk);
+    let recibido = 0;
+    req.on('data', chunk => {
+      recibido += chunk.length;
+      if (recibido > MAX_BODY_BYTES) {
+        req.destroy();
+        const err = new Error('Cuerpo demasiado grande');
+        err.statusCode = 413;
+        return reject(err);
+      }
+      raw += chunk;
+    });
     req.on('end', () => {
       try { resolve(JSON.parse(raw)); }
       catch { reject(new Error('Cuerpo inválido: se esperaba JSON')); }
@@ -161,7 +176,7 @@ async function route(req, res) {
   if (req.method === 'POST' && parts[0] === 'faucet' && !parts[1]) {
     let body;
     try { body = await readBody(req); }
-    catch (e) { return json(req, res, 400, { error: e.message }); }
+    catch (e) { return json(req, res, e.statusCode ?? 400, { error: e.message }); }
 
     const { destino } = body;
     if (!destino) return json(req, res, 400, { error: 'Falta "destino" en el cuerpo' });
@@ -421,5 +436,11 @@ const server = http.createServer(async (req, res) => {
     json(req, res, 500, { error: err.message });
   }
 });
+
+// Timeouts explícitos: cierran conexiones que mandan headers/cuerpo a cuentagotas
+// (slowloris). No afectan a /sse: aplican a la *recepción* del request, no a la
+// respuesta en streaming.
+server.headersTimeout = 30_000;
+server.requestTimeout = 60_000;
 
 server.listen(PORT, () => console.log(`Bimex API listening on port ${PORT}`));
