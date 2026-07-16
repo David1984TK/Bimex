@@ -14,24 +14,33 @@ export function validarArchivo(archivo) {
   return { valido: true, error: null };
 }
 
-const PINATA_URL = "https://api.pinata.cloud/pinning/pinFileToIPFS";
+// La subida va vía proxy backend (bimex-indexer /ipfs-upload) para que las
+// credenciales de Pinata nunca lleguen al bundle público (issue #145).
+const PROXY_BASE = import.meta.env.VITE_INDEXER_URL;
+
+export async function archivoABase64(archivo) {
+  const buffer = await archivo.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binario = "";
+  const CHUNK = 0x8000; // btoa por bloques para no reventar la pila con archivos grandes
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binario += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binario);
+}
 
 export async function subirAIPFS(archivo) {
-  const apiKey    = import.meta.env.VITE_PINATA_API_KEY;
-  const apiSecret = import.meta.env.VITE_PINATA_SECRET;
-  if (!apiKey || !apiSecret) throw new Error("Pinata keys not configured");
+  if (!PROXY_BASE) throw new Error("IPFS proxy not configured");
 
-  const formData = new FormData();
-  formData.append("file", archivo);
-
-  const res = await fetch(PINATA_URL, {
+  const contenidoBase64 = await archivoABase64(archivo);
+  const res = await fetch(`${PROXY_BASE}/ipfs-upload`, {
     method: "POST",
-    headers: { pinata_api_key: apiKey, pinata_secret_api_key: apiSecret },
-    body: formData,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ nombre: archivo.name, tipo: archivo.type, contenidoBase64 }),
   });
-  if (!res.ok) throw new Error(`Pinata error: ${res.status}`);
+  if (!res.ok) throw new Error(`IPFS proxy error: ${res.status}`);
   const data = await res.json();
-  return data.IpfsHash;
+  return data.cid;
 }
 
 export async function sha256Archivo(archivo) {

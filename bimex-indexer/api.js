@@ -11,6 +11,7 @@ import {
   getClientIp,
   getRateLimitConfig,
 } from './rateLimiter.js';
+import { validarUploadIpfs, leerCuerpoLimitado, subirAPinata } from './ipfsProxy.js';
 
 function buildAllowedOrigins() {
   const envOrigins = process.env.ALLOWED_ORIGINS
@@ -188,6 +189,34 @@ async function route(req, res) {
       return json(req, res, 200, { exito: true, cantidad: 100 });
     } catch (e) {
       return json(req, res, 500, { error: e.message });
+    }
+  }
+
+  // POST /ipfs-upload — proxy a Pinata; las credenciales viven solo en el servidor (issue #145)
+  if (req.method === 'POST' && parts[0] === 'ipfs-upload' && !parts[1]) {
+    const ip = getClientIp(req);
+    const uploadLimit = await enforceFixedWindowRateLimit(req, res, {
+      scope: 'ipfs-upload',
+      route: '/ipfs-upload',
+      key: buildIpRateLimitKey('/ipfs-upload', ip),
+      limit: parseInt(process.env.IPFS_UPLOAD_LIMIT ?? '10', 10),
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!uploadLimit.allowed)
+      return rateLimitExceeded(req, res, uploadLimit, 'Demasiadas subidas desde esta IP. Intenta más tarde.');
+
+    let body;
+    try { body = await leerCuerpoLimitado(req); }
+    catch (e) { return json(req, res, e.statusCode ?? 400, { error: e.message }); }
+
+    const validacion = validarUploadIpfs(body);
+    if (!validacion.valido) return json(req, res, 400, { error: validacion.error });
+
+    try {
+      const cid = await subirAPinata(body);
+      return json(req, res, 200, { cid });
+    } catch (e) {
+      return json(req, res, e.statusCode ?? 500, { error: e.message });
     }
   }
 
