@@ -425,6 +425,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
                     className="input"
                     name="tiempoMeses"
                     type="number"
+                    inputMode="numeric"
                     value={forma.tiempoMeses}
                     onChange={manejarCambio}
                     placeholder={t("crear.timePlaceholder")}
