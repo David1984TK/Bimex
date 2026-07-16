@@ -86,6 +86,29 @@ export default defineConfig(({ mode }) => {
     define: {
       global: 'globalThis',
     },
+    build: {
+      rollupOptions: {
+        output: {
+          // Separa los vendors pesados del código de la app: cambios en la app
+          // no invalidan el cache del navegador para stellar-sdk/react, y el
+          // chunk inicial queda más chico.
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return undefined;
+            if (
+              id.includes('/@stellar/') ||
+              id.includes('/@creit.tech/') ||
+              id.includes('/passkey-kit/')
+            ) return 'stellar-vendor';
+            if (
+              id.includes('/node_modules/react/') ||
+              id.includes('/node_modules/react-dom/') ||
+              id.includes('/node_modules/scheduler/')
+            ) return 'react-vendor';
+            return undefined;
+          },
+        },
+      },
+    },
     resolve: {
       dedupe: ['react', 'react-dom'],
       alias: {
