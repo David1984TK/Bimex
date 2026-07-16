@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { setAllowed } from "@stellar/freighter-api";
-import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useNavigate, useNavigationType } from "react-router-dom";
 import ConectarWallet   from "./components/ConectarWallet";
 import ListaProyectos   from "./components/ListaProyectos";
 import DetalleProyecto  from "./components/DetalleProyecto";
@@ -47,6 +47,18 @@ function cargarContratoFns() {
 
 function leerAutoConectarInicial() {
   return storageSesion.getItem(KEY_SESION_WALLET) === "1";
+}
+
+// Al navegar a una ruta nueva (PUSH/REPLACE) la página arrancaba a la altura
+// de scroll de la vista anterior. En atrás/adelante (POP) se respeta la
+// restauración nativa del navegador.
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  const tipoNavegacion = useNavigationType();
+  useEffect(() => {
+    if (tipoNavegacion !== "POP") window.scrollTo(0, 0);
+  }, [pathname, tipoNavegacion]);
+  return null;
 }
 
 function Cargando({ inline = false }) {
@@ -555,6 +567,7 @@ export default function App() {
       )}
 
       <main id="contenido-principal">
+        <ScrollToTop />
         <Routes>
           <Route
             path="/"
