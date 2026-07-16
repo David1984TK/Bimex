@@ -315,6 +315,28 @@ export default function App() {
     document.documentElement.lang = i18n.language || "es";
   }, [i18n.language]);
 
+  // Título del documento por ruta: pestañas e historial dejan de decir todos
+  // "Bimex — Crowdfunding de Impacto Social" para cualquier página.
+  // /proyectos/:id se excluye: DetalleProyecto pone su propio título vía metaTags.
+  useEffect(() => {
+    const pathname = location.pathname;
+    if (/^\/proyectos\/[^/]+/.test(pathname)) return;
+    const TITULOS = {
+      "/": null, // landing conserva el título base de index.html
+      "/proyectos": "Proyectos",
+      "/cuenta": "Mi Cuenta",
+      "/transparencia": "Transparencia",
+      "/impacto": "Historias de Impacto",
+      "/novedades": "Novedades",
+      "/terminos": "Términos de Servicio",
+      "/privacidad": "Aviso de Privacidad",
+      "/admin": "Panel de Administración",
+    };
+    const BASE = "Bimex — Crowdfunding de Impacto Social";
+    const seccion = TITULOS[pathname];
+    document.title = seccion ? `${seccion} · Bimex` : BASE;
+  }, [location.pathname]);
+
   // ── Toast system ───────────────────────────────────────────────────────────
   const [toasts, setToasts] = useState([]);
   const toastIdRef = useRef(0);
