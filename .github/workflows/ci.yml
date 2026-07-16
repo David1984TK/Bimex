@@ -68,6 +68,15 @@ jobs:
           VITE_CONTRACT_ID: PLACEHOLDER_CONTRACT_ID
           VITE_RPC_URL: https://soroban-testnet.stellar.org
           VITE_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
+      # Los tests unitarios no ejercitan `vite build`: los bumps #209/#210
+      # rompieron el build de producción (MISSING_EXPORT) con CI en verde.
+      # Este paso reproduce el build que corre Vercel en cada deploy.
+      - name: Production build
+        run: cd bimex-frontend && npm run build
+        env:
+          VITE_CONTRACT_ID: PLACEHOLDER_CONTRACT_ID
+          VITE_RPC_URL: https://soroban-testnet.stellar.org
+          VITE_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
 
   indexer:
     name: Indexer Node.js
