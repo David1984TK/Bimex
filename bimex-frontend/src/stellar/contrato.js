@@ -67,7 +67,6 @@ export const passkeyKit = new PasskeyKit({
 
 // Enviar TX vía Launchtube (gas sponsor)
 async function enviarPorLaunchtube(txXdrBase64) {
-  console.log("Enviando TX a Launchtube para fee sponsorship...", txXdrBase64);
   const token = import.meta.env.VITE_LAUNCHTUBE_JWT || localStorage.getItem("launchtube_jwt") || "";
   const url = import.meta.env.VITE_LAUNCHTUBE_URL || "https://testnet.launchtube.xyz";
   const res = await fetch(`${url.replace(/\/$/, "")}/`, {
