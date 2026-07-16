@@ -1,0 +1,38 @@
+name: ✨ Propuesta de mejora
+description: Una funcionalidad o mejora nueva para Bimex
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: ¿Qué problema resuelve?
+      description: Empieza por el porqué — qué le duele hoy a un usuario o al proyecto.
+      placeholder: "Los contribuidores no tienen forma de..."
+    validations:
+      required: true
+  - type: textarea
+    id: propuesta
+    attributes:
+      label: Propuesta
+      description: Qué construirías y dónde (frontend, contrato, indexer). Lista los archivos si los conoces.
+    validations:
+      required: true
+  - type: textarea
+    id: criterios
+    attributes:
+      label: Criterios de aceptación
+      description: Cómo sabemos que quedó terminado.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+  - type: dropdown
+    id: alcance
+    attributes:
+      label: ¿Toca el smart contract?
+      description: Cambios al contrato requieren tests nuevos y revisión extra (maneja fondos).
+      options:
+        - "No"
+        - "Sí"
+        - "No estoy seguro"
+    validations:
+      required: true

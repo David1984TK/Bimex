@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 🔒 Reportar una vulnerabilidad de seguridad
+    url: https://github.com/David1984TK/Bimex/security/policy
+    about: NO abras un issue público para vulnerabilidades. Usa el proceso de divulgación responsable descrito en SECURITY.md (aplica al bug bounty).
+  - name: ❓ Preguntas frecuentes
+    url: https://github.com/David1984TK/Bimex/blob/main/docs/faq-es.md
+    about: Revisa el FAQ antes de abrir un issue de pregunta.
