@@ -3,6 +3,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import App from "../App.jsx";
+import { getRouteTitle } from "../utils/documentTitle.js";
 import i18n from "../i18n/index.js";
 import { getStorage } from "../utils/storage.js";
 
@@ -150,5 +151,48 @@ describe("App PWA install banner", () => {
 
     expect(await screen.findByText("Bimex ya está instalado. Puedes abrirlo desde tu pantalla de inicio y seguir viendo los proyectos cacheados.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Listo" })).toBeInTheDocument();
+  });
+});
+
+describe("App document title", () => {
+  it.each([
+    ["/proyectos", "Proyectos · Bimex"],
+    ["/cuenta", "Mi Cuenta · Bimex"],
+    ["/transparencia", "Transparencia · Bimex"],
+    ["/impacto", "Historias de Impacto · Bimex"],
+    ["/novedades", "Novedades · Bimex"],
+    ["/terminos", "Términos · Bimex"],
+    ["/privacidad", "Privacidad · Bimex"],
+    ["/admin", "Admin · Bimex"],
+  ])("maps %s to its document title", (pathname, title) => {
+    expect(getRouteTitle(pathname)).toBe(title);
+  });
+
+  it("sets the document title for a public route", async () => {
+    renderApp(["/proyectos"]);
+
+    await waitFor(() => {
+      expect(document.title).toBe("Proyectos · Bimex");
+    });
+  });
+
+  it("restores the base title on the landing page", async () => {
+    document.title = "Proyectos · Bimex";
+
+    renderApp(["/"]);
+
+    await waitFor(() => {
+      expect(document.title).toBe("Bimex — Crowdfunding de Impacto Social");
+    });
+  });
+
+  it("leaves project detail titles to DetalleProyecto", async () => {
+    document.title = "Proyecto Cafetal · Bimex";
+
+    renderApp(["/proyectos/42"]);
+
+    await waitFor(() => {
+      expect(document.title).toBe("Proyecto Cafetal · Bimex");
+    });
   });
 });
