@@ -22,5 +22,9 @@
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.10",
     "vitest": "^4.1.9"
+  },
+  "overrides": {
+    "axios": "1.18.1",
+    "postcss": "8.5.23"
   }
 }

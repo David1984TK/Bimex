@@ -51,7 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: 'npm'
@@ -59,7 +59,7 @@ jobs:
       - name: Install dependencies
         run: cd bimex-frontend && npm ci
       - name: Audit dependencies
-        run: cd bimex-frontend && npm audit --audit-level=high
+        run: cd bimex-frontend && npm run check-audit
       - name: Lint
         run: cd bimex-frontend && npm run lint
       - name: Unit tests
@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: 'npm'
