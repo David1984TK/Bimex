@@ -14,10 +14,10 @@
     "test:load": "artillery run tests/sse-load-test.yml"
   },
   "dependencies": {
-    "@stellar/stellar-sdk": "^16.0.1",
-    "@supabase/supabase-js": "^2.110.2",
+    "@stellar/stellar-sdk": "^16.1.0",
+    "@supabase/supabase-js": "^2.110.8",
     "dotenv": "^17.4.2",
-    "resend": "^6.17.2"
+    "resend": "^6.18.0"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.10",
