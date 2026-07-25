@@ -84,6 +84,22 @@ function json(req, res, status, data) {
   res.end(body);
 }
 
+/**
+ * Logs full error details server-side (with a context tag) and responds to
+ * the client with a safe, generic Spanish message — never exposing table
+ * names, query details, or internal RPC URLs.
+ *
+ * @param {import('node:http').IncomingMessage} req
+ * @param {import('node:http').ServerResponse}  res
+ * @param {string} contexto  — tag used in the server log, e.g. '[faucet]'
+ * @param {unknown} err      — the raw error object
+ * @param {string} mensaje   — the safe message sent to the client
+ */
+function errorInterno(req, res, contexto, err, mensaje) {
+  console.error(`${contexto}`, err);
+  return json(req, res, 500, { error: mensaje });
+}
+
 function rateLimitExceeded(req, res, result, message) {
   return json(req, res, 429, {
     error: message,
@@ -187,7 +203,7 @@ async function route(req, res) {
       await mintearMXNe(destino);
       return json(req, res, 200, { exito: true, cantidad: 100 });
     } catch (e) {
-      return json(req, res, 500, { error: e.message });
+      return errorInterno(req, res, '[faucet]', e, 'Error interno del servidor');
     }
   }
 
@@ -212,14 +228,21 @@ async function route(req, res) {
     let q = supabase.from('proyectos').select('*').order('id');
     if (url.searchParams.has('estado')) q = q.eq('estado', url.searchParams.get('estado'));
     const { data, error } = await q;
-    return error ? json(req, res, 500, { error: error.message }) : json(req, res, 200, data);
+    return error
+      ? errorInterno(req, res, '[db-read] GET /proyectos', error, 'Error de base de datos')
+      : json(req, res, 200, data);
   }
 
   // GET /proyectos/:id
   if (parts[0] === 'proyectos' && parts[1] && !parts[2]) {
     const { data, error } = await supabase
       .from('proyectos').select('*').eq('id', parts[1]).single();
-    if (error) return json(req, res, error.code === 'PGRST116' ? 404 : 500, { error: error.message });
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return json(req, res, 404, { error: 'Proyecto no encontrado' });
+      }
+      return errorInterno(req, res, '[db-read] GET /proyectos/:id', error, 'Error de base de datos');
+    }
     return json(req, res, 200, data);
   }
 
@@ -227,7 +250,9 @@ async function route(req, res) {
   if (parts[0] === 'proyectos' && parts[1] && parts[2] === 'aportaciones') {
     const { data, error } = await supabase
       .from('aportaciones').select('*').eq('proyecto_id', parts[1]).order('timestamp');
-    return error ? json(req, res, 500, { error: error.message }) : json(req, res, 200, data);
+    return error
+      ? errorInterno(req, res, '[db-read] GET /proyectos/:id/aportaciones', error, 'Error de base de datos')
+      : json(req, res, 200, data);
   }
 
   // GET /backers/:address/aportaciones
@@ -235,7 +260,9 @@ async function route(req, res) {
     const { data, error } = await supabase
       .from('aportaciones').select('*, proyectos(nombre,estado)')
       .eq('contribuidor', parts[1]).order('timestamp');
-    return error ? json(req, res, 500, { error: error.message }) : json(req, res, 200, data);
+    return error
+      ? errorInterno(req, res, '[db-read] GET /backers/:address/aportaciones', error, 'Error de base de datos')
+      : json(req, res, 200, data);
   }
 
   // GET /eventos[?tipo=X&limit=N&offset=M]
@@ -245,7 +272,9 @@ async function route(req, res) {
     let q = supabase.from('eventos').select('*', { count: 'exact' }).order('ledger', { ascending: false }).range(offset, offset + limit - 1);
     if (url.searchParams.has('tipo')) q = q.eq('tipo', url.searchParams.get('tipo'));
     const { data, count, error } = await q;
-    return error ? json(req, res, 500, { error: error.message }) : json(req, res, 200, { data, count });
+    return error
+      ? errorInterno(req, res, '[db-read] GET /eventos', error, 'Error de base de datos')
+      : json(req, res, 200, { data, count });
   }
 
   // GET /stats
@@ -254,7 +283,8 @@ async function route(req, res) {
       supabase.from('proyectos').select('estado,total_aportado,yield_entregado,meta'),
       supabase.from('aportaciones').select('monto,retirado,contribuidor'),
     ]);
-    if (proyectos.error) return json(req, res, 500, { error: proyectos.error.message });
+    if (proyectos.error)
+      return errorInterno(req, res, '[db-read] GET /stats', proyectos.error, 'Error de base de datos');
 
     const ps = proyectos.data;
     const aports = aportaciones.data ?? [];
@@ -292,7 +322,7 @@ async function route(req, res) {
     }
     
     const { data, count, error } = await q;
-    if (error) return json(req, res, 500, { error: error.message });
+    if (error) return errorInterno(req, res, '[db-read] GET /audit', error, 'Error de base de datos');
 
     if (url.searchParams.get('format') === 'csv') {
       setCorsHeaders(req, res);
@@ -320,7 +350,8 @@ async function route(req, res) {
           .in('tipo', ['nueva_aportacion','retiro_principal','yield_reclamado'])
           .order('ledger', { ascending: true }),
       ]);
-      if (proyectosRes.error) return json(req, res, 500, { error: proyectosRes.error.message });
+      if (proyectosRes.error)
+        return errorInterno(req, res, '[db-read] GET /impacto', proyectosRes.error, 'Error de base de datos');
 
       const proyectos = proyectosRes.data ?? [];
       const aportaciones = aportacionesRes.data ?? [];
@@ -378,7 +409,7 @@ async function route(req, res) {
 
       return json(req, res, 200, completados);
     } catch (err) {
-      return json(req, res, 500, { error: err.message });
+      return errorInterno(req, res, '[impacto]', err, 'Error interno del servidor');
     }
   }
 
@@ -418,7 +449,7 @@ const server = http.createServer(async (req, res) => {
   try {
     await route(req, res);
   } catch (err) {
-    json(req, res, 500, { error: err.message });
+    errorInterno(req, res, '[unhandled]', err, 'Error interno del servidor');
   }
 });
 
