@@ -1,0 +1,83 @@
+name: 🐛 Reporte de bug
+description: Reporta un comportamiento incorrecto en Bimex (frontend, contrato, indexer o CI).
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por reportar un bug. Completa el formulario con el mayor detalle posible — esto acelera el triage con 50+ colaboradores.
+
+        ⚠️ **¿Es una vulnerabilidad de seguridad (fondos en riesgo, bypass de autorización, exploit del contrato, etc.)?**
+        **No la reportes aquí.** Sigue la política de divulgación responsable en [`SECURITY.md`](../../.github/SECURITY.md) o usa [GitHub Private Vulnerability Reporting](../../security/advisories/new).
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área afectada
+      description: ¿Qué parte del proyecto tiene el bug?
+      options:
+        - Frontend (bimex-frontend)
+        - Contrato Soroban (bimex/)
+        - Indexer (bimex-indexer)
+        - CI / CD (.github/workflows, scripts)
+        - Documentación
+        - Otro
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Descripción del bug
+      description: ¿Qué está pasando? ¿Qué esperabas que pasara en su lugar?
+      placeholder: |
+        Al hacer X, esperaba Y, pero ocurrió Z.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para reproducir
+      description: Pasos exactos, en orden, para reproducir el problema.
+      placeholder: |
+        1. Ir a '...'
+        2. Hacer clic en '...'
+        3. Ver el error
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Entorno
+      description: Red (mainnet/testnet), navegador/versión de Node, wallet (Freighter, etc.), commit/versión si la conoces.
+      placeholder: |
+        - Red: testnet
+        - Navegador: Chrome 128
+        - Wallet: Freighter 5.x
+        - Commit: abc1234
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidencia
+      description: Capturas, logs, o si involucra una transacción en el contrato, el tx hash y/o link de stellar.expert.
+      placeholder: |
+        tx hash: ...
+        https://stellar.expert/explorer/testnet/tx/...
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Antes de enviar
+      options:
+        - label: Confirmo que no se trata de una vulnerabilidad de seguridad (esas van por SECURITY.md, no aquí)
+          required: true
+        - label: Busqué issues existentes y no encontré uno duplicado
+          required: true
