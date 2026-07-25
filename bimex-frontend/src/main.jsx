@@ -11,6 +11,21 @@ import App from './App.jsx'
 
 registerSW({ immediate: true })
 
+function inyectarPreconnect(url) {
+  if (!url || typeof url !== 'string') return;
+  try {
+    new URL(url);
+    const link = document.createElement('link');
+    link.rel = 'preconnect';
+    link.href = url;
+    document.head.appendChild(link);
+  } catch {
+    // URL inválida — omitir
+  }
+}
+inyectarPreconnect(import.meta.env.VITE_RPC_URL);
+inyectarPreconnect(import.meta.env.VITE_SUPABASE_URL);
+
 if (import.meta.env.VITE_SENTRY_DSN) {
   Sentry.init({
     dsn: import.meta.env.VITE_SENTRY_DSN,
