@@ -68,6 +68,12 @@ jobs:
           VITE_CONTRACT_ID: PLACEHOLDER_CONTRACT_ID
           VITE_RPC_URL: https://soroban-testnet.stellar.org
           VITE_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
+      - name: Production build
+        run: cd bimex-frontend && npm run build
+        env:
+          VITE_CONTRACT_ID: PLACEHOLDER_CONTRACT_ID
+          VITE_RPC_URL: https://soroban-testnet.stellar.org
+          VITE_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
 
   indexer:
     name: Indexer Node.js
