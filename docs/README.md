@@ -36,6 +36,14 @@
 | [Templates de comunicación](templates-comunicacion-piloto.md) | Emails, posts, anuncios listos | Marketing |
 | [Plan de marketing](plan-marketing-piloto.md) | Estrategia de comunicación completa | Marketing |
 
+## 🔧 Runbooks operacionales
+
+| Documento | Descripción |
+|-----------|-------------|
+| [Runbook: Admin Multi-Sig](runbook-admin-multisig.md) | Operaciones del contrato con firma múltiple (2-of-3) |
+| [Runbook: Restore DB](runbook-restore-db.md) | Restauración de base de datos desde backup cifrado en R2 |
+| [Runbook: Fallos de dependencias](runbook-dependencias.md) | Procedimientos para los cuatro modos de fallo de dependencias (postmortem 2026-07-14) |
+
 ## 🛠️ Scripts y herramientas
 
 Ver [scripts/README.md](../scripts/README.md) para documentación de scripts de ayuda.
