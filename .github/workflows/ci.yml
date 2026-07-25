@@ -59,7 +59,7 @@ jobs:
       - name: Install dependencies
         run: cd bimex-frontend && npm ci
       - name: Audit dependencies
-        run: cd bimex-frontend && npm audit --audit-level=high
+        run: cd bimex-frontend && npm run check-audit
       - name: Lint
         run: cd bimex-frontend && npm run lint
       - name: Unit tests
