@@ -709,6 +709,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                         <span className="input-prefix">MXNe</span>
                         <input
                           type="number"
+                          inputMode="numeric"
                           value={cantidad}
                           onChange={handleCantidadChange}
                           onKeyDown={(e) => { if (["e","E","+","-"].includes(e.key)) e.preventDefault(); }}
