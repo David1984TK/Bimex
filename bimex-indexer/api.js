@@ -77,9 +77,16 @@ async function checkRateLimit(wallet) {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
+function setSecurityHeaders(res) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+}
+
 function json(req, res, status, data) {
   const body = JSON.stringify(data);
   setCorsHeaders(req, res);
+  setSecurityHeaders(res);
   res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(body);
 }
@@ -296,6 +303,7 @@ async function route(req, res) {
 
     if (url.searchParams.get('format') === 'csv') {
       setCorsHeaders(req, res);
+      setSecurityHeaders(res);
       res.writeHead(200, {
         'Content-Type': 'text/csv',
         'Content-Disposition': 'attachment; filename="audit_log.csv"',
@@ -389,6 +397,7 @@ async function route(req, res) {
       return rateLimitExceeded(req, res, sseLimit, 'Demasiadas conexiones SSE simultáneas desde esta IP.');
 
     setCorsHeaders(req, res);
+    setSecurityHeaders(res);
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',

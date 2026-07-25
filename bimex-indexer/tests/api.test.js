@@ -141,6 +141,26 @@ async function req(options, body = null) {
   });
 }
 
+async function reqHeaders(options) {
+  return new Promise((resolve, reject) => {
+    const r = http.request(
+      { hostname: '127.0.0.1', port: 3009, ...options },
+      (res) => {
+        resolve({ status: res.statusCode, headers: res.headers });
+        res.destroy();
+      }
+    );
+    r.on('error', reject);
+    r.end();
+  });
+}
+
+function expectSecurityHeaders(headers) {
+  expect(headers['x-content-type-options']).toBe('nosniff');
+  expect(headers['x-frame-options']).toBe('DENY');
+  expect(headers['referrer-policy']).toBe('no-referrer');
+}
+
 // ─── Tests ─────────────────────────────────────────────────────────────────
 describe('api.js REST Endpoints', () => {
   beforeEach(() => {
@@ -169,6 +189,31 @@ describe('api.js REST Endpoints', () => {
     const res = await req({ path: '/proyectos', method: 'OPTIONS' });
     expect(res.status).toBe(204);
     expect(res.headers['access-control-allow-methods']).toBe('GET, POST, OPTIONS');
+  });
+
+  describe('security headers', () => {
+    it('adds the headers to JSON responses', async () => {
+      const res = await req({ path: '/unknown', method: 'GET' });
+
+      expectSecurityHeaders(res.headers);
+    });
+
+    it('adds the headers to audit CSV downloads', async () => {
+      mockSupabase._data = [];
+
+      const res = await req({ path: '/audit?format=csv', method: 'GET' });
+
+      expect(res.headers['content-type']).toBe('text/csv');
+      expectSecurityHeaders(res.headers);
+    });
+
+    it('adds the headers to SSE streams', async () => {
+      const res = await reqHeaders({ path: '/sse', method: 'GET' });
+
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toBe('text/event-stream');
+      expectSecurityHeaders(res.headers);
+    });
   });
 
   // ── GET /proyectos ───────────────────────────────────────────────────────
