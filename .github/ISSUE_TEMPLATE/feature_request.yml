@@ -1,0 +1,74 @@
+name: ✨ Propuesta de mejora
+description: Propón una nueva funcionalidad o mejora para Bimex.
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por proponer una mejora. Entre más claros sean el problema y los criterios de aceptación, más rápido se puede revisar y asignar.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área afectada
+      description: ¿Qué parte del proyecto toca esta propuesta?
+      options:
+        - Frontend (bimex-frontend)
+        - Contrato Soroban (bimex/)
+        - Indexer (bimex-indexer)
+        - CI / CD (.github/workflows, scripts)
+        - Documentación
+        - Otro
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema
+      description: ¿Qué problema o limitación actual motiva esta propuesta?
+      placeholder: Actualmente no es posible/es difícil...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Propuesta
+      description: ¿Cómo propones resolverlo? Incluye alternativas consideradas si aplica.
+      placeholder: Se podría implementar...
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Criterios de aceptación
+      description: Lista verificable de condiciones que deben cumplirse para considerar esto resuelto.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: touches_contract
+    attributes:
+      label: "¿Esta propuesta toca el contrato Soroban (bimex/)?"
+      description: Si la respuesta es sí, se exigirán tests de contrato (`cargo test`) y revisión extra por tratarse de lógica financiera.
+      options:
+        - "No"
+        - "Sí"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Antes de enviar
+      options:
+        - label: Confirmo que esto no es una vulnerabilidad de seguridad (esas van por SECURITY.md, no aquí)
+          required: true
+        - label: Busqué issues existentes y no encontré uno duplicado
+          required: true
