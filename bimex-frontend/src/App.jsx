@@ -16,6 +16,7 @@ import AuditoriaBadge from "./components/AuditoriaBadge";
 import { shouldShowTour } from "./utils/onboardingUtils";
 import { getStorage }   from "./utils/storage";
 import { parsearError } from "./utils/errores";
+import { getRouteTitle } from "./utils/documentTitle";
 import { useCetesRate } from "./hooks/useCetesRate";
 import "./i18n/index.js";
 import "./index.css";
@@ -26,7 +27,6 @@ const KEY_PWA_BANNER_CERRADO = "bimex.pwa.banner.dismissed";
 const storageSesion     = getStorage("session");
 const storageLocal      = getStorage("local");
 const ADMIN_ADDRESS     = import.meta.env.VITE_ADMIN_ADDRESS ?? "GD2FLYXZMEGSSYZGC4LKFGCH6SOZR57UB64ECPEEJ4IEKAT6VZU3SLGS";
-
 const AdminPanel = lazy(() => import("./components/AdminPanel"));
 const CrearProyecto = lazy(() => import("./components/CrearProyecto"));
 const Transparencia = lazy(() => import("./components/Transparencia"));
@@ -339,6 +339,11 @@ export default function App() {
   const esRutaCuenta = pathname === "/cuenta";
   const esRutaTransparencia = pathname === "/transparencia";
   const esRutaImpacto = pathname === "/impacto";
+
+  useEffect(() => {
+    const title = getRouteTitle(pathname);
+    if (title) document.title = title;
+  }, [pathname]);
 
   function formatearDir(dir) {
     if (!dir) return "";
