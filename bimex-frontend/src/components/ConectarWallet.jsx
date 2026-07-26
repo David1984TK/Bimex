@@ -73,7 +73,7 @@ export default function ConectarWallet({ onConectado, autoConectar = true, inNav
       setSinXlm(estadoTrustline.aplica && !estadoTrustline.tieneTrustline && !estadoTrustline.xlmSuficiente);
       setCuentaInexistente(estadoTrustline.aplica && !estadoTrustline.cuentaExiste);
     } catch (err) {
-      console.warn("No se pudo verificar trustline MXNe:", err);
+      if (import.meta.env.DEV) console.warn("No se pudo verificar trustline MXNe:", err);
       setTrustlineFalta(false);
     } finally {
       setTrustlineVerificando(false);
@@ -94,7 +94,7 @@ export default function ConectarWallet({ onConectado, autoConectar = true, inNav
         const address = await getConnectedAddress();
         if (address) conectarDireccion(address);
       } catch (err) {
-        console.warn("No se pudo restaurar la sesión:", err);
+        if (import.meta.env.DEV) console.warn("No se pudo restaurar la sesión:", err);
       }
     })();
   }, [autoConectar, conectarDireccion]);
