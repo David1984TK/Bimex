@@ -83,6 +83,30 @@ export default defineConfig(({ mode }) => {
         },
       }),
     ],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            // ~2.2MB raw / ~563KB gzip — changes rarely, high cache value
+            if (
+              id.includes('node_modules/@stellar/') ||
+              id.includes('node_modules/@creit.tech/stellar-wallets-kit') ||
+              id.includes('node_modules/passkey-kit')
+            ) {
+              return 'stellar-vendor'
+            }
+            // ~190KB raw / ~60KB gzip
+            if (
+              id.includes('node_modules/react/') ||
+              id.includes('node_modules/react-dom/') ||
+              id.includes('node_modules/scheduler/')
+            ) {
+              return 'react-vendor'
+            }
+          },
+        },
+      },
+    },
     define: {
       global: 'globalThis',
     },
