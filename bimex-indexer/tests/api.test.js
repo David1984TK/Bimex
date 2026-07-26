@@ -185,10 +185,13 @@ describe('api.js REST Endpoints', () => {
 
     it('returns 500 when supabase errors', async () => {
       mockSupabase._data  = null;
-      mockSupabase._error = { message: 'DB error' };
+      mockSupabase._error = { message: 'relation "proyectos" does not exist' };
 
       const res = await req({ path: '/proyectos', method: 'GET' });
       expect(res.status).toBe(500);
+      // Must NOT expose raw Supabase internals to the client
+      expect(res.body.error).toBe('Error de base de datos');
+      expect(res.body.error).not.toContain('relation');
     });
   });
 
@@ -204,14 +207,16 @@ describe('api.js REST Endpoints', () => {
       expect(res.body).toEqual(project);
     });
 
-    it('returns 404 on PGRST116 error', async () => {
+    it('returns 404 on PGRST116 error with generic message', async () => {
       mockSupabase.single.mockResolvedValue({
         data: null,
-        error: { code: 'PGRST116', message: 'Row not found' },
+        error: { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' },
       });
 
       const res = await req({ path: '/proyectos/999', method: 'GET' });
       expect(res.status).toBe(404);
+      // Must return a safe message, not the raw PostgREST error
+      expect(res.body.error).toBe('Proyecto no encontrado');
     });
   });
 
