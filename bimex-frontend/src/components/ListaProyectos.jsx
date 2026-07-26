@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback, memo } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { obtenerTodosLosProyectos, stroopsAMXNe } from "../stellar/contrato";
 import { parsearError } from "../utils/errores.js";
 import { getStorage } from "../utils/storage.js";

@@ -39,7 +39,7 @@ vi.mock('../stellar/walletKit.js', () => ({
 
 import { render, waitFor } from '@testing-library/react';
 import { act } from 'react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import App from '../App.jsx';
 import i18n from '../i18n/index.js';
 import { getStorage } from '../utils/storage.js';
