@@ -12,7 +12,40 @@ Base URL: configure with `VITE_INDEXER_URL` for the frontend and `API_PORT` for 
 | `GET` | `/eventos` | Lists indexed contract events. Optional query: `tipo`; `limit` is capped at `200`. |
 | `GET` | `/stats` | Returns aggregate platform statistics. |
 | `GET` | `/sse` | Server-Sent Events stream for project/event updates. |
+| `POST` | `/upload-ipfs` | Uploads a file to IPFS via Pinata (server-side proxy). Body: `{ "name": "...", "type": "...", "data": "<base64>" }`. |
 | `POST` | `/faucet` | Testnet-only MXNe faucet. Body: `{ "destino": "<stellar-address>" }`. |
+
+## Upload IPFS
+
+`POST /upload-ipfs`
+
+Proxy endpoint that uploads a file to Pinata/IPFS server-side, keeping API secrets out of the client bundle.
+
+### Request body (JSON)
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `name` | `string` | Original filename (e.g. `ine.pdf`) |
+| `type` | `string` | MIME type (e.g. `application/pdf`, `image/png`, `image/jpeg`) |
+| `data` | `string` | File content encoded as base64 |
+
+### Response
+
+```json
+{ "IpfsHash": "Qm..." }
+```
+
+### Validation
+
+- Allowed MIME types: `application/pdf`, `image/png`, `image/jpeg`, `image/jpg`
+- Max file size: 10 MB (base64 decoded)
+- Returns `400` for invalid types, oversized files, or missing fields
+
+### Security
+
+- Reads `PINATA_API_KEY` and `PINATA_SECRET` from environment (server-side only)
+- These are **never** exposed to the client
+- The frontend calls this endpoint instead of Pinata directly
 
 ## Rate limits
 

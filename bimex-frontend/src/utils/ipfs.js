@@ -14,22 +14,28 @@ export function validarArchivo(archivo) {
   return { valido: true, error: null };
 }
 
-const PINATA_URL = "https://api.pinata.cloud/pinning/pinFileToIPFS";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 export async function subirAIPFS(archivo) {
-  const apiKey    = import.meta.env.VITE_PINATA_API_KEY;
-  const apiSecret = import.meta.env.VITE_PINATA_SECRET;
-  if (!apiKey || !apiSecret) throw new Error("Pinata keys not configured");
+  const buffer = await archivo.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  const base64 = btoa(binary);
 
-  const formData = new FormData();
-  formData.append("file", archivo);
-
-  const res = await fetch(PINATA_URL, {
+  const res = await fetch(`${API_URL}/upload-ipfs`, {
     method: "POST",
-    headers: { pinata_api_key: apiKey, pinata_secret_api_key: apiSecret },
-    body: formData,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: archivo.name,
+      type: archivo.type,
+      data: base64,
+    }),
   });
-  if (!res.ok) throw new Error(`Pinata error: ${res.status}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Error al subir archivo: ${res.status}`);
+  }
   const data = await res.json();
   return data.IpfsHash;
 }

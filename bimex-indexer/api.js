@@ -214,6 +214,68 @@ async function route(req, res) {
     }
   }
 
+  // ─── IPFS Upload Proxy ─────────────────────────────────────────────────────
+
+  const TIPOS_PERMITIDOS_UPLOAD = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+  const TAMANO_MAX_BYTES_UPLOAD = 10 * 1024 * 1024;
+
+  if (req.method === 'POST' && parts[0] === 'upload-ipfs' && !parts[1]) {
+    let body;
+    try { body = await readBody(req); }
+    catch (e) { return json(req, res, 400, { error: e.message }); }
+
+    const { name, type, data: base64Data } = body;
+    if (!name || !type || !base64Data) {
+      return json(req, res, 400, { error: 'Faltan campos requeridos: name, type, data' });
+    }
+
+    if (!TIPOS_PERMITIDOS_UPLOAD.includes(type)) {
+      return json(req, res, 400, { error: `Tipo no permitido. Usa: PDF, PNG, JPG` });
+    }
+
+    let buffer;
+    try { buffer = Buffer.from(base64Data, 'base64'); }
+    catch { return json(req, res, 400, { error: 'Dato base64 inválido' }); }
+
+    if (buffer.length > TAMANO_MAX_BYTES_UPLOAD) {
+      return json(req, res, 400, { error: `El archivo supera el límite de 10MB` });
+    }
+
+    const PINATA_API_KEY = process.env.PINATA_API_KEY;
+    const PINATA_SECRET = process.env.PINATA_SECRET;
+    if (!PINATA_API_KEY || !PINATA_SECRET) {
+      console.error('[upload-ipfs] PINATA_API_KEY o PINATA_SECRET no configurados');
+      return json(req, res, 500, { error: 'IPFS no configurado en el servidor' });
+    }
+
+    try {
+      const formData = new FormData();
+      const blob = new Blob([buffer], { type });
+      formData.append('file', blob, name);
+
+      const pinataRes = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+        method: 'POST',
+        headers: {
+          pinata_api_key: PINATA_API_KEY,
+          pinata_secret_api_key: PINATA_SECRET,
+        },
+        body: formData,
+      });
+
+      if (!pinataRes.ok) {
+        const errText = await pinataRes.text().catch(() => '');
+        console.error('[upload-ipfs] Pinata error:', pinataRes.status, errText);
+        return json(req, res, 502, { error: 'Error al subir archivo a IPFS' });
+      }
+
+      const pinataData = await pinataRes.json();
+      return json(req, res, 200, { IpfsHash: pinataData.IpfsHash });
+    } catch (err) {
+      console.error('[upload-ipfs]', err);
+      return json(req, res, 502, { error: 'Error de conexión con IPFS' });
+    }
+  }
+
   if (req.method !== 'GET') return json(req, res, 405, { error: 'Method not allowed' });
 
   const limitedEndpoint = publicRateLimitedEndpoint(parts);
