@@ -34,7 +34,7 @@ scripts/                → Scripts de deploy y prueba
 - `VITE_ADMIN_ADDRESS` — wallet admin
 - `FAUCET_SECRET` (backend) — faucet testnet secret key, never VITE_ prefixed
 - `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` — notificaciones
-- `VITE_PINATA_API_KEY` / `VITE_PINATA_SECRET` — IPFS (opcional, fallback SHA-256)
+- `PINATA_API_KEY` / `PINATA_SECRET` (backend, `bimex-indexer/.env`) — IPFS vía proxy `/ipfs-upload`, nunca VITE_ prefixed (opcional, fallback SHA-256)
 
 ## Cómo contribuir
 Ver `CONTRIBUTING.md`: trunk-based (ramas cortas directo a `main`, sin `develop`), CI en verde obligatorio antes de mergear, `Closes #NN` en cada PR que resuelve un issue. `.github/CODEOWNERS` define el revisor por defecto.
@@ -49,5 +49,4 @@ Ver `CONTRIBUTING.md`: trunk-based (ramas cortas directo a `main`, sin `develop`
 - Tests del contrato: `cd bimex && cargo test` (64 tests a la fecha de este doc, 0 failures)
 
 ## Pendientes conocidos
-- **Issue #145 (seguridad, abierto):** `VITE_PINATA_SECRET` se bundlea en el JS público del frontend (`bimex-frontend/src/utils/ipfs.js`). Falta mover el upload a un proxy backend en `bimex-indexer`. Un intento previo (PR #200) se cerró sin mergear.
 - **Branch protection en `main`:** no está configurado vía este repo (requiere acceso admin en GitHub Settings, fuera del alcance de las herramientas de Claude Code). Recomendado: requerir CI verde + review de CODEOWNERS antes de mergear.

@@ -13,6 +13,39 @@ Base URL: configure with `VITE_INDEXER_URL` for the frontend and `API_PORT` for 
 | `GET` | `/stats` | Returns aggregate platform statistics. |
 | `GET` | `/sse` | Server-Sent Events stream for project/event updates. |
 | `POST` | `/faucet` | Testnet-only MXNe faucet. Body: `{ "destino": "<stellar-address>" }`. |
+| `POST` | `/ipfs-upload` | Uploads a file to IPFS via Pinata (server-side proxy). Body: `{ "filename": "...", "mimeType": "...", "base64": "<base64>" }`. |
+
+## Upload IPFS
+
+`POST /ipfs-upload`
+
+Server-side proxy that uploads a file to Pinata/IPFS, keeping the Pinata API secret out of the client bundle (see `bimex-indexer/ipfsProxy.js`).
+
+### Request body (JSON)
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `filename` | `string` | Original filename (e.g. `ine.pdf`) |
+| `mimeType` | `string` | MIME type — one of `application/pdf`, `image/png`, `image/jpeg` |
+| `base64` | `string` | File content encoded as base64 |
+
+### Response
+
+```json
+{ "IpfsHash": "Qm..." }
+```
+
+### Validation
+
+- Allowed MIME types + matching extension: `.pdf`, `.png`, `.jpg`, `.jpeg`
+- Max file size: 10 MB (base64 decoded)
+- Body size capped during streaming to avoid buffering oversized payloads in memory
+- Returns `400` for invalid types/extensions/base64, oversized files, or missing fields; `502` if Pinata itself fails or isn't configured
+
+### Security
+
+- Reads `PINATA_API_KEY` / `PINATA_SECRET` from environment (server-side only, never `VITE_` prefixed)
+- Rate limited (`IPFS_UPLOAD_LIMIT`, default `10`/hour per IP)
 
 ## Rate limits
 
@@ -23,6 +56,7 @@ The API protects public read endpoints and long-lived SSE connections with `bime
 | `/proyectos`, `/eventos`, `/stats` | `60` requests / minute | Client IP | Applies to all `/proyectos*` read routes, `/eventos`, and `/stats`. |
 | `/sse` | `5` simultaneous connections | Client IP | Limit checked before opening the stream; connections are released when the HTTP request closes. |
 | `/faucet` | `3` requests / hour | Wallet address | Kept wallet-based even when an IP is whitelisted. |
+| `/ipfs-upload` | `10` requests / hour | Client IP | Configurable via `IPFS_UPLOAD_LIMIT`. |
 
 ### Response headers
 

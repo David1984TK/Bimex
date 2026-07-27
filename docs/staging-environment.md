@@ -245,7 +245,7 @@ Ensure `VITE_NETWORK=testnet` in Vercel environment variables.
 
 ### IPFS upload fails
 
-Check `VITE_PINATA_API_KEY` and `VITE_PINATA_SECRET` are set correctly.
+Check `PINATA_API_KEY` and `PINATA_SECRET` are set in the `bimex-indexer` environment (server-side only, never `VITE_` prefixed — see `POST /ipfs-upload` in `docs/api.md`).
 
 ## Best Practices
 
