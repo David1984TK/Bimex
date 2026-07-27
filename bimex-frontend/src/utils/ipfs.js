@@ -14,24 +14,42 @@ export function validarArchivo(archivo) {
   return { valido: true, error: null };
 }
 
-const PINATA_URL = "https://api.pinata.cloud/pinning/pinFileToIPFS";
-
 export async function subirAIPFS(archivo) {
-  const apiKey    = import.meta.env.VITE_PINATA_API_KEY;
-  const apiSecret = import.meta.env.VITE_PINATA_SECRET;
-  if (!apiKey || !apiSecret) throw new Error("Pinata keys not configured");
+  const indexerUrl = import.meta.env.VITE_INDEXER_URL;
+  if (!indexerUrl) throw new Error("Indexer URL not configured");
 
-  const formData = new FormData();
-  formData.append("file", archivo);
+  const base64 = await archivoABase64(archivo);
 
-  const res = await fetch(PINATA_URL, {
+  const res = await fetch(`${indexerUrl}/ipfs-upload`, {
     method: "POST",
-    headers: { pinata_api_key: apiKey, pinata_secret_api_key: apiSecret },
-    body: formData,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      filename: archivo.name,
+      mimeType: archivo.type,
+      base64,
+    }),
   });
-  if (!res.ok) throw new Error(`Pinata error: ${res.status}`);
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+    throw new Error(err.error || `Proxy error: ${res.status}`);
+  }
+
   const data = await res.json();
   return data.IpfsHash;
+}
+
+function archivoABase64(archivo) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      const base64 = result.split(",")[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(archivo);
+  });
 }
 
 export async function sha256Archivo(archivo) {

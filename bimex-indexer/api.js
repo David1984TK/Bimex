@@ -11,6 +11,7 @@ import {
   getClientIp,
   getRateLimitConfig,
 } from './rateLimiter.js';
+import { handleIpfsUpload } from './ipfsProxy.js';
 
 function buildAllowedOrigins() {
   const envOrigins = process.env.ALLOWED_ORIGINS
@@ -212,6 +213,24 @@ async function route(req, res) {
     } catch (e) {
       return errorInterno(req, res, '[faucet]', e, 'Error interno del servidor');
     }
+  }
+
+  // POST /ipfs-upload
+  if (req.method === 'POST' && parts[0] === 'ipfs-upload' && !parts[1]) {
+    const ip = getClientIp(req);
+    const ipfsLimit = await enforceFixedWindowRateLimit(req, res, {
+      scope: 'ipfs-upload',
+      route: '/ipfs-upload',
+      key: buildIpRateLimitKey('ipfs-upload', ip),
+      limit: parseInt(process.env.IPFS_UPLOAD_LIMIT ?? '10', 10),
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!ipfsLimit.allowed)
+      return rateLimitExceeded(req, res, ipfsLimit, 'Demasiadas solicitudes de subida. Intenta de nuevo más tarde.');
+
+    const result = await handleIpfsUpload(req);
+    if (result.error) return json(req, res, result.status, { error: result.error });
+    return json(req, res, result.status, result.data);
   }
 
   if (req.method !== 'GET') return json(req, res, 405, { error: 'Method not allowed' });
