@@ -36,6 +36,7 @@ export function setCorsHeaders(req, res) {
 }
 
 const PORT = parseInt(process.env.API_PORT ?? '3002', 10);
+const MAX_BODY_BYTES = parseInt(process.env.MAX_BODY_BYTES ?? String(64 * 1024), 10);
 
 // ─── Rate limiter: 3 requests per wallet per hour ────────────────────────
 const RL_MAX = 3;
@@ -122,15 +123,41 @@ function publicRateLimitedEndpoint(parts) {
   return null;
 }
 
-function readBody(req) {
+function readBody(req, res) {
   return new Promise((resolve, reject) => {
-    let raw = '';
-    req.on('data', chunk => raw += chunk);
+    const chunks = [];
+    let size = 0;
+    let tooLarge = false;
+
+    const abort413 = () => {
+      if (tooLarge) return;
+      tooLarge = true;
+      // 'Connection: close' antes de escribir la respuesta: le avisa al
+      // cliente que no debe reusar este socket keep-alive, porque lo vamos
+      // a destruir para cortar la subida del resto del body sobredimensionado.
+      res.setHeader('Connection', 'close');
+      json(req, res, 413, { error: 'Cuerpo demasiado grande' });
+      res.once('finish', () => req.destroy());
+      reject(Object.assign(new Error('Cuerpo demasiado grande'), { statusCode: 413 }));
+    };
+
+    req.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > MAX_BODY_BYTES) {
+        abort413();
+        return;
+      }
+      chunks.push(chunk);
+    });
     req.on('end', () => {
+      if (tooLarge) return;
+      const raw = Buffer.concat(chunks).toString('utf8');
       try { resolve(JSON.parse(raw)); }
       catch { reject(new Error('Cuerpo inválido: se esperaba JSON')); }
     });
-    req.on('error', reject);
+    req.on('error', (err) => {
+      if (!tooLarge) reject(err);
+    });
   });
 }
 
@@ -184,8 +211,11 @@ async function route(req, res) {
   // POST /faucet
   if (req.method === 'POST' && parts[0] === 'faucet' && !parts[1]) {
     let body;
-    try { body = await readBody(req); }
-    catch (e) { return json(req, res, 400, { error: e.message }); }
+    try { body = await readBody(req, res); }
+    catch (e) {
+      if (e.statusCode === 413) return;
+      return json(req, res, 400, { error: e.message });
+    }
 
     const { destino } = body;
     if (!destino) return json(req, res, 400, { error: 'Falta "destino" en el cuerpo' });
@@ -480,5 +510,8 @@ const server = http.createServer(async (req, res) => {
     errorInterno(req, res, '[unhandled]', err, 'Error interno del servidor');
   }
 });
+
+server.headersTimeout = 30_000;
+server.requestTimeout = 60_000;
 
 server.listen(PORT, () => console.log(`Bimex API listening on port ${PORT}`));

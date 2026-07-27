@@ -331,6 +331,19 @@ describe('api.js REST Endpoints', () => {
       expect(res.body.error).toMatch(/Falta/);
     });
 
+    it('returns 413 when the body exceeds MAX_BODY_BYTES (64KB)', async () => {
+      const cuerpoGigante = JSON.stringify({ destino: 'G' + 'X'.repeat(70 * 1024) });
+      const res = await req({ path: '/faucet', method: 'POST' }, cuerpoGigante);
+      expect(res.status).toBe(413);
+      expect(res.body.error).toBe('Cuerpo demasiado grande');
+    });
+
+    it('accepts a body within MAX_BODY_BYTES normally', async () => {
+      const wallet = 'GTEST_BODY_WITHIN_LIMIT_' + Date.now();
+      const res = await req({ path: '/faucet', method: 'POST' }, { destino: wallet });
+      expect(res.status).not.toBe(413);
+    });
+
     it('enforces rate limit – 4th request to same wallet returns 429', { timeout: 15000 }, async () => {
       // Use a unique wallet so it starts fresh
       const wallet = 'GRATE_LIMIT_TEST_' + Date.now();
