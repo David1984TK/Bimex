@@ -6,7 +6,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://soroban-testnet.stellar.org https://soroban-rpc.mainnet.stellar.gateway.fm https://mainnet.stellar.validationcloud.io https://*.supabase.co https://api.pinata.cloud https://api.sand.etherfuse.com https://ipfs.io; img-src 'self' data: blob:; frame-ancestors 'none';"
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://soroban-testnet.stellar.org https://soroban-rpc.mainnet.stellar.gateway.fm https://mainnet.stellar.validationcloud.io https://*.supabase.co https://api.pinata.cloud https://api.sand.etherfuse.com https://ipfs.io; img-src 'self' data: blob:; frame-ancestors 'none'; upgrade-insecure-requests;"
         },
         {
           "key": "X-Frame-Options",
