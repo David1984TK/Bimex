@@ -9,15 +9,7 @@
 // vulnerable, y un issue abierto con seguimiento.
 import { execSync } from 'node:child_process';
 
-const ALLOWED_ADVISORIES = {
-  // GHSA-qwww-vcr4-c8h2: React Router RSC Mode CSRF Bypass.
-  // Este proyecto usa react-router-dom en modo declarativo puro (BrowserRouter
-  // + Routes/Route), sin createBrowserRouter/RouterProvider/loader/action ni
-  // RSC — el código vulnerable (RSC action handling) no se ejecuta nunca.
-  // No existe una versión 7.x sin CVEs superpuestos; la 8.x requiere migrar
-  // de react-router-dom a react-router (paquete unificado). Ver issue #270.
-  'GHSA-qwww-vcr4-c8h2': 'issue #270 — requiere migración a react-router v8, no un pin de versión',
-};
+const ALLOWED_ADVISORIES = {};
 
 let report;
 try {

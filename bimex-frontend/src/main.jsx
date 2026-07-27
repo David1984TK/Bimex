@@ -6,7 +6,7 @@ import * as Sentry from '@sentry/react'
 globalThis.Buffer = Buffer
 
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
+import { BrowserRouter } from 'react-router'
 import App from './App.jsx'
 
 registerSW({ immediate: true })

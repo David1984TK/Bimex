@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { createClient } from "@supabase/supabase-js";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";

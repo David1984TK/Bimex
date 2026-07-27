@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router";
 import { crearThrottle } from "../utils/throttle.js";
 import { parsearError } from "../utils/errores.js";
 import { QRCodeSVG } from "qrcode.react";
