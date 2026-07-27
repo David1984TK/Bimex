@@ -48,6 +48,12 @@ export const CONFIG = {
   YIELD_AMM_BPS:   _isMainnet ? 400 : 2000000,
 };
 
+// ─── Cache de proyectos (TTL 30s, invalidado en escrituras) ────────────────
+const CACHE_TTL = 30_000;
+let _proyectosCache = null;
+let _proyectosTimestamp = 0;
+let _proyectosPromise = null;
+
 // URL pública en stellar.expert para verificar contratos, cuentas o transacciones
 export function urlExplorer(tipo, valor) {
   return `https://stellar.expert/explorer/${_isMainnet ? "public" : "testnet"}/${tipo}/${valor}`;
@@ -184,7 +190,7 @@ async function firmarYEnviar(txPreparada, cuentaPublica) {
   while (intentos < 20) {
     await new Promise((r) => setTimeout(r, 2000));
     const estado = await servidor.getTransaction(envioHash);
-    if (estado.status === rpc.Api.GetTransactionStatus.SUCCESS) return estado;
+    if (estado.status === rpc.Api.GetTransactionStatus.SUCCESS) { _proyectosCache = null; _proyectosTimestamp = 0; return estado; }
     if (estado.status === rpc.Api.GetTransactionStatus.FAILED) {
       const xdrFallo = estado.resultXdr ? estado.resultXdr.toXDR("base64") : envioHash;
       throw new Error(`La transacción falló en la red. XDR: ${xdrFallo}`);
@@ -339,21 +345,40 @@ export async function obtenerEstadoCapital(idProyecto) {
   }
 }
 
-export async function obtenerTodosLosProyectos({ propagarError = false } = {}) {
-  const total = await obtenerTotalProyectos({ propagarError });
-  if (total === 0) return [];
-  const resultados = await Promise.allSettled(
-    Array.from({ length: total }, (_, i) => obtenerProyecto(i))
-  );
-  const proyectos = resultados
-    .filter((resultado) => resultado.status === "fulfilled" && resultado.value)
-    .map((resultado) => resultado.value);
-
-  if (propagarError && proyectos.length === 0 && resultados.some((resultado) => resultado.status === "rejected")) {
-    throw new Error("No se pudieron cargar los proyectos desde Stellar.");
+export async function obtenerTodosLosProyectos({ propagarError = false, forzar = false } = {}) {
+  const ahora = Date.now();
+  if (!forzar && _proyectosCache && (ahora - _proyectosTimestamp) < CACHE_TTL) {
+    return _proyectosCache;
   }
 
-  return proyectos;
+  if (!forzar && _proyectosPromise) {
+    return _proyectosPromise;
+  }
+
+  _proyectosPromise = (async () => {
+    try {
+      const total = await obtenerTotalProyectos({ propagarError });
+      if (total === 0) return [];
+      const resultados = await Promise.allSettled(
+        Array.from({ length: total }, (_, i) => obtenerProyecto(i))
+      );
+      const proyectos = resultados
+        .filter((resultado) => resultado.status === "fulfilled" && resultado.value)
+        .map((resultado) => resultado.value);
+
+      if (propagarError && proyectos.length === 0 && resultados.some((resultado) => resultado.status === "rejected")) {
+        throw new Error("No se pudieron cargar los proyectos desde Stellar.");
+      }
+
+      _proyectosCache = proyectos;
+      _proyectosTimestamp = Date.now();
+      return proyectos;
+    } finally {
+      _proyectosPromise = null;
+    }
+  })();
+
+  return _proyectosPromise;
 }
 
 // ─── Funciones de ESCRITURA ───────────────────────────────────────────────────

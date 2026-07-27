@@ -1,14 +1,38 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const mockLoadAccount = vi.fn();
 const mockSubmitTransaction = vi.fn();
 const mockSignWithWalletKit = vi.fn();
 
+const {
+  mockGetAccount,
+  mockSimulateTransaction,
+  mockPrepareTransaction,
+  mockSendTransaction,
+  mockGetTransaction,
+  mockScValToNative,
+} = vi.hoisted(() => ({
+  mockGetAccount: vi.fn(),
+  mockSimulateTransaction: vi.fn(),
+  mockPrepareTransaction: vi.fn(),
+  mockSendTransaction: vi.fn(),
+  mockGetTransaction: vi.fn(),
+  mockScValToNative: vi.fn(),
+}));
+
 vi.mock('@stellar/stellar-sdk', () => ({
-  Contract: vi.fn(),
+  Contract: vi.fn().mockImplementation(function Contract() { return { call: vi.fn() }; }),
   Networks: { TESTNET: 'Test SDF Network ; September 2015', PUBLIC: 'Public Global Stellar Network ; September 2015' },
   rpc: {
-    Server: vi.fn(),
+    Server: vi.fn().mockImplementation(function RpcServer() {
+      return {
+        getAccount: mockGetAccount,
+        simulateTransaction: mockSimulateTransaction,
+        prepareTransaction: mockPrepareTransaction,
+        sendTransaction: mockSendTransaction,
+        getTransaction: mockGetTransaction,
+      };
+    }),
     Api: {
       isSimulationError: vi.fn(() => false),
       isSimulationRestore: vi.fn(() => false),
@@ -26,7 +50,7 @@ vi.mock('@stellar/stellar-sdk', () => ({
     { fromXDR: vi.fn(() => ({ signed: true })) },
   ),
   BASE_FEE: '100',
-  Address: vi.fn(),
+  Address: vi.fn().mockImplementation(function Address() { return { toScVal: () => 'scval-address' }; }),
   Keypair: { random: vi.fn(() => ({ publicKey: () => 'GABC123' })), fromSecret: vi.fn() },
   Asset: vi.fn(),
   Operation: { changeTrust: vi.fn() },
@@ -38,7 +62,7 @@ vi.mock('@stellar/stellar-sdk', () => ({
     },
   },
   nativeToScVal: vi.fn(),
-  scValToNative: vi.fn(),
+  scValToNative: mockScValToNative,
 }));
 
 vi.mock('@stellar/freighter-api', () => ({
@@ -65,6 +89,8 @@ import {
   obtenerEstadoTrustlineMXNe,
   crearTrustlineMXNe,
   urlFriendbot,
+  obtenerTodosLosProyectos,
+  contribuir,
 } from '../stellar/contrato.js';
 
 describe('stroopsAMXNe', () => {
@@ -205,5 +231,99 @@ describe('trustline MXNe', () => {
   it('urlFriendbot genera enlace con dirección', () => {
     expect(urlFriendbot('GABC123')).toContain('GABC123');
     expect(urlFriendbot('GABC123')).toContain('friendbot.stellar.org');
+  });
+});
+
+describe('obtenerTodosLosProyectos — cache TTL, forzar, dedup e invalidación', () => {
+  const DIRECCION_ESCRITOR = 'GWRITER00000000000000000000000000000000000000';
+
+  const RAW_PROYECTO = {
+    dueno: 'GDUENO00000000000000000000000000000000000000',
+    nombre: 'Proyecto Test',
+    meta: 100,
+    total_aportado: 10,
+    yield_entregado: 0,
+    estado: ['EnProgreso'],
+    timestamp_inicio: 0,
+    timestamp_vencimiento: 0,
+    tiempo_meses: 6,
+    capital_en_cetes: 0,
+    capital_en_amm: 0,
+    yield_cetes_acumulado: 0,
+    yield_amm_acumulado: 0,
+    doc_cid: 'cid123',
+    motivo_rechazo: '',
+  };
+
+  // Encola las dos respuestas de scValToNative que consume una lectura "fría"
+  // completa: 1) total_proyectos → 1 proyecto, 2) obtener_proyecto(0) → RAW_PROYECTO.
+  function armarLecturaFria() {
+    mockScValToNative.mockReturnValueOnce(1).mockReturnValueOnce(RAW_PROYECTO);
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAccount.mockResolvedValue({ accountId: () => 'GDUMMY', sequenceNumber: () => '1' });
+    mockSimulateTransaction.mockResolvedValue({ result: { retval: 'ok' } });
+    mockPrepareTransaction.mockResolvedValue({ prepared: true });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('una segunda llamada dentro del TTL devuelve el resultado cacheado sin nueva lectura de red', async () => {
+    armarLecturaFria();
+    const primera = await obtenerTodosLosProyectos({ forzar: true });
+    expect(mockSimulateTransaction).toHaveBeenCalledTimes(2);
+
+    const segunda = await obtenerTodosLosProyectos();
+    expect(segunda).toBe(primera);
+    expect(mockSimulateTransaction).toHaveBeenCalledTimes(2);
+  });
+
+  it('forzar: true ignora el cache y vuelve a leer de la red', async () => {
+    armarLecturaFria();
+    await obtenerTodosLosProyectos({ forzar: true });
+    expect(mockSimulateTransaction).toHaveBeenCalledTimes(2);
+
+    armarLecturaFria();
+    await obtenerTodosLosProyectos({ forzar: true });
+    expect(mockSimulateTransaction).toHaveBeenCalledTimes(4);
+  });
+
+  it('llamadas concurrentes sin cache comparten la misma promesa en vez de disparar N lecturas', async () => {
+    vi.useFakeTimers();
+    vi.advanceTimersByTime(31_000); // invalida cualquier cache dejado por otro test
+
+    armarLecturaFria();
+    const [r1, r2] = await Promise.all([
+      obtenerTodosLosProyectos(),
+      obtenerTodosLosProyectos(),
+    ]);
+
+    expect(r1).toBe(r2);
+    expect(mockSimulateTransaction).toHaveBeenCalledTimes(2);
+  });
+
+  it('una escritura exitosa invalida el cache y la siguiente lectura es fresca', async () => {
+    vi.useFakeTimers();
+    vi.advanceTimersByTime(31_000); // invalida cualquier cache dejado por otro test
+
+    armarLecturaFria();
+    await obtenerTodosLosProyectos({ forzar: true });
+    expect(mockSimulateTransaction).toHaveBeenCalledTimes(2);
+
+    mockSignWithWalletKit.mockResolvedValueOnce('signed-xdr');
+    mockSendTransaction.mockResolvedValueOnce({ status: 'PENDING', hash: 'hash123' });
+    mockGetTransaction.mockResolvedValueOnce({ status: 'SUCCESS' });
+
+    const escritura = contribuir(DIRECCION_ESCRITOR, 0, 5);
+    await vi.advanceTimersByTimeAsync(2000);
+    await escritura;
+
+    armarLecturaFria();
+    await obtenerTodosLosProyectos();
+    expect(mockSimulateTransaction).toHaveBeenCalledTimes(4);
   });
 });
