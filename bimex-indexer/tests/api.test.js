@@ -161,6 +161,16 @@ function expectSecurityHeaders(headers) {
   expect(headers['referrer-policy']).toBe('no-referrer');
 }
 
+function expectCacheHeaders(headers, maxAge = 15) {
+  const staleRevalidate = maxAge * 2;
+  expect(headers['cache-control']).toBe(`public, max-age=${maxAge}, stale-while-revalidate=${staleRevalidate}`);
+}
+
+function expectNoCacheHeaders(headers) {
+  // 4xx/5xx responses MUST NOT carry Cache-Control
+  expect(headers['cache-control']).toBeUndefined();
+}
+
 // ─── Tests ─────────────────────────────────────────────────────────────────
 describe('api.js REST Endpoints', () => {
   beforeEach(() => {
@@ -218,7 +228,7 @@ describe('api.js REST Endpoints', () => {
 
   // ── GET /proyectos ───────────────────────────────────────────────────────
   describe('GET /proyectos', () => {
-    it('returns 200 and project list', async () => {
+    it('returns 200 and project list with Cache-Control', async () => {
       const projects = [{ id: 1, nombre: 'A' }, { id: 2, nombre: 'B' }];
       mockSupabase._data  = projects;
       mockSupabase._error = null;
@@ -226,9 +236,10 @@ describe('api.js REST Endpoints', () => {
       const res = await req({ path: '/proyectos', method: 'GET' });
       expect(res.status).toBe(200);
       expect(res.body).toEqual(projects);
+      expectCacheHeaders(res.headers);
     });
 
-    it('returns 500 when supabase errors', async () => {
+    it('returns 500 without Cache-Control when supabase errors', async () => {
       mockSupabase._data  = null;
       mockSupabase._error = { message: 'relation "proyectos" does not exist' };
 
@@ -237,12 +248,14 @@ describe('api.js REST Endpoints', () => {
       // Must NOT expose raw Supabase internals to the client
       expect(res.body.error).toBe('Error de base de datos');
       expect(res.body.error).not.toContain('relation');
+      // Errors must NOT carry cache headers
+      expectNoCacheHeaders(res.headers);
     });
   });
 
   // ── GET /proyectos/:id ───────────────────────────────────────────────────
   describe('GET /proyectos/:id', () => {
-    it('returns 200 for found project', async () => {
+    it('returns 200 with Cache-Control for found project', async () => {
       const project = { id: 5, nombre: 'Test' };
       // .single() is the last call – make it resolve with project
       mockSupabase.single.mockResolvedValue({ data: project, error: null });
@@ -250,9 +263,10 @@ describe('api.js REST Endpoints', () => {
       const res = await req({ path: '/proyectos/5', method: 'GET' });
       expect(res.status).toBe(200);
       expect(res.body).toEqual(project);
+      expectCacheHeaders(res.headers);
     });
 
-    it('returns 404 on PGRST116 error with generic message', async () => {
+    it('returns 404 on PGRST116 error without Cache-Control', async () => {
       mockSupabase.single.mockResolvedValue({
         data: null,
         error: { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' },
@@ -262,12 +276,13 @@ describe('api.js REST Endpoints', () => {
       expect(res.status).toBe(404);
       // Must return a safe message, not the raw PostgREST error
       expect(res.body.error).toBe('Proyecto no encontrado');
+      expectNoCacheHeaders(res.headers);
     });
   });
 
   // ── GET /eventos ─────────────────────────────────────────────────────────
   describe('GET /eventos', () => {
-    it('returns 200 and event list', async () => {
+    it('returns 200 and event list with Cache-Control', async () => {
       const events = [{ tx_hash: 'abc', ledger: 100 }];
       mockSupabase._data  = events;
       mockSupabase._error = null;
@@ -275,12 +290,13 @@ describe('api.js REST Endpoints', () => {
       const res = await req({ path: '/eventos', method: 'GET' });
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ data: events });
+      expectCacheHeaders(res.headers);
     });
   });
 
   // ── GET /stats ────────────────────────────────────────────────────────────
   describe('GET /stats', () => {
-    it('returns computed stats', async () => {
+    it('returns computed stats with Cache-Control', async () => {
       const proyectosData = {
         data: [
           { estado: 'EtapaInicial', total_aportado: '1000', yield_entregado: '50',  meta: '5000' },
@@ -315,6 +331,7 @@ describe('api.js REST Endpoints', () => {
         capital_activo:        1000,
         numero_contribuidores: 0,
       });
+      expectCacheHeaders(res.headers);
     });
   });
 
