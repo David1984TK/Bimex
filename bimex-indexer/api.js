@@ -94,6 +94,27 @@ function json(req, res, status, data) {
 }
 
 /**
+ * Same as json() but adds Cache-Control headers for public, read-only GET
+ * responses. Errors and non-200 responses never carry cache headers.
+ *
+ * Cache-Control: public, max-age=<seconds>, stale-while-revalidate=<2*seconds>
+ * Configured via PUBLIC_CACHE_SECONDS (default 15).
+ */
+const PUBLIC_CACHE_SECONDS = parseInt(process.env.PUBLIC_CACHE_SECONDS ?? '15', 10);
+const PUBLIC_STALE_SECONDS = PUBLIC_CACHE_SECONDS * 2;
+
+function jsonCacheable(req, res, status, data) {
+  const body = JSON.stringify(data);
+  setCorsHeaders(req, res);
+  setSecurityHeaders(res);
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    'Cache-Control': `public, max-age=${PUBLIC_CACHE_SECONDS}, stale-while-revalidate=${PUBLIC_STALE_SECONDS}`,
+  });
+  res.end(body);
+}
+
+/**
  * Logs full error details server-side (with a context tag) and responds to
  * the client with a safe, generic Spanish message — never exposing table
  * names, query details, or internal RPC URLs.
@@ -286,7 +307,7 @@ async function route(req, res) {
     const { data, error } = await q;
     return error
       ? errorInterno(req, res, '[db-read] GET /proyectos', error, 'Error de base de datos')
-      : json(req, res, 200, data);
+      : jsonCacheable(req, res, 200, data);
   }
 
   // GET /proyectos/:id
@@ -299,7 +320,7 @@ async function route(req, res) {
       }
       return errorInterno(req, res, '[db-read] GET /proyectos/:id', error, 'Error de base de datos');
     }
-    return json(req, res, 200, data);
+    return jsonCacheable(req, res, 200, data);
   }
 
   // GET /proyectos/:id/aportaciones
@@ -308,7 +329,7 @@ async function route(req, res) {
       .from('aportaciones').select('*').eq('proyecto_id', parts[1]).order('timestamp');
     return error
       ? errorInterno(req, res, '[db-read] GET /proyectos/:id/aportaciones', error, 'Error de base de datos')
-      : json(req, res, 200, data);
+      : jsonCacheable(req, res, 200, data);
   }
 
   // GET /backers/:address/aportaciones
@@ -318,7 +339,7 @@ async function route(req, res) {
       .eq('contribuidor', parts[1]).order('timestamp');
     return error
       ? errorInterno(req, res, '[db-read] GET /backers/:address/aportaciones', error, 'Error de base de datos')
-      : json(req, res, 200, data);
+      : jsonCacheable(req, res, 200, data);
   }
 
   // GET /eventos[?tipo=X&limit=N&offset=M]
@@ -330,7 +351,7 @@ async function route(req, res) {
     const { data, count, error } = await q;
     return error
       ? errorInterno(req, res, '[db-read] GET /eventos', error, 'Error de base de datos')
-      : json(req, res, 200, { data, count });
+      : jsonCacheable(req, res, 200, { data, count });
   }
 
   // GET /stats
@@ -355,7 +376,7 @@ async function route(req, res) {
                            .reduce((s, a) => s + Number(a.monto ?? 0), 0),
       numero_contribuidores: contribuidoresUnicos.size,
     };
-    return json(req, res, 200, stats);
+    return jsonCacheable(req, res, 200, stats);
   }
 
   // GET /audit[?action=X&limit=N&offset=M&format=csv]
