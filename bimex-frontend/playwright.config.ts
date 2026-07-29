@@ -31,5 +31,10 @@ export default defineConfig({
     timeout: 120_000,
     stdout: 'ignore',
     stderr: 'pipe',
+    env: {
+      ...process.env,
+      // Required so subirAIPFS posts to the indexer proxy (never Pinata from the browser)
+      VITE_INDEXER_URL: process.env.VITE_INDEXER_URL || 'http://localhost:3001',
+    },
   },
 })

@@ -22,6 +22,7 @@
 | [Auditoría externa](AUDITORIA.md) | Reporte de auditoría del contrato y estado de hallazgos (#136) |
 | [Alcance de auditoría](AUDIT-SCOPE.md) | Alcance congelado y checklist del SDF Audit Bank |
 | [Bug Bounty Tier 2](SECURITY-BOUNTY-TIER2.md) | Decisión de plataforma y presupuesto para el programa post-lanzamiento |
+| [Decisión: VITE_PINATA_SECRET](decision-vite-pinata-secret.md) | Auditoría #145 — secret de Pinata solo en el indexer vía `/ipfs-upload` |
 
 ## 🚀 Proyecto Piloto (Mainnet)
 
