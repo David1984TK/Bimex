@@ -114,7 +114,7 @@ vi.mock('@stellar/stellar-sdk', () => {
 });
 
 // ─── Import the server (starts listening on port 3009) ─────────────────────
-import '../api.js';
+import { server as apiServer, MAX_BODY_BYTES } from '../api.js';
 import http from 'node:http';
 import mockSupabase from '../database.js';
 
@@ -382,6 +382,17 @@ describe('api.js REST Endpoints', () => {
       // SDK is mocked to succeed, expect 200
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ exito: true, cantidad: 100 });
+    });
+  });
+
+  describe('HTTP server hardening', () => {
+    it('defaults MAX_BODY_BYTES to 64KiB', () => {
+      expect(MAX_BODY_BYTES).toBe(64 * 1024);
+    });
+
+    it('sets headersTimeout and requestTimeout against slowloris', () => {
+      expect(apiServer.headersTimeout).toBe(30_000);
+      expect(apiServer.requestTimeout).toBe(60_000);
     });
   });
 });

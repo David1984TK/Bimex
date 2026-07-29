@@ -153,12 +153,9 @@ function readBody(req, res) {
     const abort413 = () => {
       if (tooLarge) return;
       tooLarge = true;
-      // 'Connection: close' antes de escribir la respuesta: le avisa al
-      // cliente que no debe reusar este socket keep-alive, porque lo vamos
-      // a destruir para cortar la subida del resto del body sobredimensionado.
       res.setHeader('Connection', 'close');
       json(req, res, 413, { error: 'Cuerpo demasiado grande' });
-      res.once('finish', () => req.destroy());
+      req.destroy();
       reject(Object.assign(new Error('Cuerpo demasiado grande'), { statusCode: 413 }));
     };
 
@@ -534,5 +531,7 @@ const server = http.createServer(async (req, res) => {
 
 server.headersTimeout = 30_000;
 server.requestTimeout = 60_000;
+
+export { server, MAX_BODY_BYTES };
 
 server.listen(PORT, () => console.log(`Bimex API listening on port ${PORT}`));
