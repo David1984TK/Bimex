@@ -162,7 +162,9 @@ VITE_CONTRACT_ID=CXXXXXXX...
 VITE_RPC_URL=https://soroban-testnet.stellar.org
 VITE_TOKEN_MXNE=CDDIGHPVTW4PSCQCU67NQ4NXZ4NX5GDLNL3O67WT5RQ4GT6RXIEYPC4P
 VITE_ADMIN_ADDRESS=GXXXXXXX...
-VITE_INDEXER_URL=https://bimex-indexer-staging.vercel.app
+# Hide indexer host in the browser (proxy in bimex-frontend/vercel.json)
+VITE_API_URL=/api
+VITE_INDEXER_URL=/api
 ```
 
 ### 4. Create Staging Branch

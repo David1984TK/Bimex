@@ -49,5 +49,5 @@ Ver `CONTRIBUTING.md`: trunk-based (ramas cortas directo a `main`, sin `develop`
 - Tests del contrato: `cd bimex && cargo test` (64 tests a la fecha de este doc, 0 failures)
 
 ## Pendientes conocidos
-- **Issue #251 (seguridad, abierto):** `VITE_INDEXER_URL` expone el dominio del indexer directo al cliente. La idea es ocultarlo detrás de un rewrite `/api/*` en `bimex-frontend/vercel.json`, pero requiere un dominio productivo fijo del indexer que todavía no existe — no metas un placeholder falso en `vercel.json` (ver PR #260, cerrado por eso).
+- **Indexer proxy en producción:** el rewrite `/api/*` y CSP `upgrade-insecure-requests` ya están en `bimex-frontend/vercel.json` (staging host-condicionado; ver `.env.example`). Falta un dominio productivo fijo del indexer — no metas un placeholder falso en `vercel.json` (ver PR #260, cerrado por eso). Al tenerlo: rewrite real + `VITE_API_URL=/api` y `VITE_INDEXER_URL=/api` en Vercel.
 - **Branch protection en `main`:** no está configurado vía este repo (requiere acceso admin en GitHub Settings, fuera del alcance de las herramientas de Claude Code). Recomendado: requerir CI verde + review de CODEOWNERS antes de mergear.
