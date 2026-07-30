@@ -66,6 +66,7 @@ stellar contract build
 | [Contract invariants](docs/CONTRACT-INVARIANTS.md) | Properties the smart contract must never violate |
 | [Bug bounty Tier 2](docs/SECURITY-BOUNTY-TIER2.md) | Platform decision and budget for the post-launch program |
 
+
 ## Contract addresses (Testnet)
 
 | Resource | ID |
