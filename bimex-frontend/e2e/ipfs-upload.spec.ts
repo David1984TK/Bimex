@@ -50,6 +50,14 @@ async function stubIndexerReads(page: Page) {
 }
 
 test.describe('IPFS upload via indexer proxy (#145)', () => {
+  // The multi-step create-project dialog is taller than the default 720px
+  // viewport, and its submit button sits below the fold inside the dialog's
+  // own scroll container — Playwright's auto-scroll won't grow the window,
+  // so the click actionability check times out with "element is outside of
+  // the viewport" even though the button is visible/enabled. Use a taller
+  // viewport instead of `force: true` so real hover/visibility checks still run.
+  test.use({ viewport: { width: 1280, height: 1600 } })
+
   test('create-project docs upload hits /ipfs-upload, never api.pinata.cloud', async ({ page }) => {
     const pinataHits: string[] = []
     const uploadBodies: unknown[] = []
