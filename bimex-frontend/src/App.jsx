@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { setAllowed } from "@stellar/freighter-api";
-import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
+import { Navigate, Route, Routes, useLocation, useNavigate, useNavigationType } from "react-router";
 import ConectarWallet   from "./components/ConectarWallet";
 import ListaProyectos   from "./components/ListaProyectos";
 import DetalleProyecto  from "./components/DetalleProyecto";
@@ -283,6 +283,16 @@ function ToastContainer({ toasts, onRemove }) {
   );
 }
 
+function ScrollToTop() {
+  const navigationType = useNavigationType();
+  useEffect(() => {
+    if (navigationType === "PUSH" || navigationType === "REPLACE") {
+      window.scrollTo(0, 0);
+    }
+  }, [navigationType]);
+  return null;
+}
+
 // ── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const { t, i18n } = useTranslation();
@@ -440,6 +450,7 @@ export default function App() {
 
   return (
     <div>
+      <ScrollToTop />
       <ToastContainer toasts={toasts} onRemove={quitarToast} />
       <OnboardingTour isActive={tourActivo} onComplete={() => setTourActivo(false)} />
       <PwaInstallBanner
