@@ -19,7 +19,7 @@ Base URL: configure with `VITE_INDEXER_URL` for the frontend and `API_PORT` for 
 
 `POST /ipfs-upload`
 
-Server-side proxy that uploads a file to Pinata/IPFS, keeping the Pinata API secret out of the client bundle (see `bimex-indexer/ipfsProxy.js`).
+Server-side proxy that uploads a file to Pinata/IPFS, keeping the Pinata API secret out of the client bundle (see `bimex-indexer/ipfsProxy.js`). Decision record: [`docs/decision-vite-pinata-secret.md`](decision-vite-pinata-secret.md) (issue #145).
 
 ### Request body (JSON)
 

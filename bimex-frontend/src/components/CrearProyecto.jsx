@@ -594,7 +594,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
                   {ipfsCids ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                       {[["INE", ipfsCids.ine], ["Plan", ipfsCids.plan], ["Presupuesto", ipfsCids.presupuesto]].map(([label, cid]) => (
-                        <div key={cid} style={{ fontSize: "0.72rem" }}>
+                        <div key={label} style={{ fontSize: "0.72rem" }}>
                           <span style={{ color: "var(--muted)", marginRight: 6 }}>{label}</span>
                           <a href={`https://ipfs.io/ipfs/${cid}`} target="_blank" rel="noreferrer"
                              style={{ fontFamily: "monospace", color: "var(--navy)", wordBreak: "break-all" }}>

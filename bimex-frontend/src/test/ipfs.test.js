@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   validarArchivo,
   TIPOS_PERMITIDOS,
@@ -6,6 +6,8 @@ import {
   esCID,
   cidAUrl,
   parsearDocHash,
+  subirAIPFS,
+  subirConFallback,
 } from '../utils/ipfs.js';
 
 describe('validarArchivo', () => {
@@ -83,6 +85,66 @@ describe('cidAUrl', () => {
   it('builds pinata gateway URL', () => {
     const cid = 'QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG';
     expect(cidAUrl(cid)).toBe(`https://gateway.pinata.cloud/ipfs/${cid}`);
+  });
+});
+
+describe('subirAIPFS (proxy, no Pinata client keys)', () => {
+  beforeEach(() => {
+    vi.stubEnv('VITE_INDEXER_URL', 'http://localhost:3001');
+    vi.stubGlobal('fetch', vi.fn());
+    class MockFileReader {
+      result = '';
+      onload = null;
+      onerror = null;
+      readAsDataURL() {
+        this.result = 'data:application/pdf;base64,AQID';
+        queueMicrotask(() => this.onload?.());
+      }
+    }
+    vi.stubGlobal('FileReader', MockFileReader);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it('posts file to indexer /ipfs-upload, not to api.pinata.cloud', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({ IpfsHash: 'QmProxyHash' }),
+    });
+
+    const file = new File([new Uint8Array([1, 2, 3])], 'doc.pdf', { type: 'application/pdf' });
+    const cid = await subirAIPFS(file);
+
+    expect(cid).toBe('QmProxyHash');
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe('http://localhost:3001/ipfs-upload');
+    expect(String(url)).not.toContain('pinata.cloud');
+    expect(init.method).toBe('POST');
+    expect(init.headers['Content-Type']).toBe('application/json');
+    const body = JSON.parse(init.body);
+    expect(body.filename).toBe('doc.pdf');
+    expect(body.mimeType).toBe('application/pdf');
+    expect(body.base64).toBe('AQID');
+  });
+
+  it('throws when indexer URL is missing', async () => {
+    vi.stubEnv('VITE_INDEXER_URL', '');
+    const file = new File([new Uint8Array([1])], 'doc.pdf', { type: 'application/pdf' });
+    await expect(subirAIPFS(file)).rejects.toThrow(/Indexer URL not configured/);
+  });
+
+  it('subirConFallback uses CID when proxy succeeds', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({ IpfsHash: 'QmOk' }),
+    });
+    const file = new File([new Uint8Array([9])], 'a.pdf', { type: 'application/pdf' });
+    const res = await subirConFallback(file);
+    expect(res).toEqual({ cid: 'QmOk', fallbackHash: null, usedFallback: false });
   });
 });
 

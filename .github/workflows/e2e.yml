@@ -44,6 +44,7 @@ jobs:
           VITE_SOROBAN_RPC_URL: https://soroban-testnet.stellar.org
           VITE_CONTRACT_ID: PLACEHOLDER_CONTRACT_ID
           VITE_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
+          VITE_INDEXER_URL: http://localhost:3001
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v7
