@@ -13,6 +13,19 @@ updates:
       frontend-dependencies:
         patterns:
           - "*"
+    ignore:
+      # jsdom 30 breaks vitest's jsdom pool at startup ("webidl.util.markAsUncloneable
+      # is not a function") — every test file fails before running. Pinned to ^29.1.1
+      # in package.json; remove this once vitest supports jsdom 30. See PR #280.
+      - dependency-name: "jsdom"
+        update-types: ["version-update:semver-major"]
+      # passkey-kit >=0.13 throws `ConfigurationError: walletWasmHash is required`
+      # eagerly at module-load time when VITE_PASSKEY_WASM_HASH isn't set, crashing
+      # the entire app before React mounts. Pinned to ^0.12.1 in package.json;
+      # remove this once VITE_PASSKEY_WASM_HASH is actually configured, or the
+      # library stops requiring it eagerly. See PR #280.
+      - dependency-name: "passkey-kit"
+        versions: [">=0.13.0"]
 
   # Indexer Node.js
   - package-ecosystem: npm
