@@ -15,9 +15,9 @@
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^16.1.0",
-    "@supabase/supabase-js": "^2.110.8",
+    "@supabase/supabase-js": "^2.111.0",
     "dotenv": "^17.4.2",
-    "resend": "^6.18.0"
+    "resend": "^6.18.1"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.10",
