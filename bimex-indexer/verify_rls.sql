@@ -22,3 +22,10 @@ SELECT * FROM audit_log WHERE action = 'test_action';
 -- Expected behavior: 
 -- The update and delete commands will silently affect 0 rows (because the policies evaluate to false and hide the rows from being mutated).
 -- If executed as a superuser (postgres), it bypasses RLS. You must test this as an authenticated or anon user role.
+
+-- 5. Verify anon INSERT is rejected (must run as anon role)
+-- SET ROLE anon;
+-- INSERT INTO audit_log (action, actor_address, target, block_time)
+-- VALUES ('anon_forgery', 'FORGERY', 'fake_target', now());
+-- Expected: ERROR (new row violates row-level security policy for table "audit_log")
+-- RESET ROLE;
