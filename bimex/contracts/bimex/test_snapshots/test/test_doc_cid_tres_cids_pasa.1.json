@@ -84,35 +84,16 @@
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
                 },
                 {
-                  "string": "Activo"
+                  "string": "Con docs"
                 },
                 {
-                  "i128": "100000000"
+                  "i128": "10000000"
                 },
                 {
-                  "string": ""
+                  "string": "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbz|bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbz|bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbz"
                 },
                 {
                   "u32": 6
-                }
-              ]
-            }
-          },
-          "sub_invocations": []
-        }
-      ]
-    ],
-    [
-      [
-        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-        {
-          "function": {
-            "contract_fn": {
-              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4",
-              "function_name": "admin_aprobar",
-              "args": [
-                {
-                  "u32": 0
                 }
               ]
             }
@@ -164,26 +145,6 @@
               "key": {
                 "ledger_key_nonce": {
                   "nonce": "801925984706572462"
-                }
-              },
-              "durability": "temporary",
-              "val": "void"
-            }
-          },
-          "ext": "v0"
-        },
-        "live_until": 6311999
-      },
-      {
-        "entry": {
-          "last_modified_ledger_seq": 0,
-          "data": {
-            "contract_data": {
-              "ext": "v0",
-              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-              "key": {
-                "ledger_key_nonce": {
-                  "nonce": "2032731177588607455"
                 }
               },
               "durability": "temporary",
@@ -273,7 +234,7 @@
               },
               "durability": "persistent",
               "val": {
-                "u32": 0
+                "u32": 1
               }
             }
           },
@@ -322,7 +283,7 @@
                       "symbol": "doc_cid"
                     },
                     "val": {
-                      "string": ""
+                      "string": "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbz|bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbz|bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbz"
                     }
                   },
                   {
@@ -340,7 +301,7 @@
                     "val": {
                       "vec": [
                         {
-                          "symbol": "EtapaInicial"
+                          "symbol": "EnRevision"
                         }
                       ]
                     }
@@ -350,7 +311,7 @@
                       "symbol": "meta"
                     },
                     "val": {
-                      "i128": "100000000"
+                      "i128": "10000000"
                     }
                   },
                   {
@@ -366,7 +327,7 @@
                       "symbol": "nombre"
                     },
                     "val": {
-                      "string": "Activo"
+                      "string": "Con docs"
                     }
                   },
                   {

@@ -1006,3 +1006,129 @@ fn test_no_admin_no_puede_upgrade() {
     let new_wasm_hash = soroban_sdk::BytesN::from_array(&env, &hash);
     cliente.admin_upgrade(&dueno, &new_wasm_hash);
 }
+
+// ============================================================
+//  INPUT VALIDATION TESTS — nombre, doc_cid, EnRevision limit
+// ============================================================
+
+/// nombre > 200 caracteres debe fallar
+#[test]
+#[should_panic(expected = "El nombre no puede exceder 200 caracteres")]
+fn test_nombre_excesivo_falla() {
+    let (env, cliente, _admin, dueno, _backer) = setup();
+    let largo = "X".repeat(201);
+    cliente.crear_proyecto(&dueno, &String::from_str(&env, &largo), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+}
+
+/// nombre exactamente 200 caracteres debe pasar
+#[test]
+fn test_nombre_limite_exacto_pasa() {
+    let (env, cliente, _admin, dueno, _backer) = setup();
+    let largo = "A".repeat(200);
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, &largo), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    assert_eq!(cliente.obtener_proyecto(&id).nombre, String::from_str(&env, &largo));
+}
+
+/// doc_cid > 200 caracteres debe fallar
+#[test]
+#[should_panic(expected = "doc_cid no puede exceder 200 caracteres")]
+fn test_doc_cid_excesivo_falla() {
+    let (env, cliente, _admin, dueno, _backer) = setup();
+    let largo = "Q".repeat(201);
+    cliente.crear_proyecto(&dueno, &String::from_str(&env, "Proyecto"), &10_000_000i128, &String::from_str(&env, &largo), &6u32);
+}
+
+/// doc_cid con 3 CIDs separados por | dentro del limite
+#[test]
+fn test_doc_cid_tres_cids_pasa() {
+    let (env, cliente, _admin, dueno, _backer) = setup();
+    // 3 CIDs de 59 chars cada uno con separadores = 179 chars (dentro de 200)
+    let cid = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbz";
+    let doc = String::from_str(&env, "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbz|bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbz|bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbz");
+    assert!(doc.len() <= 200);
+    let id = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Con docs"), &10_000_000i128, &doc, &6u32);
+    let p = cliente.obtener_proyecto(&id);
+    assert!(p.doc_cid.len() > 0);
+    let _ = cid;
+}
+
+/// Un dueno no puede crear mas de 5 proyectos en EnRevision
+#[test]
+#[should_panic(expected = "Demasiados proyectos en revision (maximo 5)")]
+fn test_limite_en_revision_falla() {
+    let (env, cliente, _admin, dueno, _backer) = setup();
+    cliente.crear_proyecto(&dueno, &String::from_str(&env, "P1"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.crear_proyecto(&dueno, &String::from_str(&env, "P2"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.crear_proyecto(&dueno, &String::from_str(&env, "P3"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.crear_proyecto(&dueno, &String::from_str(&env, "P4"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.crear_proyecto(&dueno, &String::from_str(&env, "P5"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    // 6to proyecto debe fallar
+    cliente.crear_proyecto(&dueno, &String::from_str(&env, "P6 extra"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+}
+
+/// Exactamente 5 proyectos en EnRevision es valido
+#[test]
+fn test_limite_en_revision_cinco_pasa() {
+    let (env, cliente, _admin, dueno, _backer) = setup();
+    cliente.crear_proyecto(&dueno, &String::from_str(&env, "P1"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.crear_proyecto(&dueno, &String::from_str(&env, "P2"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.crear_proyecto(&dueno, &String::from_str(&env, "P3"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.crear_proyecto(&dueno, &String::from_str(&env, "P4"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.crear_proyecto(&dueno, &String::from_str(&env, "P5"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    assert_eq!(cliente.total_proyectos(), 5);
+}
+
+/// Despues de admin_aprobar, el dueno puede crear otro proyecto
+#[test]
+fn test_aprobar_libera_en_revision_slot() {
+    let (env, cliente, _admin, dueno, _backer) = setup();
+    let id1 = cliente.crear_proyecto(&dueno, &String::from_str(&env, "A1"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.admin_aprobar(&id1);
+    let id2 = cliente.crear_proyecto(&dueno, &String::from_str(&env, "A2"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.admin_aprobar(&id2);
+    let id3 = cliente.crear_proyecto(&dueno, &String::from_str(&env, "A3"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.admin_aprobar(&id3);
+    let id4 = cliente.crear_proyecto(&dueno, &String::from_str(&env, "A4"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.admin_aprobar(&id4);
+    let id5 = cliente.crear_proyecto(&dueno, &String::from_str(&env, "A5"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.admin_aprobar(&id5);
+    // Todos aprobados — puede crear mas
+    let id_extra = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Extra"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    assert_eq!(id_extra, 5);
+}
+
+/// Despues de admin_rechazar, el dueno puede crear otro proyecto
+#[test]
+fn test_rechazar_libera_en_revision_slot() {
+    let (env, cliente, _admin, dueno, _backer) = setup();
+    let id1 = cliente.crear_proyecto(&dueno, &String::from_str(&env, "R1"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.admin_rechazar(&id1, &String::from_str(&env, "No"));
+    let id2 = cliente.crear_proyecto(&dueno, &String::from_str(&env, "R2"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.admin_rechazar(&id2, &String::from_str(&env, "No"));
+    let id3 = cliente.crear_proyecto(&dueno, &String::from_str(&env, "R3"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.admin_rechazar(&id3, &String::from_str(&env, "No"));
+    let id4 = cliente.crear_proyecto(&dueno, &String::from_str(&env, "R4"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.admin_rechazar(&id4, &String::from_str(&env, "No"));
+    let id5 = cliente.crear_proyecto(&dueno, &String::from_str(&env, "R5"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.admin_rechazar(&id5, &String::from_str(&env, "No"));
+    // Todos rechazados — puede crear mas
+    let id_extra = cliente.crear_proyecto(&dueno, &String::from_str(&env, "Extra"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    assert_eq!(id_extra, 5);
+}
+
+/// Different owners have independent EnRevision limits
+#[test]
+fn test_en_revision_limit_independiente_por_dueno() {
+    let (env, cliente, _admin, dueno, _backer) = setup();
+    let otro_dueno = Address::generate(&env);
+
+    cliente.crear_proyecto(&dueno, &String::from_str(&env, "A1"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.crear_proyecto(&dueno, &String::from_str(&env, "A2"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.crear_proyecto(&dueno, &String::from_str(&env, "A3"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.crear_proyecto(&dueno, &String::from_str(&env, "A4"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    cliente.crear_proyecto(&dueno, &String::from_str(&env, "A5"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+
+    // otro_dueno no tiene proyectos en revision — puede crear
+    let id = cliente.crear_proyecto(&otro_dueno, &String::from_str(&env, "B0"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
+    assert_eq!(id, 5);
+}
