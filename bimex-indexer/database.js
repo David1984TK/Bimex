@@ -55,11 +55,15 @@ export async function upsertAportacion(aportacion) {
 
 export async function insertEvento(evento) {
   return conRetry(async () => {
-    // Ignore duplicate tx_hash (idempotent re-indexing)
-    const { error } = await supabase
+    // Ignore duplicate tx_hash (idempotent re-indexing). Request count so
+    // we can detect whether this event was actually inserted or was a
+    // duplicate — needed to make yield increments idempotent on reprocessing.
+    const { count, error } = await supabase
       .from('eventos')
-      .upsert(evento, { onConflict: 'tx_hash', ignoreDuplicates: true });
+      .upsert(evento, { onConflict: 'tx_hash', ignoreDuplicates: true, count: 'exact' });
     if (error) throw error;
+    const eventoNuevo = count == null ? true : count > 0;
+    return { eventoNuevo };
   });
 }
 
