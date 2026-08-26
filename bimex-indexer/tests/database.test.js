@@ -105,17 +105,28 @@ describe('database.js', () => {
       expect(mockUpsert).toHaveBeenCalledWith(aport, { onConflict: 'proyecto_id,contribuidor' });
     });
 
-    it('insertEvento calls supabase upsert', async () => {
-      const mockUpsert = vi.fn().mockResolvedValue({ error: null });
+    it('insertEvento calls supabase upsert with count:exact and returns eventoNuevo', async () => {
+      const mockUpsert = vi.fn().mockResolvedValue({ count: 1, error: null });
       supabaseMock.from.mockReturnValue({
         upsert: mockUpsert
       });
 
       const ev = { tx_hash: 'tx1', tipo: 'cambio_estado' };
-      await insertEvento(ev);
+      const res = await insertEvento(ev);
 
       expect(supabaseMock.from).toHaveBeenCalledWith('eventos');
-      expect(mockUpsert).toHaveBeenCalledWith(ev, { onConflict: 'tx_hash', ignoreDuplicates: true });
+      expect(mockUpsert).toHaveBeenCalledWith(ev, { onConflict: 'tx_hash', ignoreDuplicates: true, count: 'exact' });
+      expect(res).toEqual({ eventoNuevo: true });
+    });
+
+    it('insertEvento returns eventoNuevo false when count is 0 (duplicate)', async () => {
+      const mockUpsert = vi.fn().mockResolvedValue({ count: 0, error: null });
+      supabaseMock.from.mockReturnValue({
+        upsert: mockUpsert
+      });
+
+      const res = await insertEvento({ tx_hash: 'tx_dup', tipo: 'cambio_estado' });
+      expect(res).toEqual({ eventoNuevo: false });
     });
 
     it('getLastIndexedLedger returns ledger from database response', async () => {
