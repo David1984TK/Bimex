@@ -1,10 +1,6 @@
 import { readFileSync } from "node:fs";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { aplicarMeta, crearMetaProyecto, leerProyectoIdDesdePath } from "../utils/metaTags.js";
-
-vi.mock("../stellar/contrato", () => ({
-  stroopsAMXNe: vi.fn((value) => `${Number(value ?? 0) / 10000000} MXNe`),
-}));
 
 describe("Bimex metadata", () => {
   beforeEach(() => {
@@ -34,16 +30,38 @@ describe("Bimex metadata", () => {
     aplicarMeta(meta);
 
     expect(document.title).toBe("Biblioteca Solar — Bimex");
+    expect(meta.image).toBe("https://bimex-frontend.vercel.app/api/og?id=42");
     expect(document.head.querySelector('meta[property="og:title"]')?.content).toBe("Biblioteca Solar — Bimex");
-    expect(document.head.querySelector('meta[property="og:description"]')?.content).toBe("10 MXNe recaudados · faltan 10 MXNe para la meta");
-    expect(document.head.querySelector('meta[property="og:url"]')?.content).toBe("https://bimex-frontend.vercel.app/proyectos/42");
-    expect(document.head.querySelector('meta[name="twitter:image"]')?.content).toBe("https://bimex-frontend.vercel.app/og-image.png");
+    expect(document.head.querySelector('meta[property="og:description"]')?.content).toBe(
+      "10.00 MXNe recaudados · faltan 10.00 MXNe para la meta"
+    );
+    expect(document.head.querySelector('meta[property="og:image"]')?.content).toBe(
+      "https://bimex-frontend.vercel.app/api/og?id=42"
+    );
+    expect(document.head.querySelector('meta[property="og:url"]')?.content).toBe(
+      "https://bimex-frontend.vercel.app/proyectos/42"
+    );
+    expect(document.head.querySelector('meta[name="twitter:image"]')?.content).toBe(
+      "https://bimex-frontend.vercel.app/api/og?id=42"
+    );
   });
 
-  it("defaults missing aportado/meta to zero without crashing on BigInt arithmetic", () => {
+  it("defaults missing aportado/meta to zero without crashing", () => {
     const meta = crearMetaProyecto({ id: 7, nombre: "Sin datos" });
 
-    expect(meta.description).toBe("0 MXNe recaudados · faltan 0 MXNe para la meta");
+    expect(meta.description).toBe("0.00 MXNe recaudados · faltan 0.00 MXNe para la meta");
+  });
+
+  it("builds metadata from an indexer row (numeric strings)", () => {
+    const meta = crearMetaProyecto({
+      id: 3,
+      nombre: "Comedor",
+      meta: "3500000000.00",
+      total_aportado: "1750000000.00",
+    });
+
+    expect(meta.title).toBe("Comedor — Bimex");
+    expect(meta.description).toBe("175.00 MXNe recaudados · faltan 175.00 MXNe para la meta");
   });
 
   it("parses project IDs from share paths", () => {

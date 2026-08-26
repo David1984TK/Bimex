@@ -26,4 +26,12 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    // Vercel Functions / Routing Middleware: corren server-side (edge/node),
+    // no en el navegador.
+    files: ['middleware.js', 'api/**/*.js'],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
 ])
