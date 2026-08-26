@@ -99,6 +99,7 @@ pub enum Clave {
     Aportacion(u32, Address),
     Pausado,
     ContadorEnRevision(Address),
+    PropuestaUpgrade,
 }
 
 // ============================================================
@@ -124,6 +125,9 @@ const PERSISTENT_BUMP_AMOUNT: u32 = 2_592_000;       // ~6 meses
 const MAX_NOMBRE_LEN: u32 = 200;
 const MAX_DOC_CID_LEN: u32 = 200;
 const MAX_EN_REVISION_POR_DUENO: u32 = 5;
+
+// Timelock para actualizaciones de contrato
+const TIMELOCK_UPGRADE_SEGUNDOS: u64 = 24 * 3_600; // 24 horas
 
 // ============================================================
 //  HELPERS
@@ -796,17 +800,41 @@ impl BimexContrato {
         );
     }
 
-    /// Actualiza el WASM del contrato. Solo el admin puede ejecutar esta función.
-    /// El estado (proyectos, aportaciones) se preserva automáticamente en el ledger.
+    /// Propone una actualización del WASM del contrato.
     pub fn admin_upgrade(env: Env, admin: Address, new_wasm_hash: BytesN<32>) {
         admin.require_auth();
         let admin_guardado: Address = env.storage().instance().get(&Clave::Admin).expect("No inicializado");
         assert!(admin == admin_guardado, "Solo el admin puede actualizar el contrato");
 
+        let timestamp = env.ledger().timestamp();
+        env.storage().instance().set(&Clave::PropuestaUpgrade, &(new_wasm_hash.clone(), timestamp));
+
+        #[allow(deprecated)]
+        env.events().publish(
+            (symbol_short!("prop_upg"), admin.clone()),
+            (new_wasm_hash, timestamp),
+        );
+    }
+
+    /// Ejecuta una actualización del WASM del contrato previamente propuesta y cuyo timelock ha expirado.
+    pub fn admin_execute_upgrade(env: Env, admin: Address) {
+        admin.require_auth();
+        let admin_guardado: Address = env.storage().instance().get(&Clave::Admin).expect("No inicializado");
+        assert!(admin == admin_guardado, "Solo el admin puede actualizar el contrato");
+
+        let propuesta: (BytesN<32>, u64) = env.storage().instance().get(&Clave::PropuestaUpgrade).expect("No hay propuesta de upgrade");
+        let (new_wasm_hash, timestamp_propuesta) = propuesta;
+        
+        let ahora = env.ledger().timestamp();
+        assert!(ahora >= timestamp_propuesta + TIMELOCK_UPGRADE_SEGUNDOS, "Timelock no ha expirado");
+
+        // Limpiar propuesta
+        env.storage().instance().remove(&Clave::PropuestaUpgrade);
+
         #[allow(deprecated)]
         env.events().publish(
             (symbol_short!("upgrade"), admin.clone()),
-            (new_wasm_hash.clone(), env.ledger().timestamp()),
+            (new_wasm_hash.clone(), ahora),
         );
 
         // In tests, update_current_contract_wasm cannot be called because no real

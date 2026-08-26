@@ -1132,3 +1132,37 @@ fn test_en_revision_limit_independiente_por_dueno() {
     let id = cliente.crear_proyecto(&otro_dueno, &String::from_str(&env, "B0"), &10_000_000i128, &doc_cid_vacio(&env), &6u32);
     assert_eq!(id, 5);
 }
+
+// ============================================================
+//  ADMIN UPGRADE TIMELOCK
+// ============================================================
+
+#[test]
+fn test_admin_upgrade_con_timelock() {
+    let (env, cliente, admin, _dueno, _backer) = setup();
+
+    let hash = soroban_sdk::BytesN::from_array(&env, &[1; 32]);
+    env.ledger().with_mut(|l| l.timestamp = 1000);
+    
+    // Proponer el upgrade
+    cliente.admin_upgrade(&admin, &hash);
+
+    // Evento de propuesta emitido
+    let events = env.events().all();
+    assert!(events.events().len() > 0);
+
+    // Ejecutar antes de tiempo -> debe fallar (espera al menos 24h = 86400)
+    env.ledger().with_mut(|l| l.timestamp = 1000 + 86399);
+    let res = cliente.try_admin_execute_upgrade(&admin);
+    assert!(res.is_err());
+
+    // Avanzar tiempo para que el timelock expire
+    env.ledger().with_mut(|l| l.timestamp = 1000 + 86400);
+
+    // Ahora debe tener éxito
+    cliente.admin_execute_upgrade(&admin);
+
+    // Si se intenta otra vez, debe fallar porque ya no hay propuesta
+    let res2 = cliente.try_admin_execute_upgrade(&admin);
+    assert!(res2.is_err());
+}
