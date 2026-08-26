@@ -63,11 +63,26 @@ create table if not exists audit_log (
   recorded_at timestamptz default now()
 );
 
--- Row Level Security to enforce immutability
+-- Row Level Security to enforce immutability and write-authenticity.
 alter table audit_log enable row level security;
+
+-- Public transparency: anyone may read the audit log.
 create policy "Allow public read" on audit_log for select using (true);
-create policy "Allow insert only" on audit_log for insert with check (true);
--- No policies for update or delete means they are implicitly denied
+
+-- Only the indexer's service role may write. The frontend ships the anon key
+-- in its JS bundle (VITE_SUPABASE_ANON_KEY), so a permissive `with check (true)`
+-- insert policy would let any site visitor forge audit entries directly against
+-- the Supabase REST API. The service role bypasses RLS, so scoping the insert
+-- policy `to service_role` (and revoking the default table grants below) means
+-- anon/authenticated inserts are denied. See #301.
+create policy "Only service role can insert" on audit_log
+  for insert to service_role with check (true);
+
+-- Defense in depth: drop the table-level privileges Supabase grants by default
+-- to the public API roles so they cannot write even if a policy regresses.
+revoke insert, update, delete on audit_log from anon, authenticated;
+
+-- No policies for update or delete means they are implicitly denied for everyone.
 
 create index if not exists idx_audit_log_block_time on audit_log (block_time desc);
 create index if not exists idx_audit_log_actor_address on audit_log (actor_address);
