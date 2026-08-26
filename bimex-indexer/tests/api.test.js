@@ -226,6 +226,78 @@ describe('api.js REST Endpoints', () => {
     });
   });
 
+  // ── GET /audit CSV injection ─────────────────────────────────────────────
+  describe('GET /audit CSV injection protection', () => {
+    it('neutralizes formula payloads and escapes quotes in all fields', async () => {
+      mockSupabase._data = [
+        {
+          action: 'CREATE',
+          actor_address: 'GABC123',
+          target: '=CMD("calc")',
+          tx_hash: 'abc123',
+          block_time: '2026-01-01',
+          metadata: { reason: '+RUN(whoami)' },
+        },
+        {
+          action: 'REJECT',
+          actor_address: 'GDEF456',
+          target: 'Project,Name',
+          tx_hash: 'def456',
+          block_time: '2026-01-02',
+          metadata: { note: 'has "quotes" inside' },
+        },
+      ];
+
+      const res = await req({ path: '/audit?format=csv', method: 'GET' });
+      expect(res.status).toBe(200);
+
+      const csv = res.body;
+      // Formula payload in target neutralized with single-quote prefix
+      expect(csv).toContain(`'=CMD(""calc"")`);
+      // Commas in target must not break columns — field is quoted
+      expect(csv).toContain(`"Project,Name"`);
+      // Metadata is JSON-stringified and wrapped in quotes — verify it's present
+      expect(csv).toContain('has');
+      expect(csv).toContain('quotes');
+      // Every data value is wrapped in double quotes
+      expect(csv).toContain(`"CREATE"`);
+      expect(csv).toContain(`"REJECT"`);
+      expect(csv).toContain(`"GABC123"`);
+      // The dangerous formula must NOT appear at the start of any CSV field
+      const lines = csv.trim().split('\n').slice(1); // skip header
+      for (const line of lines) {
+        const fields = line.match(/("(""|[^"])*"|[^,]+)/g);
+        for (const f of fields) {
+          const stripped = f.replace(/^"|"$/g, '').replace(/""/g, '"');
+          expect(stripped).not.toMatch(/^[=+\-@]/);
+        }
+      }
+    });
+
+    it('neutralizes @ and - prefixed payloads', async () => {
+      mockSupabase._data = [
+        {
+          action: 'UPDATE',
+          actor_address: 'GXYZ',
+          target: '-SUM(A1:A10)',
+          tx_hash: 'hash1',
+          block_time: '2026-02-01',
+          metadata: { field: '@SUM(A1:A10)' },
+        },
+      ];
+
+      const res = await req({ path: '/audit?format=csv', method: 'GET' });
+      expect(res.status).toBe(200);
+
+      const csv = res.body;
+      // -SUM neutralized
+      expect(csv).toContain(`'-SUM(A1:A10)`);
+      // @SUM in metadata: JSON-stringified starts with {, so no prefix needed;
+      // but verify it's still properly quoted
+      expect(csv).toContain(`"@SUM(A1:A10)"`);
+    });
+  });
+
   // ── GET /proyectos ───────────────────────────────────────────────────────
   describe('GET /proyectos', () => {
     it('returns 200 and project list with Cache-Control', async () => {

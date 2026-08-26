@@ -144,6 +144,12 @@ function publicRateLimitedEndpoint(parts) {
   return null;
 }
 
+function csvEscape(val) {
+  const str = String(val ?? '');
+  const safe = /^[=+\-@\t\r]/.test(str) ? "'" + str : str;
+  return '"' + safe.replace(/"/g, '""') + '"';
+}
+
 function readBody(req, res) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -410,8 +416,14 @@ async function route(req, res) {
       });
       res.write('Action,Actor,Target,TxHash,BlockTime,Metadata\n');
       data.forEach(row => {
-        const metadataStr = JSON.stringify(row.metadata || {}).replace(/"/g, '""');
-        res.write(`${row.action},${row.actor_address},${row.target},${row.tx_hash},${row.block_time},"${metadataStr}"\n`);
+        res.write([
+          csvEscape(row.action),
+          csvEscape(row.actor_address),
+          csvEscape(row.target),
+          csvEscape(row.tx_hash),
+          csvEscape(row.block_time),
+          csvEscape(JSON.stringify(row.metadata || {})),
+        ].join(',') + '\n');
       });
       return res.end();
     }
