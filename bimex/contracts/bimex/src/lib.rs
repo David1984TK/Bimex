@@ -98,6 +98,7 @@ pub enum Clave {
     Proyecto(u32),
     Aportacion(u32, Address),
     Pausado,
+    ContadorEnRevision(Address),
 }
 
 // ============================================================
@@ -118,6 +119,11 @@ const INSTANCE_BUMP_AMOUNT: u32 = 518_400;           // ~30 días
 
 const PERSISTENT_LIFETIME_THRESHOLD: u32 = 17_280;   // ~1 día
 const PERSISTENT_BUMP_AMOUNT: u32 = 2_592_000;       // ~6 meses
+
+// Límites de input para prevenir spam
+const MAX_NOMBRE_LEN: u32 = 200;
+const MAX_DOC_CID_LEN: u32 = 200;
+const MAX_EN_REVISION_POR_DUENO: u32 = 5;
 
 // ============================================================
 //  HELPERS
@@ -214,6 +220,16 @@ impl BimexContrato {
         dueno.require_auth();
         assert!(meta > 0, "La meta debe ser mayor a 0");
         assert!((1..=120).contains(&tiempo_meses), "El tiempo debe estar entre 1 y 120 meses");
+        assert!(nombre.len() <= MAX_NOMBRE_LEN, "El nombre no puede exceder 200 caracteres");
+        assert!(doc_cid.len() <= MAX_DOC_CID_LEN, "doc_cid no puede exceder 200 caracteres");
+
+        let en_revision: u32 = env.storage().persistent()
+            .get(&Clave::ContadorEnRevision(dueno.clone()))
+            .unwrap_or(0);
+        assert!(
+            en_revision < MAX_EN_REVISION_POR_DUENO,
+            "Demasiados proyectos en revision (maximo 5)"
+        );
 
         let id: u32 = env.storage().instance().get(&Clave::ContadorProyectos).unwrap_or(0);
 
@@ -221,7 +237,7 @@ impl BimexContrato {
         let timestamp_vencimiento = ahora + (tiempo_meses as u64) * SEGUNDOS_POR_MES;
 
         let proyecto = Proyecto {
-            dueno,
+            dueno: dueno.clone(),
             nombre,
             meta,
             total_aportado: 0,
@@ -240,6 +256,10 @@ impl BimexContrato {
 
         env.storage().persistent().set(&Clave::Proyecto(id), &proyecto);
         env.storage().instance().set(&Clave::ContadorProyectos, &(id + 1));
+        env.storage().persistent().set(
+            &Clave::ContadorEnRevision(dueno.clone()),
+            &(en_revision + 1),
+        );
         extender_ttl_instancia(&env);
         extender_ttl_proyecto(&env, id);
         id
@@ -655,6 +675,14 @@ impl BimexContrato {
             "Solo se pueden aprobar proyectos en revision"
         );
 
+        let prev: u32 = env.storage().persistent()
+            .get(&Clave::ContadorEnRevision(proyecto.dueno.clone()))
+            .unwrap_or(0);
+        env.storage().persistent().set(
+            &Clave::ContadorEnRevision(proyecto.dueno.clone()),
+            &prev.saturating_sub(1),
+        );
+
         proyecto.estado = EstadoProyecto::EtapaInicial;
         env.storage().persistent().set(&Clave::Proyecto(id_proyecto), &proyecto);
         extender_ttl_instancia(&env);
@@ -681,6 +709,14 @@ impl BimexContrato {
         assert!(
             proyecto.estado == EstadoProyecto::EnRevision,
             "Solo se pueden rechazar proyectos en revision"
+        );
+
+        let prev: u32 = env.storage().persistent()
+            .get(&Clave::ContadorEnRevision(proyecto.dueno.clone()))
+            .unwrap_or(0);
+        env.storage().persistent().set(
+            &Clave::ContadorEnRevision(proyecto.dueno.clone()),
+            &prev.saturating_sub(1),
         );
 
         let motivo_event = motivo.clone();
