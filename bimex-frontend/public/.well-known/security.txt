@@ -1,0 +1,9 @@
+# Bimex Security Disclosure
+# https://bimex-frontend.vercel.app/.well-known/security.txt
+Contact: mailto:security@bimex.example
+Contact: https://github.com/David1984TK/Bimex/security/advisories/new
+Expires: 2027-08-27T00:00:00Z
+Acknowledgments: https://github.com/David1984TK/Bimex/blob/main/SECURITY.md#hall-of-fame
+Preferred-Languages: es, en
+Canonical: https://bimex-frontend.vercel.app/.well-known/security.txt
+Policy: https://github.com/David1984TK/Bimex/blob/main/SECURITY.md
