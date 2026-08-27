@@ -25,7 +25,7 @@ import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { dirname, join } from 'path';
 import { t, mesNombre, numberLocale } from './locales.js';
 
@@ -51,28 +51,28 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.RESEND_FROM ?? 'Bimex <notificaciones@bimex.fi>';
 const BASE = process.env.FRONTEND_URL ?? 'https://bimex.fi';
 
-// ─── Config ──────────────────────────────────────────────────────────────
-const DRY_RUN = process.argv.includes('--dry-run');
-const PERIODO = procesarPeriodo();
-const MAX_CONCURRENCY = parseInt(process.env.REPORTE_CONCURRENCY ?? '3', 10);
-const BATCH_SIZE = parseInt(process.env.REPORTE_BATCH_SIZE ?? '10', 10);
-
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
 function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
 
-function procesarPeriodo() {
-  const forcePeriod = process.env.REPORTE_PERIODO;
-  // Allow --periodo CLI arg
-  const cliIndex = process.argv.indexOf('--periodo');
-  if (cliIndex !== -1 && process.argv[cliIndex + 1]) {
-    return process.argv[cliIndex + 1];
+/**
+ * Resolve the report period (YYYY-MM) from, in priority order:
+ *   1. `--periodo YYYY-MM` CLI arg
+ *   2. REPORTE_PERIODO env var
+ *   3. the previous calendar month relative to `now`
+ * @param {string[]} argv - process.argv-style array
+ * @param {object}   env  - environment object (defaults to process.env)
+ * @param {Date}     now  - reference date (defaults to new Date())
+ */
+export function procesarPeriodo(argv = process.argv, env = process.env, now = new Date()) {
+  const cliIndex = argv.indexOf('--periodo');
+  if (cliIndex !== -1 && argv[cliIndex + 1]) {
+    return argv[cliIndex + 1];
   }
-  if (forcePeriod) return forcePeriod;
+  if (env.REPORTE_PERIODO) return env.REPORTE_PERIODO;
 
-  const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth(); // 0-indexed
   const prevMonth = month === 0 ? 11 : month - 1;
@@ -80,7 +80,24 @@ function procesarPeriodo() {
   return `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}`;
 }
 
-function parsePeriodo(periodo) {
+/**
+ * Parse the recognised CLI flags / env vars into a plain config object.
+ * @param {string[]} argv - process.argv-style array
+ * @param {object}   env  - environment object (defaults to process.env)
+ */
+export function parseArgs(argv = process.argv, env = process.env) {
+  return {
+    dryRun: argv.includes('--dry-run'),
+    periodo: procesarPeriodo(argv, env),
+    maxConcurrency: parseInt(env.REPORTE_CONCURRENCY ?? '3', 10),
+    batchSize: parseInt(env.REPORTE_BATCH_SIZE ?? '10', 10),
+  };
+}
+
+// ─── Config ──────────────────────────────────────────────────────────────
+const { dryRun: DRY_RUN, periodo: PERIODO, maxConcurrency: MAX_CONCURRENCY, batchSize: BATCH_SIZE } = parseArgs();
+
+export function parsePeriodo(periodo) {
   const [yearStr, monthStr] = periodo.split('-');
   return { year: parseInt(yearStr, 10), month: parseInt(monthStr, 10) - 1 };
 }
@@ -88,18 +105,18 @@ function parsePeriodo(periodo) {
 /**
  * Get Unix timestamp (seconds) for the start of a given month.
  */
-function inicioMesUnix(year, month) {
+export function inicioMesUnix(year, month) {
   return Math.floor(Date.UTC(year, month, 1, 0, 0, 0) / 1000);
 }
 
 /**
  * Get Unix timestamp (seconds) for the end of a given month (start of next month).
  */
-function finMesUnix(year, month) {
+export function finMesUnix(year, month) {
   return Math.floor(Date.UTC(year, month + 1, 1, 0, 0, 0) / 1000);
 }
 
-function formatoMXNe(stroops, locale) {
+export function formatoMXNe(stroops, locale) {
   const mxne = Number(stroops) / STROOPS_POR_MXNE;
   return mxne.toLocaleString(locale, {
     minimumFractionDigits: 2,
@@ -123,7 +140,7 @@ function barraProgreso(porcentaje) {
  * Formula: yield = (capital / MINUTOS_ANO) * bps / 10_000 * minutos
  *                + (capital % MINUTOS_ANO) * bps / 10_000 * minutos / MINUTOS_ANO
  */
-function calcularYieldSeguro(capital, bps, minutos) {
+export function calcularYieldSeguro(capital, bps, minutos) {
   capital = BigInt(capital);
   bps = BigInt(bps);
   minutos = BigInt(minutos);
@@ -140,7 +157,7 @@ function calcularYieldSeguro(capital, bps, minutos) {
  * @param {number} currentUnix - Reference timestamp (Unix seconds) to calculate yield "as of"
  * @returns {bigint} Cumulative yield in stroops
  */
-function calcularYield(cantidadStroops, timestampUnix, currentUnix) {
+export function calcularYield(cantidadStroops, timestampUnix, currentUnix) {
   const segundos = BigInt(Math.floor(currentUnix)) - BigInt(Math.floor(timestampUnix));
   if (segundos <= 0n) return 0n;
   const minutos = segundos / 60n;
@@ -155,7 +172,7 @@ function calcularYield(cantidadStroops, timestampUnix, currentUnix) {
  * Convert a Supabase timestamptz value to Unix epoch seconds.
  * Handles both ISO 8601 strings and numeric strings.
  */
-function timestampAUnix(ts) {
+export function timestampAUnix(ts) {
   if (ts == null) return Math.floor(Date.now() / 1000);
   if (typeof ts === 'number') return Math.floor(ts);
   // Try parsing as ISO string
@@ -564,6 +581,21 @@ async function procesarContribuidor(wallet, proyectos, periodo) {
 
 // ─── Main ────────────────────────────────────────────────────────────────
 
+/**
+ * Group contribution rows by contributor wallet address.
+ * @param {Array<{contribuidor: string}>} rows
+ * @returns {Map<string, object[]>} wallet -> its contribution rows
+ */
+export function agruparPorContribuidor(rows) {
+  const groups = new Map();
+  for (const row of rows ?? []) {
+    const existing = groups.get(row.contribuidor) ?? [];
+    existing.push(row);
+    groups.set(row.contribuidor, existing);
+  }
+  return groups;
+}
+
 async function main() {
   console.log(`\n📊 Bimex — Reporte Mensual`);
   console.log(`   Periodo: ${PERIODO}`);
@@ -591,12 +623,7 @@ async function main() {
   }
 
   // Step 3: Group by wallet address
-  const groups = new Map();
-  for (const row of contributors) {
-    const existing = groups.get(row.contribuidor) ?? [];
-    existing.push(row);
-    groups.set(row.contribuidor, existing);
-  }
+  const groups = agruparPorContribuidor(contributors);
 
   console.log(`   Total unique contributors: ${groups.size}`);
   console.log('');
@@ -659,7 +686,14 @@ async function main() {
   if (failed > 0) process.exit(1);
 }
 
-main().catch(err => {
-  console.error('💥 Fatal error:', err);
-  process.exit(1);
-});
+// Only run when invoked directly (`node jobs/reporteMensual.js`), not when
+// imported by the test suite.
+const invokedDirectly = process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (invokedDirectly) {
+  main().catch(err => {
+    console.error('💥 Fatal error:', err);
+    process.exit(1);
+  });
+}
