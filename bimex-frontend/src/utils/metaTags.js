@@ -1,13 +1,11 @@
-import { stroopsAMXNe } from "../stellar/contrato";
+import {
+  DEFAULT_META as DEFAULT_META_BASE,
+  SITE_URL,
+  construirMetaProyecto,
+} from "./socialPreview.js";
 
-export const SITE_URL = "https://bimex-frontend.vercel.app";
-
-export const DEFAULT_META = {
-  title: "Bimex — Crowdfunding de Impacto Social",
-  description: "Aporta MXNe a proyectos sociales. El rendimiento financia el impacto. Tu capital siempre regresa.",
-  image: `${SITE_URL}/og-image.png`,
-  url: SITE_URL,
-};
+export { SITE_URL };
+export const DEFAULT_META = DEFAULT_META_BASE;
 
 function setMetaTag(selector, attrs) {
   let tag = document.head.querySelector(selector);
@@ -19,18 +17,7 @@ function setMetaTag(selector, attrs) {
 }
 
 export function crearMetaProyecto(proyecto) {
-  if (!proyecto) return DEFAULT_META;
-  const nombre = proyecto.nombre || "Proyecto Bimex";
-  const meta = BigInt(proyecto.meta ?? 0);
-  const aportado = BigInt(proyecto.aportado ?? 0);
-  const raised = stroopsAMXNe(aportado);
-  const remaining = stroopsAMXNe(meta > aportado ? meta - aportado : 0n);
-  return {
-    title: `${nombre} — Bimex`,
-    description: `${raised} recaudados · faltan ${remaining} para la meta`,
-    image: DEFAULT_META.image,
-    url: `${SITE_URL}/proyectos/${proyecto.id}`,
-  };
+  return construirMetaProyecto(proyecto);
 }
 
 export function aplicarMeta(meta) {
