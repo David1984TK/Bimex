@@ -125,9 +125,10 @@ EnProgreso / Liberado ──retirar_principal (all funds withdrawn)──► Eta
 
 | ID | Invariant | Rationale | Test coverage |
 |---|---|---|---|
-| UPGRADE-01 | Only the admin can call `admin_upgrade`. | Prevents arbitrary code replacement. | ✅ `test_solo_admin_puede_upgrade`, `test_no_admin_no_puede_upgrade` |
+| UPGRADE-01 | Only the admin can call `admin_upgrade` and `admin_execute_upgrade`. | Prevents arbitrary code replacement. | ✅ `test_solo_admin_puede_upgrade`, `test_no_admin_no_puede_upgrade` |
 | UPGRADE-02 | Upgrades must preserve existing project, contribution, and configuration storage. | State must survive across WASM updates. | ✅ Relies on Soroban storage persistence; tested implicitly by contract test suite. |
 | UPGRADE-03 | New WASM versions must continue to enforce all invariants in this document. | Regression protection. | ✅ New releases must pass the full test suite and add tests for new invariants. |
+| UPGRADE-04 | Admin upgrades must be proposed with a 24-hour timelock before execution. | Gives users time to react to protocol changes. | ✅ `test_admin_upgrade_con_timelock` |
 
 ---
 
@@ -137,7 +138,7 @@ The following behaviors are known and accepted. Reports describing them will not
 
 | ID | Limitation | Reason |
 |---|---|---|
-| LIM-01 | A single admin key controls all governance. There is no multi-sig or timelock. | Accepted for the pilot phase; planned for post-pilot hardening. |
+| LIM-01 | (Resolved) Admin multisig and timelock are now implemented. | N/A |
 | LIM-02 | Yield is calculated using a simplified on-chain model, not actual off-chain CETES/AMM yields. | The protocol承诺ates a fixed reference rate; real yield is off-chain. |
 | LIM-03 | The indexer relies on the public Soroban RPC and may lag or miss events under network stress. | Operational risk; indexer has backup/reindex scripts. |
 | LIM-04 | `retiro_anticipado` leaves the accrued yield in the project for the owner. | By design; early exit does not entitle the backer to yield. |

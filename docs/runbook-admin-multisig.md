@@ -110,9 +110,11 @@ bash scripts/setup-multisig-admin.sh mainnet --fund S...ADMIN_SECRET
 bash scripts/migrate-to-multisig.sh --network mainnet
 ```
 
-## 6. admin_upgrade con multi-sig
+## 6. admin_upgrade con multi-sig (con Timelock)
 
-Requiere firmas 2-of-3. Mismo flujo que `admin_pausar` pero con `admin_upgrade`:
+El proceso de actualización requiere dos pasos separados por un timelock de 24 horas, ambos requiriendo firmas 2-of-3.
+
+### 6.1. Proponer la actualización (admin_upgrade)
 
 ```javascript
 Operation.invokeContractFunction({
@@ -121,6 +123,22 @@ Operation.invokeContractFunction({
   args: [
     new Address(multisig).toScVal(),
     new BytesN(32, newWasmHash).toScVal(),
+  ],
+})
+```
+
+*Nota: Esto emite un evento de propuesta. Se debe esperar al menos 24 horas.*
+
+### 6.2. Ejecutar la actualización (admin_execute_upgrade)
+
+Después de que haya expirado el timelock de 24 horas, ejecutar:
+
+```javascript
+Operation.invokeContractFunction({
+  contract: contractId,
+  function: 'admin_execute_upgrade',
+  args: [
+    new Address(multisig).toScVal(),
   ],
 })
 ```
@@ -134,7 +152,7 @@ Operation.invokeContractFunction({
 | Key de custodio comprometida | 2-of-3: 1 sola no basta |
 | Perder 2 custodios | Backup offline de cada signer |
 | admin_pausar lento | Evaluar cuenta separada 1-of-3 solo para pausar |
-| Upgrade malicioso | Requiere 2 firmas + auditoría externa |
+| Upgrade malicioso | Requiere 2 firmas + auditoría externa + 24 horas de timelock (reacción) |
 
 ## Referencias
 
