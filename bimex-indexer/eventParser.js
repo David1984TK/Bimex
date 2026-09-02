@@ -13,7 +13,13 @@ const TOPIC_TO_EVENT = {
 
 function normalizeArg(arg) {
   try {
-    return scValToNative(arg);
+    const native = scValToNative(arg);
+    // @stellar/stellar-sdk 17 no longer throws on a value that isn't a real
+    // xdr.ScVal — it silently returns undefined instead. Treat that the same
+    // as the old throw-and-fall-back-to-raw-value behavior, so args that are
+    // already plain natives (as in our tests, and potentially some RPC
+    // shapes) aren't corrupted into undefined.
+    return native === undefined && arg !== undefined ? arg : native;
   } catch {
     return arg;
   }
