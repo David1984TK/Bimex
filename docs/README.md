@@ -11,6 +11,14 @@
 | [Guía del contribuidor](guia-contribuidor.md) | Cómo apoyar un proyecto como usuario |
 | [Guía del creador de proyecto](guia-creador-proyecto.md) | Cómo lanzar un proyecto en Bimex |
 | [Guía técnica de integración](guia-tecnica-integracion.md) | ABI, CLI, SDK para desarrolladores |
+| [API del indexer](api.md) | Endpoints públicos del indexer (rate-limiting, errores, autenticación) |
+
+## 📋 Decisiones de diseño
+
+| Documento | Descripción |
+|-----------|-------------|
+| [Decisión: VITE_PINATA_SECRET](decision-vite-pinata-secret.md) | Auditoría #145 — secret de Pinata solo en el indexer vía `/ipfs-upload` |
+| [Decisión: Política de retiro](decision-politica-retiro.md) | Retiro libre e inmediato del capital para reducir el riesgo percibido |
 
 ## 🔐 Seguridad y bug bounty
 
@@ -22,7 +30,6 @@
 | [Auditoría externa](AUDITORIA.md) | Reporte de auditoría del contrato y estado de hallazgos (#136) |
 | [Alcance de auditoría](AUDIT-SCOPE.md) | Alcance congelado y checklist del SDF Audit Bank |
 | [Bug Bounty Tier 2](SECURITY-BOUNTY-TIER2.md) | Decisión de plataforma y presupuesto para el programa post-lanzamiento |
-| [Decisión: VITE_PINATA_SECRET](decision-vite-pinata-secret.md) | Auditoría #145 — secret de Pinata solo en el indexer vía `/ipfs-upload` |
 
 ## 🚀 Proyecto Piloto (Mainnet)
 
@@ -44,6 +51,14 @@
 | [Runbook: Admin Multi-Sig](runbook-admin-multisig.md) | Operaciones del contrato con firma múltiple (2-of-3) |
 | [Runbook: Restore DB](runbook-restore-db.md) | Restauración de base de datos desde backup cifrado en R2 |
 | [Runbook: Fallos de dependencias](runbook-dependencias.md) | Procedimientos para los cuatro modos de fallo de dependencias (postmortem 2026-07-14) |
+
+## 🧪 Staging y recuperación
+
+| Documento | Descripción |
+|-----------|-------------|
+| [Staging: Quick Start](STAGING-QUICK-START.md) | Inicio rápido del entorno de staging en Testnet para QA |
+| [Staging: Guía completa](staging-environment.md) | Estrategia de tres entornos y configuración de despliegue |
+| [Disaster Recovery](disaster-recovery.md) | Recuperación de datos del indexer ante pérdida en Supabase |
 
 ## 🛠️ Scripts y herramientas
 
@@ -100,8 +115,8 @@ Si encuentras errores o quieres mejorar la documentación:
 
 ## 📅 Última actualización
 
-**Fecha**: 2026-04-28  
-**Versión**: 2.0  
+**Fecha**: 2026-09-18  
+**Versión**: 2.1  
 **Estado**: Activo (Testnet) | Preparando Mainnet
 
 ---
