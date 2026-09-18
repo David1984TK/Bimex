@@ -29,6 +29,24 @@ Gracias por aportar. Bimex recibe contribuciones de mucha gente distinta (waves,
 
 A veces un PR llega con conflictos o queda desactualizado antes de revisarse, y el mantenedor reaplica el cambio en un PR nuevo en vez de resolver conflictos sobre el tuyo. Si eso pasa con tu contribución, seguís apareciendo como autor original en el historial de commits y se te agradece explícitamente en el PR/issue relacionado — no se pierde el crédito, pero si puedes, prioriza mantener tu rama actualizada para evitar que esto sea necesario.
 
+### Ejemplo concreto del flujo de reaplicación:
+
+Supongamos que la colaboradora `@ana` abrió el `PR #120` para resolver el `Issue #45`, pero con el paso de los días surgieron conflictos severos con `main` y `@ana` no está disponible para resolverlos:
+
+1. **Creación de la nueva rama limpia:** El mantenedor crea una rama fresca desde `main` actualizado (ej. `apply-pr-120-fix`).
+2. **Reaplicación preservando la autoría:** Los commits de `@ana` se traen mediante `cherry-pick` o se agrega el trailer `Co-authored-by: Ana <ana@example.com>` en el commit:
+   ```bash
+   git cherry-pick <commit-hash-de-ana>
+   # O al commitear con crédito explícito:
+   git commit -m "feat: implementar validación de balance
+
+   Co-authored-by: Ana <ana@example.com>"
+   ```
+3. **Apertura del nuevo PR con referencias completas:** El mantenedor abre el nuevo `PR #125` documentando:
+   - "Reaplica el trabajo original de @ana en #120 resolviendo conflictos con main."
+   - `Closes #45` (para cerrar el issue objetivo al mergear).
+4. **Cierre del PR original:** Se cierra el `PR #120` dejando un comentario de agradecimiento y el enlace directo al nuevo PR (ej. *"Cerrado en favor de #125 donde se resolvieron los conflictos. ¡Muchas gracias @ana por la contribución original!"*).
+
 ## Dependencias (Dependabot)
 
 Los PRs de Dependabot (`bimex/Cargo.toml`, `bimex-frontend/package.json`, `bimex-indexer/package.json`, `.github/workflows/`) se revisan igual que cualquier otro PR: CI en verde antes de mergear. Si un bump rompe CI:
