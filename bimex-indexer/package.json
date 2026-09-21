@@ -25,6 +25,7 @@
   },
   "overrides": {
     "axios": "1.18.1",
-    "postcss": "8.5.23"
+    "postcss": "8.5.23",
+    "smol-toml": "1.8.0"
   }
 }
