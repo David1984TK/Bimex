@@ -13,7 +13,7 @@ setInterval(() => {
       // Send a comment as heartbeat; write returns false if backpressure
       const ok = cliente.write(':heartbeat\n\n');
       if (!ok) throw new Error('Backpressure');
-    } catch (e) {
+    } catch {
       // Remove problematic client
       eliminarCliente(cliente);
     }
