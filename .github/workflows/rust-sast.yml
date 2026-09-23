@@ -1,0 +1,38 @@
+name: Rust SAST
+
+# Static analysis (SAST) for the Soroban contract in `bimex/`.
+# CodeQL only covers JavaScript, so this job adds a security-focused Clippy pass
+# on top of `-D warnings` whenever the contract changes. See docs/SAST-RUST.md.
+
+on:
+  pull_request:
+    paths:
+      - 'bimex/**'
+  push:
+    branches: [main]
+    paths:
+      - 'bimex/**'
+
+jobs:
+  clippy-security:
+    name: Clippy security lints
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bimex
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: bimex
+      - name: Run security-focused Clippy
+        run: >
+          cargo clippy --locked --
+          -D warnings
+          -D clippy::todo
+          -D clippy::unimplemented
+          -D clippy::dbg_macro
+          -D clippy::print_stdout
