@@ -25,6 +25,12 @@ const ESTADO_CFG = {
   Abandonado:   { badge: "badge-red"   },
 };
 
+function escaparCSV(valor) {
+  const texto = String(valor ?? "");
+  const sanitizado = /^\s*[=+\-@]/.test(texto) ? `'${texto}` : texto;
+  return `"${sanitizado.replace(/"/g, '""')}"`;
+}
+
 function StatStrip({ label, valor, mono, highlight }) {
   return (
     <div style={{ textAlign: "center", flex: 1 }}>
@@ -54,6 +60,9 @@ export default function Transparencia({ onVolver }) {
   const [auditStartDate, setAuditStartDate] = useState("");
   const [auditEndDate, setAuditEndDate] = useState("");
   const [totalYield, setTotalYield] = useState(BigInt(0));
+  const [proyectoExportId, setProyectoExportId] = useState("");
+  const [exportando, setExportando] = useState(false);
+  const [exportError, setExportError] = useState(null);
   const contribTopRef = useRef(null);
   const auditTopRef = useRef(null);
 
@@ -116,6 +125,47 @@ export default function Transparencia({ onVolver }) {
     },
     [auditFiltro, auditActor, auditStartDate, auditEndDate]
   );
+
+  async function exportarAportacionesProyecto() {
+    if (!proyectoExportId) return;
+    setExportando(true);
+    setExportError(null);
+    try {
+      const res = await fetch(`${API_URL}/proyectos/${proyectoExportId}/aportaciones`);
+      if (!res.ok) throw new Error("Error al obtener las aportaciones");
+      const filas = await res.json();
+      const proyecto = proyectos.find((p) => String(p.id) === String(proyectoExportId));
+      const encabezado = [
+        t("transp.colContributor"),
+        t("transp.colAmount"),
+        t("transp.contribExportColWithdrawn"),
+        t("transp.colWhen"),
+      ];
+      const dateFormatter = new Intl.DateTimeFormat("es-MX");
+      const cuerpo = (filas ?? []).map((r) => [
+        escaparCSV(r.contribuidor ?? ""),
+        escaparCSV(stroopsAMXNe(r.monto ?? 0)),
+        escaparCSV(r.retirado ? t("transp.contribExportYes") : t("transp.contribExportNo")),
+        escaparCSV(r.timestamp ? dateFormatter.format(new Date(r.timestamp)) : ""),
+      ]);
+      const csv = [encabezado, ...cuerpo].map((fila) => fila.join(",")).join("\n");
+      const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const nombreArchivo = (proyecto?.nombre ?? `proyecto-${proyectoExportId}`)
+        .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      a.download = `bimex-aportaciones-${nombreArchivo || proyectoExportId}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    } catch {
+      setExportError(t("transp.contribExportError"));
+    } finally {
+      setExportando(false);
+    }
+  }
 
   const totalBloqueado = proyectos.reduce((s, p) => {
     try { return s + BigInt(p.aportado ?? 0); } catch { return s; }
@@ -322,7 +372,52 @@ export default function Transparencia({ onVolver }) {
           )}
           {/* Paginated contributions table */}
           <div style={{ marginTop: 28 }}>
-            <h2 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: 8 }}>{t("transp.contributionsTitle")}</h2>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12, marginBottom: 8 }}>
+              <h2 style={{ fontSize: "1.1rem", fontWeight: 700, margin: 0 }}>{t("transp.contributionsTitle")}</h2>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <label htmlFor="transp-export-proyecto" style={{ fontSize: "0.78rem", color: "var(--muted)" }}>
+                    {t("transp.contribExportLabel")}
+                  </label>
+                  <select
+                    id="transp-export-proyecto"
+                    value={proyectoExportId}
+                    onChange={(e) => setProyectoExportId(e.target.value)}
+                    style={{
+                      padding: "5px 8px", fontSize: "0.78rem", borderRadius: "var(--radius-sm)",
+                      border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)",
+                      maxWidth: 200,
+                    }}
+                  >
+                    <option value="">{t("transp.contribExportPlaceholder")}</option>
+                    {proyectos.map((p) => (
+                      <option key={p.id} value={p.id}>{p.nombre}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={exportarAportacionesProyecto}
+                    disabled={!proyectoExportId || exportando}
+                    style={{
+                      background: "var(--card)", border: "1px solid var(--border)",
+                      color: "var(--text)", padding: "6px 12px", borderRadius: "var(--radius-sm)",
+                      fontSize: "0.82rem", fontWeight: 600,
+                      cursor: !proyectoExportId || exportando ? "not-allowed" : "pointer",
+                      opacity: !proyectoExportId || exportando ? 0.55 : 1,
+                      display: "flex", alignItems: "center", gap: 6,
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    {exportando ? t("transp.contribExportLoading") : t("transp.contribExportBtn")}
+                  </button>
+                </div>
+                {exportError && (
+                  <span role="alert" style={{ fontSize: "0.75rem", color: "var(--error, #DC2626)" }}>{exportError}</span>
+                )}
+              </div>
+            </div>
             <div ref={contribTopRef} />
             <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: "8px" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
