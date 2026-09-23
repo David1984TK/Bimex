@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import http from 'node:http';
 import { rpc } from '@stellar/stellar-sdk';
-import { upsertProyecto, upsertAportacion, insertEvento, insertAuditLog, getLastIndexedLedger, countEventsLastHour, supabaseOk } from './database.js';
+import { upsertProyecto, upsertAportacion, insertEvento, insertAuditLog, getLastIndexedLedger, countEventsLastHour, supabaseOk, getProyecto, getTotalAportado, insertProjectEvent } from './database.js';
 import { notificarClientes, getSseMetrics } from './sse.js';
 import { setCorsHeaders } from './api.js'; // start HTTP + SSE server in the same process
 import { processBatch } from './processor.js';
@@ -79,6 +79,15 @@ async function runOnce(startLedger) {
     insertAuditLog,
     notificarClientes,
     estado: estadoIndexer,
+    // Funding-milestone notifications: read the project with its up-to-date
+    // raised total (sum of aportaciones) and queue an email event.
+    obtenerProyecto: async (id) => {
+      const proyecto = await getProyecto(id);
+      if (!proyecto) return null;
+      const totalAportado = await getTotalAportado(id);
+      return { ...proyecto, total_aportado: totalAportado };
+    },
+    registrarEventoProyecto: insertProjectEvent,
   });
   if (result.ok) return result.cursor;
   return result.retryFromLedger;
