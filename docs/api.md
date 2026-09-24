@@ -9,11 +9,25 @@ Base URL: configure with `VITE_INDEXER_URL` for the frontend and `API_PORT` for 
 | `GET` | `/proyectos` | Lists indexed projects. Optional query: `estado`. |
 | `GET` | `/proyectos/:id` | Returns one indexed project. |
 | `GET` | `/proyectos/:id/aportaciones` | Lists contributions for a project. |
+| `GET` | `/backers/:address/aportaciones` | Lists every contribution made by a backer address, each with its project `nombre` and `estado`. |
 | `GET` | `/eventos` | Lists indexed contract events. Optional query: `tipo`; `limit` is capped at `200`. |
 | `GET` | `/stats` | Returns aggregate platform statistics. |
+| `GET` | `/audit` | Paginated admin audit log. Optional query: `action`, `actor`, `start_date`, `end_date`, `limit` (capped at `1000`), `offset`, `format=csv`. |
+| `GET` | `/impacto` | Historical summary of completed (`Liberado`) projects, including timeline and transaction hashes. |
 | `GET` | `/sse` | Server-Sent Events stream for project/event updates. |
 | `POST` | `/faucet` | Testnet-only MXNe faucet. Body: `{ "destino": "<stellar-address>" }`. |
 | `POST` | `/ipfs-upload` | Uploads a file to IPFS via Pinata (server-side proxy). Body: `{ "filename": "...", "mimeType": "...", "base64": "<base64>" }`. |
+
+## Authentication
+
+There is **no authentication** in the current API: every endpoint is public.
+
+- All `GET` read endpoints require no token, API key, or session.
+- `POST /faucet` and `POST /ipfs-upload` are the only write-like endpoints and they are not authenticated either. Abuse is contained with per-wallet / per-IP rate limits (see [Rate limits](#rate-limits)) and, for `/ipfs-upload`, strict server-side validation plus Pinata credentials that never leave the server.
+- Cross-origin browser access is restricted by an origin allowlist: `ALLOWED_ORIGINS` (comma-separated) plus the built-in defaults `https://bimex.vercel.app`, `https://bimex.mx`, and `http://localhost:5173` when `NODE_ENV=development`. Only allowlisted origins receive an `Access-Control-Allow-Origin` header, so browsers block requests from other origins. This is a browser policy, not authorization — non-browser clients can still reach the endpoints.
+- `/faucet` mints Testnet MXNe and is intended for Testnet deployments only.
+
+Every JSON response is sent with `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, and `Referrer-Policy: no-referrer`.
 
 ## Upload IPFS
 
@@ -84,6 +98,38 @@ Content-Type: application/json
 {"error":"Demasiadas solicitudes. Intenta de nuevo más tarde.","retry_after":41}
 ```
 
+## Errors
+
+### Error body format
+
+Every JSON error uses the same shape:
+
+```json
+{ "error": "Human-readable message" }
+```
+
+Rate-limited responses (`429`) add `retry_after` — seconds until the next allowed request:
+
+```json
+{ "error": "Demasiadas solicitudes. Intenta de nuevo más tarde.", "retry_after": 41 }
+```
+
+`500` responses never expose internal details: the full error is logged server-side with a context tag (e.g. `[db-read] GET /proyectos`) and the client receives a generic message such as `Error de base de datos` or `Error interno del servidor`.
+
+### HTTP status codes
+
+| Status | When it is returned |
+| --- | --- |
+| `200 OK` | Successful request. |
+| `204 No Content` | `OPTIONS` preflight response. |
+| `400 Bad Request` | Malformed JSON body, missing required fields, or invalid `/ipfs-upload` file type, extension, base64, or size (> 10 MB). |
+| `404 Not Found` | Unknown route, or `GET /proyectos/:id` for an id that does not exist. |
+| `405 Method Not Allowed` | A non-`GET` request to any route other than `POST /faucet` and `POST /ipfs-upload`. |
+| `413 Payload Too Large` | `POST /faucet` body exceeds `MAX_BODY_BYTES` (default 64 KiB). |
+| `429 Too Many Requests` | A rate limit was exceeded (see [Rate limits](#rate-limits)). |
+| `500 Internal Server Error` | Database or unexpected server error. |
+| `502 Bad Gateway` | `/ipfs-upload` could not complete the upload to Pinata (Pinata error, or credentials not configured). |
+
 ## Configuration
 
 | Variable | Default | Description |
@@ -98,6 +144,9 @@ Content-Type: application/json
 | `RATE_LIMIT_STORE` | `supabase` | `supabase` uses the shared Supabase RPC when available; `memory` forces in-process buckets. |
 | `RATE_LIMIT_WHITELIST_IPS` | empty | Comma-separated exact IPs or IPv4 CIDRs that bypass IP-based public/SSE limits. |
 | `RATE_LIMIT_TRUSTED_IPS` / `INTERNAL_IP_WHITELIST` / `FRONTEND_VERCEL_IP_WHITELIST` | empty | Additional whitelist aliases. |
+| `ALLOWED_ORIGINS` | empty | Extra comma-separated origins allowed by CORS (see [Authentication](#authentication)). |
+| `MAX_BODY_BYTES` | `65536` | Max request body for `POST /faucet`; larger bodies get `413`. |
+| `PUBLIC_CACHE_SECONDS` | `15` | `Cache-Control: max-age` for cacheable public `GET` responses. |
 
 The API reads the client IP from `X-Forwarded-For`, then `X-Real-IP`, then the socket remote address. Deploy behind a trusted reverse proxy so these headers cannot be spoofed.
 
