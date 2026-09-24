@@ -8,6 +8,7 @@
     "api": "node api.js",
     "reporte-mensual": "node jobs/reporteMensual.js",
     "reporte-mensual:dry-run": "node jobs/reporteMensual.js --dry-run",
+    "lint": "eslint .",
     "test": "vitest run",
     "test:scripts": "node scripts/test-scripts.js",
     "test:coverage": "vitest run --coverage",
@@ -20,7 +21,10 @@
     "resend": "^6.22.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@vitest/coverage-v8": "^4.1.11",
+    "eslint": "^10.9.1",
+    "globals": "^17.11.0",
     "vitest": "^4.1.9"
   },
   "overrides": {

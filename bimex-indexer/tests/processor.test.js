@@ -266,7 +266,6 @@ describe('processor.js — cursor-hold and retry', () => {
       makeRawEvent({ topic: 'contribuir', actor: 'GAAA', data: [1, '100', '1700000000'], ledger: 60, txHash: 'tx_stuck' }),
     ];
     const insertEvento = vi.fn().mockRejectedValue(new Error('persistent'));
-    const soroban = makeSorobanMock(records, 60, 61);
 
     // simulate 10 consecutive failed cycles
     for (let i = 0; i < 10; i++) {

@@ -90,5 +90,7 @@ jobs:
         run: cd bimex-indexer && npm ci
       - name: Audit dependencies
         run: cd bimex-indexer && npm audit --audit-level=high
+      - name: Lint
+        run: cd bimex-indexer && npm run lint
       - name: Run unit tests
         run: cd bimex-indexer && npm test
