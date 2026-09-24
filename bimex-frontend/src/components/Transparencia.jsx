@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { obtenerTodosLosProyectos, calcularYieldDetallado, stroopsAMXNe, urlExplorer, CONFIG } from "../stellar/contrato";
 import { parsearError } from "../utils/errores.js";
 import { esDireccionValida } from "../utils/stellar.js";
+import { escaparCSV, construirCSV } from "../utils/formato.js";
 import { createClient } from "@supabase/supabase-js";
 import usePaginacion from "../hooks/usePaginacion";
 import usePaginacionLocal from "../hooks/usePaginacionLocal";
@@ -54,6 +55,9 @@ export default function Transparencia({ onVolver }) {
   const [auditStartDate, setAuditStartDate] = useState("");
   const [auditEndDate, setAuditEndDate] = useState("");
   const [totalYield, setTotalYield] = useState(BigInt(0));
+  const [exportProyectoId, setExportProyectoId] = useState("");
+  const [exportando, setExportando] = useState(false);
+  const [exportError, setExportError] = useState(null);
   const contribTopRef = useRef(null);
   const auditTopRef = useRef(null);
 
@@ -89,6 +93,47 @@ export default function Transparencia({ onVolver }) {
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { cargar(); }, []);
+
+  async function exportarAportacionesCSV() {
+    const id = exportProyectoId;
+    if (!id || exportando) return;
+    setExportando(true);
+    setExportError(null);
+    try {
+      const res = await fetch(`${API_URL}/proyectos/${id}/aportaciones`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const aportaciones = await res.json();
+      const proyecto = proyectos.find((p) => String(p.id) === String(id));
+      const encabezado = [
+        t("transp.colProject"),
+        t("transp.colContributor"),
+        t("transp.colAmount"),
+        t("transp.colRetired"),
+        t("transp.colWhen"),
+      ];
+      const filas = aportaciones.map((r) => [
+        escaparCSV(proyecto?.nombre ?? `#${id}`),
+        escaparCSV(r.contribuidor ?? ""),
+        escaparCSV((Number(r.monto ?? 0) / 10_000_000).toFixed(2)),
+        escaparCSV(r.retirado ? t("transp.yes") : t("transp.no")),
+        escaparCSV(r.timestamp ? new Date(r.timestamp).toLocaleString() : ""),
+      ]);
+      const csv = construirCSV(encabezado, filas);
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `bimex-aportaciones-${id}-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    } catch {
+      setExportError(t("transp.exportError"));
+    } finally {
+      setExportando(false);
+    }
+  }
 
   // Paginated contributions across platform (Supabase)
   const contribPaginacion = usePaginacion(
@@ -323,6 +368,41 @@ export default function Transparencia({ onVolver }) {
           {/* Paginated contributions table */}
           <div style={{ marginTop: 28 }}>
             <h2 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: 8 }}>{t("transp.contributionsTitle")}</h2>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+              <label htmlFor="export-proyecto" style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
+                {t("transp.contribExportLabel")}
+              </label>
+              <select
+                id="export-proyecto"
+                value={exportProyectoId}
+                onChange={(e) => setExportProyectoId(e.target.value)}
+                style={{
+                  padding: "6px 10px", fontSize: "0.82rem",
+                  borderRadius: "var(--radius-sm)", border: "1px solid var(--border)",
+                  background: "var(--card)", color: "var(--text)", maxWidth: 260,
+                }}
+              >
+                <option value="">{t("transp.contribExportSelect")}</option>
+                {proyectos.map((p) => (
+                  <option key={p.id} value={p.id}>{p.nombre}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={exportarAportacionesCSV}
+                disabled={!exportProyectoId || exportando}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", fontSize: "0.82rem", fontWeight: 600 }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                {exportando ? t("transp.contribExporting") : t("transp.contribExportCsv")}
+              </button>
+              {exportError && (
+                <span role="alert" style={{ fontSize: "0.78rem", color: "var(--error, #DC2626)" }}>{exportError}</span>
+              )}
+            </div>
             <div ref={contribTopRef} />
             <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: "8px" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
