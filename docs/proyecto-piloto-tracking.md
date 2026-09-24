@@ -81,6 +81,7 @@
 - [ ] Caso de éxito redactado
 - [ ] Caso de éxito revisado por el equipo
 - [ ] Caso de éxito aprobado por la organización
+- [ ] Caso de éxito publicado en el sitio (página pública `/impacto`)
 - [ ] Publicado en Medium/blog
 - [ ] Publicado en Stellar Community Forum
 - [ ] README.md actualizado con enlace

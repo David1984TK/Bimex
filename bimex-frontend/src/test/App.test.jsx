@@ -85,8 +85,12 @@ function renderApp(initialEntries = ["/"]) {
 
 const storageLocal = getStorage("local");
 
+const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => [] });
+vi.stubGlobal("fetch", fetchMock);
+
 beforeEach(async () => {
   vi.clearAllMocks();
+  fetchMock.mockResolvedValue({ ok: true, json: async () => [] });
   storageLocal.removeItem("bimex.pwa.banner.dismissed");
   await i18n.changeLanguage("es");
 });
@@ -151,6 +155,31 @@ describe("App PWA install banner", () => {
 
     expect(await screen.findByText("Bimex ya está instalado. Puedes abrirlo desde tu pantalla de inicio y seguir viendo los proyectos cacheados.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Listo" })).toBeInTheDocument();
+  });
+});
+
+describe("App — enlaces a casos de éxito", () => {
+  it("ofrece el enlace desde el navbar y el footer de la Landing", async () => {
+    renderApp();
+
+    const enlaces = await screen.findAllByRole("button", { name: "Casos de éxito" });
+    expect(enlaces.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("navega a la página pública de casos de éxito desde la Landing", async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    const [enlaceNavbar] = await screen.findAllByRole("button", { name: "Casos de éxito" });
+    await user.click(enlaceNavbar);
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Casos de Éxito" })).toBeInTheDocument();
+  });
+
+  it("ofrece el enlace desde el footer global", async () => {
+    renderApp(["/novedades"]);
+
+    expect(await screen.findByRole("button", { name: "Casos de éxito" })).toBeInTheDocument();
   });
 });
 
