@@ -1,3 +1,10 @@
+================================================================
+HISTÓRICO - CONGELADO (sección de changelog)
+El changelog de este archivo es un resumen histórico y NO se actualiza.
+La fuente de verdad del changelog es CHANGELOG.md (raíz del repositorio).
+Registra los cambios nuevos únicamente allí.
+================================================================
+
 ================================================================================
                     DOCUMENTACIÓN TÉCNICA - BIMEX
            Zero-Loss Social Impact Crowdfunding en Stellar/Soroban
