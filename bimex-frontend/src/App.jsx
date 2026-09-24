@@ -109,32 +109,6 @@ function LogoSVG({ size = 36, light = false }) {
   );
 }
 
-// ── Datos estáticos de landing ──────────────────────────────────────────────
-const FEATURES = [
-  {
-    titulo: "Tu dinero no está bloqueado — puedes retirarlo cuando quieras",
-    desc: "Tu MXNe entra al smart contract y permanece disponible para ti. Puedes retirar el 100% de tu dinero en cualquier momento que lo desees, sin plazos forzosos ni penalizaciones.",
-    color: "#1E3A5F", bg: "rgba(30,58,95,0.05)", border: "rgba(30,58,95,0.12)",
-  },
-  {
-    titulo: "Doble rendimiento: CETES + AMM Stellar",
-    desc: "Tu capital genera rendimiento en dos capas: CETES vía Etherfuse (deuda soberana mexicana) y fees del AMM de Stellar. El proyecto recibe ese rendimiento mientras tu capital permanece intacto.",
-    color: "#16A34A", bg: "rgba(22,163,74,0.05)", border: "rgba(22,163,74,0.15)",
-  },
-  {
-    titulo: "100% on-chain, sin intermediarios",
-    desc: "Cada proyecto requiere documentos verificados almacenados en IPFS con referencia en blockchain. El código es público, auditable y autónomo.",
-    color: "#D97706", bg: "rgba(217,119,6,0.05)", border: "rgba(217,119,6,0.15)",
-  },
-];
-
-const PASOS = [
-  { num: "01", titulo: "Conecta tu wallet", desc: "Abre Freighter en Stellar Testnet y conecta con un clic. Sin registro, sin KYC." },
-  { num: "02", titulo: "Deposita MXNe en un proyecto", desc: "Tu capital entra al smart contract. Si el proyecto no alcanza su meta, se devuelve automáticamente." },
-  { num: "03", titulo: "El rendimiento financia el proyecto", desc: "El yield (CETES + AMM) financia el proyecto mensualmente. Tu capital lo recuperas íntegro al finalizar." },
-  { num: "04", titulo: "Recuperas todo más tu ganancia", desc: "Al cierre retiras tu capital original más el 5% de rendimiento acumulado. Recibes un certificado de impacto." },
-];
-
 // ── Hook: estadísticas en vivo ─────────────────────────────────────────────
 let _statsCache = null;
 let _statsCacheTs = 0;
@@ -168,6 +142,7 @@ function useLiveStats() {
 
 // ── Botón faucet ────────────────────────────────────────────────────────────
 function BtnFaucet({ direccion }) {
+  const { t } = useTranslation();
   const [estado, setEstado] = useState("idle");
 
   async function pedir() {
@@ -189,7 +164,7 @@ function BtnFaucet({ direccion }) {
     <button
       onClick={pedir}
       disabled={estado === "loading"}
-      title="Obtener 100 MXNe de prueba (solo testnet)"
+      title={t("comun.faucetTitle")}
       style={{
         background: "var(--bg)",
         border: "1px solid var(--border2)",
@@ -265,7 +240,7 @@ function ToastContainer({ toasts, onRemove }) {
           {/* Botón cerrar */}
           <button
             onClick={() => onRemove(t.id)}
-            aria-label="Cerrar notificación"
+            aria-label={t("comun.cerrarToastAria")}
             style={{
               flexShrink: 0, background: "none", border: "none", cursor: "pointer",
               color: t.tipo === "error" ? "#DC2626" : "var(--green)",
@@ -462,7 +437,7 @@ export default function App() {
         message={mensajeBannerPwa}
       />
       {pathname !== "/" && (
-        <nav className="navbar" aria-label="Navegación principal">
+        <nav className="navbar" aria-label={t("landing.navAria")}>
           {/* Logo + Nav tabs agrupados a la izquierda */}
           <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9, marginRight: 24 }}>
@@ -638,7 +613,7 @@ export default function App() {
             }
           />
           <Route path="/impacto" element={<CasosDeExito />} />
-          <Route path="/novedades" element={<div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)" }}><button type="button" className="btn btn-ghost" onClick={() => navigate(direccion ? "/proyectos" : "/")} style={{ fontSize: "0.84rem" }}>← Volver</button><Changelog /></div>} />
+          <Route path="/novedades" element={<div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)" }}><button type="button" className="btn btn-ghost" onClick={() => navigate(direccion ? "/proyectos" : "/")} style={{ fontSize: "0.84rem" }}>{t("comun.volver")}</button><Changelog /></div>} />
           <Route path="/terminos" element={<Terminos onVolver={() => navigate(direccion ? "/proyectos" : "/")} />} />
           <Route path="/privacidad" element={<Privacidad onVolver={() => navigate(direccion ? "/proyectos" : "/")} />} />
           <Route
@@ -704,18 +679,42 @@ function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTe
   const liveStats = useLiveStats();
   const { rate: cetesRate, error: cetesError } = useCetesRate();
 
+  const FEATURES = [
+    {
+      titulo: t("landing.features.f1Title"),
+      desc: t("landing.features.f1Desc"),
+      color: "#1E3A5F", bg: "rgba(30,58,95,0.05)", border: "rgba(30,58,95,0.12)",
+    },
+    {
+      titulo: t("landing.features.f2Title"),
+      desc: t("landing.features.f2Desc"),
+      color: "#16A34A", bg: "rgba(22,163,74,0.05)", border: "rgba(22,163,74,0.15)",
+    },
+    {
+      titulo: t("landing.features.f3Title"),
+      desc: t("landing.features.f3Desc"),
+      color: "#D97706", bg: "rgba(217,119,6,0.05)", border: "rgba(217,119,6,0.15)",
+    },
+  ];
+
+  const PASOS = [
+    { num: "01", titulo: t("landing.steps.s1Title"), desc: t("landing.steps.s1Desc") },
+    { num: "02", titulo: t("landing.steps.s2Title"), desc: t("landing.steps.s2Desc") },
+    { num: "03", titulo: t("landing.steps.s3Title"), desc: t("landing.steps.s3Desc") },
+    { num: "04", titulo: t("landing.steps.s4Title"), desc: t("landing.steps.s4Desc") },
+  ];
   const STATS_LIVE = [
-    { valor: liveStats.totalProyectos, label: "Proyectos activos" },
-    { valor: liveStats.totalBloqueado, label: "MXNe invertidos" },
-    { valor: cetesRate ? `${cetesRate}%` : "9.45%", label: cetesError ? "APY CETES (ref.)" : "APY CETES hoy" },
+    { valor: liveStats.totalProyectos, label: t("landing.statsActiveProjects") },
+    { valor: liveStats.totalBloqueado, label: t("landing.statsInvested") },
+    { valor: cetesRate ? `${cetesRate}%` : "9.45%", label: cetesError ? t("landing.statsCetesRef") : t("landing.statsCetesToday") },
   ];
 
   return (
     <div style={{ overflowX: "hidden", background: "var(--bg)" }}>
-      <a href="#contenido-principal" className="skip-link">Saltar al contenido</a>
+      <a href="#contenido-principal" className="skip-link">{t("landing.skipContent")}</a>
 
       {/* Navbar landing */}
-      <nav aria-label="Navegación principal" className="navbar" style={{ position: "fixed", top: 0, left: 0, right: 0 }}>
+      <nav aria-label={t("landing.navAria")} className="navbar" style={{ position: "fixed", top: 0, left: 0, right: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
           <LogoSVG size={22} />
           <span className="navbar-logo">Bimex</span>
@@ -753,19 +752,16 @@ function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTe
           <div>
             <div style={st.heroBadge}>
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--green)", display: "inline-block" }} />
-              Tu dinero no está bloqueado — puedes retirarlo cuando quieras
+              {t("landing.heroBadge")}
             </div>
             <div style={{ marginTop: 10 }}>
               <AuditoriaBadge variant="compact" />
             </div>
             <h1 id="hero-titulo" style={st.heroH1}>
-              Invierte. Impacta.<br />
-              <span style={{ color: "var(--navy)" }}>Recupera todo.</span>
+              {t("landing.heroTitle1")}<br />
+              <span style={{ color: "var(--navy)" }}>{t("landing.heroTitle2")}</span>
             </h1>
-            <p style={st.heroDesc}>
-              Tu capital genera rendimiento que financia proyectos sociales verificados.
-              Al finalizar, recuperas el 100% de lo que depositaste — más tu ganancia.
-            </p>
+            <p style={st.heroDesc}>{t("landing.heroDesc")}</p>
             <div style={st.heroActions}>
               <ConectarWallet autoConectar={autoConectar} onConectado={onConectado} />
               {installReady && (
@@ -786,13 +782,13 @@ function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTe
           {/* Yield card */}
           <div className="landing-yield-card" style={st.yieldCard}>
             <div style={st.yieldCardHead}>
-              <p style={{ fontSize: "0.78rem", opacity: 0.7, marginBottom: 4 }}>Distribución del rendimiento</p>
-              <p style={{ fontWeight: 600, fontSize: "0.98rem" }}>Yield total: ~13.45% anual</p>
+              <p style={{ fontSize: "0.78rem", opacity: 0.7, marginBottom: 4 }}>{t("landing.yieldCard.headSub")}</p>
+              <p style={{ fontWeight: 600, fontSize: "0.98rem" }}>{t("landing.yieldCard.headTitle")}</p>
             </div>
             {[
-              { label: "Proyecto social", sub: "Financiamiento mensual", pct: "6.00%", color: "var(--green)" },
-              { label: "Tu rendimiento",  sub: "Acumulado hasta el cierre", pct: "5.00%", color: "var(--navy)" },
-              { label: "Plataforma Bimex", sub: "Operación y seguridad", pct: "2.45%", color: "var(--subtle)" },
+              { label: t("landing.yieldCard.socialProject"), sub: t("landing.yieldCard.socialProjectSub"), pct: "6.00%", color: "var(--green)" },
+              { label: t("landing.yieldCard.yourYield"),  sub: t("landing.yieldCard.yourYieldSub"), pct: "5.00%", color: "var(--navy)" },
+              { label: t("landing.yieldCard.platform"), sub: t("landing.yieldCard.platformSub"), pct: "2.45%", color: "var(--subtle)" },
             ].map(r => (
               <div key={r.label} style={st.yieldRow}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -806,7 +802,7 @@ function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTe
               </div>
             ))}
             <div style={st.yieldTotal}>
-              <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Total distribuido</span>
+              <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{t("landing.yieldCard.totalDistributed")}</span>
               <strong style={{ fontSize: "1rem", color: "var(--navy)" }}>13.45%</strong>
             </div>
           </div>
@@ -814,7 +810,7 @@ function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTe
       </section>
 
       {/* Stats bar */}
-      <section aria-label="Estadísticas de la plataforma" className="landing-stats-bar landing-section">
+      <section aria-label={t("landing.statsAria")} className="landing-stats-bar landing-section">
         <div className="landing-stats-inner">
           {STATS_LIVE.map((s, i) => (
             <div key={s.label} style={{ display: "flex", alignItems: "center" }}>
@@ -833,21 +829,21 @@ function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTe
           <div className="landing-cetes-row">
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: "0.7rem", background: "rgba(22,163,74,0.25)", color: "#86EFAC", fontWeight: 700, padding: "3px 10px", borderRadius: 99, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                CETES hoy
+                {t("landing.cetesToday")}
               </span>
               <span style={{ fontWeight: 700, fontSize: "1rem", color: "#86EFAC" }}>{cetesRate}%</span>
-              <span style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.7)" }}>vía Etherfuse</span>
+              <span style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.7)" }}>{t("landing.viaEtherfuse")}</span>
             </div>
             <div style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,0.25)" }} />
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: "0.7rem", background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.75)", fontWeight: 700, padding: "3px 10px", borderRadius: 99, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                AMM Stellar
+                {t("landing.ammStellar")}
               </span>
               <span style={{ fontWeight: 700, fontSize: "1rem", color: "rgba(255,255,255,0.85)" }}>~4%</span>
             </div>
             <div style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,0.25)" }} />
             <span style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.65)", fontWeight: 600 }}>
-              = ~{(cetesRate + 4).toFixed(2)}% APY total disponible
+              {t("landing.totalAvailableApy", { rate: (cetesRate + 4).toFixed(2) })}
             </span>
           </div>
         )}
@@ -869,9 +865,9 @@ function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTe
       <section aria-labelledby="features-titulo" className="landing-section" style={{ padding: "64px 40px", background: "var(--bg)" }}>
         <div style={{ maxWidth: 1120, margin: "0 auto" }}>
           <div style={{ marginBottom: 40 }}>
-            <div style={st.sectionLabel}>Por que Bimex</div>
-            <h2 id="features-titulo" style={st.sectionH2}>Crowdfunding sin perder tu capital</h2>
-            <p style={st.sectionSub}>Lo peor que te puede pasar: salir exactamente como entraste.</p>
+            <div style={st.sectionLabel}>{t("landing.whyBimexLabel")}</div>
+            <h2 id="features-titulo" style={st.sectionH2}>{t("landing.whyBimexTitle")}</h2>
+            <p style={st.sectionSub}>{t("landing.whyBimexSub")}</p>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
             {FEATURES.map(f => (
@@ -888,9 +884,9 @@ function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTe
       <section aria-labelledby="como-funciona-titulo" className="landing-section" style={{ padding: "64px 40px", background: "var(--card)", borderTop: "1px solid var(--border)" }}>
         <div style={{ maxWidth: 1120, margin: "0 auto" }}>
           <div style={{ marginBottom: 40 }}>
-            <div style={st.sectionLabel}>Como funciona</div>
-            <h2 id="como-funciona-titulo" style={st.sectionH2}>Cuatro pasos, capital protegido</h2>
-            <p style={st.sectionSub}>Sin registro, sin KYC, sin intermediarios.</p>
+            <div style={st.sectionLabel}>{t("landing.howItWorksLabel")}</div>
+            <h2 id="como-funciona-titulo" style={st.sectionH2}>{t("landing.howItWorksTitle")}</h2>
+            <p style={st.sectionSub}>{t("landing.howItWorksSub")}</p>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 1, background: "var(--border)", border: "1px solid var(--border)", borderRadius: "var(--radius)", overflow: "hidden" }}>
             {PASOS.map(p => (
@@ -906,10 +902,10 @@ function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTe
 
           <div style={{ marginTop: 32, padding: "28px 32px", background: "var(--navy)", borderRadius: "var(--radius)", textAlign: "center" }}>
             <p style={{ fontWeight: 600, fontSize: "1.05rem", color: "#fff", marginBottom: 6, lineHeight: 1.5 }}>
-              Listo para apoyar un proyecto?
+              {t("landing.readyTitle")}
             </p>
             <p style={{ color: "rgba(255,255,255,0.60)", fontSize: "0.88rem", marginBottom: 22 }}>
-              Conecta tu wallet y empieza. Tu capital siempre es recuperable al finalizar.
+              {t("landing.readyDesc")}
             </p>
             <ConectarWallet autoConectar={false} onConectado={onConectado} />
           </div>
@@ -923,11 +919,11 @@ function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTe
           <span style={{ fontWeight: 700, fontSize: "1rem", color: "rgba(255,255,255,0.85)" }}>Bimex</span>
         </div>
         <p style={{ color: "rgba(255,255,255,0.65)", fontSize: "0.78rem", marginBottom: 10 }}>
-          Hack+ Alebrije · Stellar · CDMX 2025 · Construido con Soroban y MXNe
+          {t("landing.footerTagline")}
         </p>
         <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
           <button type="button" onClick={onChangelog} style={st.footerLinkLanding}>
-            Novedades
+            {t("landing.footerNews")}
           </button>
           <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
           <button type="button" onClick={onTerminos} style={st.footerLinkLanding}>

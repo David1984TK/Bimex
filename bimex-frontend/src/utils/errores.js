@@ -1,3 +1,4 @@
+import i18n from "../i18n/index.js";
 import * as Sentry from '@sentry/react';
 
 /**
@@ -5,7 +6,7 @@ import * as Sentry from '@sentry/react';
  * en mensajes legibles para el usuario.
  */
 export function parsearError(err) {
-  const raw = err?.message || String(err) || "Error desconocido";
+  const raw = err?.message || String(err) || i18n.t("errores.desconocido");
 
   if (import.meta.env.VITE_SENTRY_DSN) {
     Sentry.captureException(err, {
@@ -18,104 +19,104 @@ export function parsearError(err) {
 
   // ── Conectividad / sin internet ───────────────────────────────────────────────
   if (!navigator.onLine || raw.includes("ERR_INTERNET_DISCONNECTED") || raw.includes("net::ERR"))
-    return "Sin conexión a internet. Revisa tu red e intenta de nuevo.";
+    return i18n.t("errores.sinInternet");
   if (raw.includes("ERR_NAME_NOT_RESOLVED") || raw.includes("DNS"))
-    return "No se pudo resolver el servidor. Verifica tu conexión.";
+    return i18n.t("errores.noDns");
   if (raw.includes("ECONNREFUSED"))
-    return "Conexión rechazada por el servidor. El servicio puede estar caído.";
+    return i18n.t("errores.connRefused");
 
   // ── RPC / Soroban node ────────────────────────────────────────────────────────
   if (raw.includes("502") || raw.includes("503") || raw.includes("Bad Gateway"))
-    return "El nodo RPC de Soroban está temporalmente no disponible. Intenta en unos minutos.";
+    return i18n.t("errores.rpcNoDisponible");
   if (raw.includes("429") || raw.includes("Too Many Requests") || raw.includes("rate limit"))
-    return "Demasiadas solicitudes. Espera unos segundos e intenta de nuevo.";
+    return i18n.t("errores.demasiadasSolicitudes");
   if (raw.includes("timeout") || raw.includes("Timeout") || raw.includes("ETIMEDOUT"))
-    return "La solicitud tardó demasiado. Verifica tu conexión y vuelve a intentar.";
+    return i18n.t("errores.timeout");
   if (raw.includes("socket hang up") || raw.includes("ECONNRESET"))
-    return "La conexión se interrumpió. Intenta de nuevo.";
+    return i18n.t("errores.connInterrumpida");
 
   // ── Freighter wallet (específico) ─────────────────────────────────────────────
   if (raw.includes("Freighter is not installed") || (raw.includes("freighter") && raw.includes("undefined")))
-    return "Freighter no está instalado. Instálalo desde la Chrome Web Store para continuar.";
+    return i18n.t("errores.freighterNoInstalado");
   if (raw.includes("locked") || raw.includes("Wallet is locked"))
-    return "Freighter está bloqueado. Desbloquéalo con tu contraseña e intenta de nuevo.";
+    return i18n.t("errores.freighterBloqueado");
   if (raw.includes("not allowed") || raw.includes("Not allowed"))
-    return "Freighter no tiene permiso para conectar con esta app. Abre Freighter y acepta la conexión.";
+    return i18n.t("errores.freighterSinPermiso");
   if (raw.includes("wrong network") || raw.includes("red incorrecta"))
-    return "Tu Freighter está en una red diferente. Cámbialo a Testnet (o Mainnet según corresponda).";
+    return i18n.t("errores.freighterRedIncorrecta");
 
   // ── IPFS / Pinata ─────────────────────────────────────────────────────────────
   if (raw.includes("pinata") || raw.includes("IPFS") || raw.includes("ipfs"))
-    return "Error al subir documentos a IPFS. Los documentos se guardarán con hash local como respaldo.";
+    return i18n.t("errores.ipfsError");
   if (raw.includes("413") || raw.includes("Payload Too Large"))
-    return "El archivo es demasiado grande. El límite es 10 MB por documento.";
+    return i18n.t("errores.archivoGrande");
 
   // ── Token / MXNe ──────────────────────────────────────────────────────────────
   if (raw.includes("not authorized") && raw.includes("token"))
-    return "No tienes autorización para transferir este token. Asegúrate de tener MXNe en tu wallet.";
+    return i18n.t("errores.tokenNoAutorizado");
   if (raw.includes("trustline"))
-    return "Tu wallet no tiene una trustline para MXNe. Necesitas agregarla desde Freighter.";
+    return i18n.t("errores.tokenTrustline");
   if (raw.includes("token_transfer") || raw.includes("ClassicOp"))
-    return "Error al transferir MXNe. Revisa que tengas saldo suficiente y la trustline activa.";
+    return i18n.t("errores.tokenTransfer");
 
   // ── Estado / lógica de contrato ───────────────────────────────────────────────
   if (raw.includes("Proyecto no encontrado") || raw.includes("project not found"))
-    return "Proyecto no encontrado. Puede haber sido eliminado o el ID es incorrecto.";
+    return i18n.t("errores.proyectoNoEncontrado");
   if (raw.includes("Estado incorrecto") || raw.includes("invalid state") || raw.includes("InvalidState"))
-    return "Esta acción no está permitida en el estado actual del proyecto.";
+    return i18n.t("errores.estadoIncorrecto");
   if (raw.includes("Aportacion no encontrada") || raw.includes("contribution not found"))
-    return "No tienes una aportación registrada en este proyecto.";
+    return i18n.t("errores.aportacionNoEncontrada");
   if (raw.includes("Fecha de inicio") || raw.includes("start_date"))
-    return "La fecha de inicio del proyecto no es válida.";
+    return i18n.t("errores.fechaInvalida");
   if (raw.includes("Plazo invalido") || raw.includes("invalid duration"))
-    return "El plazo del proyecto no es válido. Debe ser entre 1 y 60 meses.";
+    return i18n.t("errores.plazoInvalido");
 
   // ── Sesión / autenticación ────────────────────────────────────────────────────
   if (raw.includes("session expired") || raw.includes("sesión expirada"))
-    return "Tu sesión ha expirado. Reconecta tu wallet para continuar.";
+    return i18n.t("errores.sesionExpirada");
   if (raw.includes("signature") || raw.includes("Signature"))
-    return "Error de firma digital. Intenta firmar la transacción de nuevo en Freighter.";
+    return i18n.t("errores.firmaError");
 
   // ── Errores de contrato (Soroban / WasmVm) ────────────────────────────────────
   if (raw.includes("HostError") || raw.includes("WasmVm") || raw.includes("UnreachableCode") || raw.includes("InvalidAction")) {
-    if (raw.includes("La meta debe ser mayor"))      return "La meta del proyecto debe ser mayor a 0 MXNe.";
-    if (raw.includes("alcanzo su meta"))             return "Este proyecto ya alcanzó su meta de financiamiento.";
-    if (raw.includes("No hay fondos"))               return "No hay fondos depositados en este proyecto.";
-    if (raw.includes("Aun no hay yield"))            return "Todavía no hay yield suficiente acumulado para retirar.";
-    if (raw.includes("Principal ya retirado"))       return "Ya retiraste tu capital de este proyecto.";
-    if (raw.includes("Ya inicializado"))             return "El contrato ya está inicializado.";
-    if (raw.includes("Cantidad debe ser mayor"))     return "La cantidad a depositar debe ser mayor a 0.";
-    if (raw.includes("Solo el admin"))               return "Solo el administrador puede realizar esta acción.";
+    if (raw.includes("La meta debe ser mayor"))      return i18n.t("errores.metaMayorCero");
+    if (raw.includes("alcanzo su meta"))             return i18n.t("errores.metaAlcanzada");
+    if (raw.includes("No hay fondos"))               return i18n.t("errores.sinFondos");
+    if (raw.includes("Aun no hay yield"))            return i18n.t("errores.sinYield");
+    if (raw.includes("Principal ya retirado"))       return i18n.t("errores.principalYaRetirado");
+    if (raw.includes("Ya inicializado"))             return i18n.t("errores.yaInicializado");
+    if (raw.includes("Cantidad debe ser mayor"))     return i18n.t("errores.cantidadMayorCero");
+    if (raw.includes("Solo el admin"))               return i18n.t("errores.soloAdmin");
     if (raw.includes("require_auth") || raw.includes("Auth"))
-                                                     return "Error de autorización. Verifica que tu wallet esté conectada correctamente.";
-    return "Error en el contrato inteligente. El contrato en testnet puede necesitar ser redesPlegado. Contacta al administrador.";
+                                                     return i18n.t("errores.authError");
+    return i18n.t("errores.contratoError");
   }
 
   // ── Errores de Freighter / wallet ─────────────────────────────────────────────
   if (raw.includes("rechazó la firma") || raw.includes("User declined"))
-    return "Cancelaste la transacción en Freighter.";
+    return i18n.t("errores.firmaRechazada");
   if (raw.includes("no devolvió una transacción firmada"))
-    return "Freighter no devolvió la transacción firmada. Intenta de nuevo.";
+    return i18n.t("errores.freighterNoDevolvio");
   if (raw.includes("Freighter"))
-    return "Error con Freighter Wallet. Asegúrate de que esté desbloqueado y en Testnet.";
+    return i18n.t("errores.freighterGenerico");
 
   // ── Errores de red / RPC ──────────────────────────────────────────────────────
   if (raw.includes("Tiempo de espera agotado"))
-    return "La transacción tardó demasiado. Puede haber confirmado igual — verifica en el explorador de Stellar.";
+    return i18n.t("errores.esperaAgotada");
   if (raw.includes("falló en la red") || raw.includes("XDR"))
-    return "La transacción fue rechazada por la red. Intenta de nuevo.";
+    return i18n.t("errores.txRechazadaRed");
   if (raw.includes("restauración de TTL"))
-    return "El contrato requiere restauración de TTL. Contacta al administrador.";
+    return i18n.t("errores.restauracionTtl");
   if (raw.includes("NetworkError") || raw.includes("Failed to fetch") || raw.includes("fetch"))
-    return "Error de red. Verifica tu conexión a internet.";
+    return i18n.t("errores.redGenerico");
   if (raw.includes("no devolvió valor"))
-    return "El contrato no respondió. El RPC puede estar caído — intenta en unos minutos.";
+    return i18n.t("errores.noDevolvioValor");
 
   // ── Errores de saldo / fondos ─────────────────────────────────────────────────
   if (raw.includes("insufficient") || raw.includes("balance") || raw.includes("saldo"))
-    return "Saldo insuficiente. Obtén MXNe de prueba con el botón '100 MXNe'.";
+    return i18n.t("errores.saldoInsuficiente");
   if (raw.includes("op_underfunded"))
-    return "Fondos insuficientes en tu wallet para cubrir la transacción.";
+    return i18n.t("errores.fondosInsuficientes");
 
   // ── Mensaje genérico (truncado si es muy largo) ───────────────────────────────
   return raw.length > 140 ? raw.slice(0, 140) + "…" : raw;

@@ -499,6 +499,7 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
 // ─── Notificaciones ───────────────────────────────────────────────────────────
 
 function NotificacionesPanel({ direccion }) {
+  const { t } = useTranslation();
   const [email,   setEmail]   = useState("");
   const [enabled, setEnabled] = useState(true);
   const [estado,  setEstado]  = useState("idle"); // idle | saving | ok | error
@@ -538,10 +539,10 @@ function NotificacionesPanel({ direccion }) {
           <IconBell />
           <div>
             <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--text)" }}>
-              Notificaciones por email
+              {t("cuenta.notificationsTitle")}
             </div>
             <div style={{ fontSize: "0.76rem", color: "var(--muted)", marginTop: 2 }}>
-              Recibe alertas cuando tu proyecto sea aprobado, financiado o tenga yield disponible.
+              {t("cuenta.notificationsDesc")}
             </div>
           </div>
         </div>
@@ -570,7 +571,7 @@ function NotificacionesPanel({ direccion }) {
           <input
             type="email"
             required
-            placeholder="tu@email.com"
+            placeholder="name@email.com"
             value={email}
             onChange={e => setEmail(e.target.value)}
             style={{
@@ -582,7 +583,7 @@ function NotificacionesPanel({ direccion }) {
             }}
             onFocus={e => { e.target.style.borderColor = "var(--navy)"; }}
             onBlur={e => { e.target.style.borderColor = "var(--border2)"; }}
-            aria-label="Email para notificaciones"
+            aria-label={t("cuenta.notificationsTitle")}
           />
           <button
             type="submit"

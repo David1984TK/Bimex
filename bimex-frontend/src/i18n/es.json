@@ -242,7 +242,9 @@
       "Salud": "Salud",
       "Arte": "Arte",
       "Infraestructura": "Infraestructura"
-    }
+    },
+    "investorYieldLabel": "Ganarías como inversor",
+    "removeFileAria": "Eliminar archivo"
   },
   "cuenta": {
     "title": "Mi cuenta",
@@ -275,7 +277,9 @@
     "colRendimiento": "Rendimiento",
     "colEstado": "Estado",
     "colCierre": "Cierre",
-    "descargarCSV": "Descargar CSV"
+    "descargarCSV": "Descargar CSV",
+    "notificationsTitle": "Notificaciones por email",
+    "notificationsDesc": "Recibe alertas cuando tu proyecto sea aprobado, financiado o tenga yield disponible."
   },
   "admin": {
     "title": "Panel de Administrador",
@@ -296,7 +300,8 @@
     "closeAria": "Cerrar panel de administrador",
     "toastApproved": "✅ Proyecto #{{id}} aprobado",
     "toastRejected": "❌ Proyecto #{{id}} rechazado",
-    "errLoad": "No se pudieron cargar los proyectos: {{msg}}"
+    "errLoad": "No se pudieron cargar los proyectos: {{msg}}",
+    "loadingProjectsAria": "Cargando proyectos"
   },
   "transp": {
     "title": "Transparencia pública",
@@ -341,7 +346,6 @@
     "viewContract": "Ver el contrato en Stellar Explorer",
     "viewAccount": "Ver cuenta en Stellar Explorer"
   },
-
   "impacto": {
     "title": "Casos de Éxito",
     "subtitle": "Proyectos financiados con resultados verificables. Datos obtenidos directamente del contrato inteligente en Stellar.",
@@ -393,7 +397,6 @@
     "contributorsParticipated": "{{count}} personas contribuyeron",
     "projectOverview": "Resumen del proyecto"
   },
-
   "simulador": {
     "sectionLabel": "Simula tu impacto",
     "title": "¿Cuánto genera tu aporte?",
@@ -409,7 +412,6 @@
     "youRecoverSub": "Incluye +${{amount}} de rendimiento ({{pct}} anual)",
     "disclaimer": "Cálculo ilustrativo basado en la distribución objetivo del rendimiento (CETES vía Etherfuse + AMM Stellar). Las tasas son variables. Tu dinero no está bloqueado — puedes retirar tu capital íntegro cuando lo desees."
   },
-
   "pagination": {
     "aria": "Paginación",
     "prev": "Anterior",
@@ -482,7 +484,31 @@
     "ariaBtn": "Recompensas — nivel {{level}}, {{count}} desbloqueadas",
     "ariaPanel": "Panel de recompensas",
     "ariaUnlocked": "Ver recompensa: {{name}}",
-    "ariaLocked": "Recompensa bloqueada: {{name}}. Requiere {{amount}} MXNe"
+    "ariaLocked": "Recompensa bloqueada: {{name}}. Requiere {{amount}} MXNe",
+    "tiers": {
+      "semilla": "Semilla",
+      "brote": "Brote",
+      "arbol": "Árbol",
+      "selva": "Selva"
+    },
+    "items": {
+      "r1Name": "Badge Semilla",
+      "r1Desc": "Tu primer paso en Bimex",
+      "r2Name": "Primer aporte",
+      "r2Desc": "Contribuiste tu primer MXNe",
+      "r3Name": "Inversor Brote",
+      "r3Desc": "Invertiste 1,000+ MXNe en total",
+      "r4Name": "Regalo sorpresa",
+      "r4Desc": "Desbloquea al llegar a 5,000 MXNe",
+      "r5Name": "Árbol de impacto",
+      "r5Desc": "Invertiste 10,000+ MXNe",
+      "r6Name": "Caja misteriosa",
+      "r6Desc": "Acceso exclusivo a proyectos VIP",
+      "r7Name": "Guardián Selva",
+      "r7Desc": "Invertiste 100,000+ MXNe",
+      "r8Name": "NFT exclusivo",
+      "r8Desc": "NFT de colección arte mexicano"
+    }
   },
   "wallet": {
     "connect": "Conectar",
@@ -510,14 +536,226 @@
     "requerido": "Este campo es obligatorio."
   },
   "tour": {
-    "step1": { "title": "Tu wallet conectada", "content": "Esta es tu wallet conectada. Tu dirección Stellar aparece aquí de forma segura." },
-    "step2": { "title": "Explora proyectos de impacto", "content": "Aquí encuentras proyectos de impacto social verificados. Cada uno muestra su meta y progreso en tiempo real." },
-    "step3": { "title": "Contribuye con MXNe", "content": "Haz clic en un proyecto para ver detalles completos y contribuir con MXNe. Tu capital siempre es recuperable." },
-    "step4": { "title": "Estás en Testnet", "content": "Estás en testnet — usa el botón de faucet para obtener MXNe de prueba gratis y experimentar sin riesgo." },
-    "step5": { "title": "Tu cuenta personal", "content": "Aquí puedes ver todas tus contribuciones, proyectos creados y el rendimiento que has generado." },
+    "step1": {
+      "title": "Tu wallet conectada",
+      "content": "Esta es tu wallet conectada. Tu dirección Stellar aparece aquí de forma segura."
+    },
+    "step2": {
+      "title": "Explora proyectos de impacto",
+      "content": "Aquí encuentras proyectos de impacto social verificados. Cada uno muestra su meta y progreso en tiempo real."
+    },
+    "step3": {
+      "title": "Contribuye con MXNe",
+      "content": "Haz clic en un proyecto para ver detalles completos y contribuir con MXNe. Tu capital siempre es recuperable."
+    },
+    "step4": {
+      "title": "Estás en Testnet",
+      "content": "Estás en testnet — usa el botón de faucet para obtener MXNe de prueba gratis y experimentar sin riesgo."
+    },
+    "step5": {
+      "title": "Tu cuenta personal",
+      "content": "Aquí puedes ver todas tus contribuciones, proyectos creados y el rendimiento que has generado."
+    },
     "skip": "Omitir",
     "next": "Siguiente",
     "finish": "Finalizar",
     "restart": "Reiniciar tour"
+  },
+  "landing": {
+    "skipContent": "Saltar al contenido",
+    "navAria": "Navegación principal",
+    "heroBadge": "Tu dinero no está bloqueado — puedes retirarlo cuando quieras",
+    "heroTitle1": "Invierte. Impacta.",
+    "heroTitle2": "Recupera todo.",
+    "heroDesc": "Tu capital genera rendimiento que financia proyectos sociales verificados. Al finalizar, recuperas el 100% de lo que depositaste — más tu ganancia.",
+    "heroNote": "Requiere <1>Freighter Wallet</1> en Stellar Testnet",
+    "yieldCard": {
+      "headSub": "Distribución del rendimiento",
+      "headTitle": "Yield total: ~13.45% anual",
+      "socialProject": "Proyecto social",
+      "socialProjectSub": "Financiamiento mensual",
+      "yourYield": "Tu rendimiento",
+      "yourYieldSub": "Acumulado hasta el cierre",
+      "platform": "Plataforma Bimex",
+      "platformSub": "Operación y seguridad",
+      "totalDistributed": "Total distribuido"
+    },
+    "statsAria": "Estadísticas de la plataforma",
+    "statsActiveProjects": "Proyectos activos",
+    "statsInvested": "MXNe invertidos",
+    "statsCetesRef": "APY CETES (ref.)",
+    "statsCetesToday": "APY CETES hoy",
+    "cetesToday": "CETES hoy",
+    "viaEtherfuse": "vía Etherfuse",
+    "ammStellar": "AMM Stellar",
+    "totalAvailableApy": "= ~{{rate}}% APY total disponible",
+    "whyBimexLabel": "Por que Bimex",
+    "whyBimexTitle": "Crowdfunding sin perder tu capital",
+    "whyBimexSub": "Lo peor que te puede pasar: salir exactamente como entraste.",
+    "features": {
+      "f1Title": "Tu dinero no está bloqueado — puedes retirarlo cuando quieras",
+      "f1Desc": "Tu MXNe entra al smart contract y permanece disponible para ti. Puedes retirar el 100% de tu dinero en cualquier momento que lo desees, sin plazos forzosos ni penalizaciones.",
+      "f2Title": "Doble rendimiento: CETES + AMM Stellar",
+      "f2Desc": "Tu capital genera rendimiento en dos capas: CETES vía Etherfuse (deuda soberana mexicana) y fees del AMM de Stellar. El proyecto recibe ese rendimiento mientras tu capital permanece intacto.",
+      "f3Title": "100% on-chain, sin intermediarios",
+      "f3Desc": "Cada proyecto requiere documentos verificados almacenados en IPFS con referencia en blockchain. El código es público, auditable y autónomo."
+    },
+    "howItWorksLabel": "Como funciona",
+    "howItWorksTitle": "Cuatro pasos, capital protegido",
+    "howItWorksSub": "Sin registro, sin KYC, sin intermediarios.",
+    "steps": {
+      "s1Title": "Conecta tu wallet",
+      "s1Desc": "Abre Freighter en Stellar Testnet y conecta con un clic. Sin registro, sin KYC.",
+      "s2Title": "Deposita MXNe en un proyecto",
+      "s2Desc": "Tu capital entra al smart contract. Si el proyecto no alcanza su meta, se devuelve automáticamente.",
+      "s3Title": "El rendimiento financia el proyecto",
+      "s3Desc": "El yield (CETES + AMM) financia el proyecto mensualmente. Tu capital lo recuperas íntegro al finalizar.",
+      "s4Title": "Recuperas todo más tu ganancia",
+      "s4Desc": "Al cierre retiras tu capital original más el 5% de rendimiento acumulado. Recibes un certificado de impacto."
+    },
+    "readyTitle": "¿Listo para apoyar un proyecto?",
+    "readyDesc": "Conecta tu wallet y empieza. Tu capital siempre es recuperable al finalizar.",
+    "footerTagline": "Hack+ Alebrije · Stellar · CDMX 2025 · Construido con Soroban y MXNe",
+    "footerNews": "Novedades"
+  },
+  "errores": {
+    "desconocido": "Error desconocido",
+    "sinInternet": "Sin conexión a internet. Revisa tu red e intenta de nuevo.",
+    "noDns": "No se pudo resolver el servidor. Verifica tu conexión.",
+    "connRefused": "Conexión rechazada por el servidor. El servicio puede estar caído.",
+    "rpcNoDisponible": "El nodo RPC de Soroban está temporalmente no disponible. Intenta en unos minutos.",
+    "demasiadasSolicitudes": "Demasiadas solicitudes. Espera unos segundos e intenta de nuevo.",
+    "timeout": "La solicitud tardó demasiado. Verifica tu conexión y vuelve a intentar.",
+    "connInterrumpida": "La conexión se interrumpió. Intenta de nuevo.",
+    "freighterNoInstalado": "Freighter no está instalado. Instálalo desde la Chrome Web Store para continuar.",
+    "freighterBloqueado": "Freighter está bloqueado. Desbloquéalo con tu contraseña e intenta de nuevo.",
+    "freighterSinPermiso": "Freighter no tiene permiso para conectar con esta app. Abre Freighter y acepta la conexión.",
+    "freighterRedIncorrecta": "Tu Freighter está en una red diferente. Cámbialo a Testnet (o Mainnet según corresponda).",
+    "ipfsError": "Error al subir documentos a IPFS. Los documentos se guardarán con hash local como respaldo.",
+    "archivoGrande": "El archivo es demasiado grande. El límite es 10 MB por documento.",
+    "tokenNoAutorizado": "No tienes autorización para transferir este token. Asegúrate de tener MXNe en tu wallet.",
+    "tokenTrustline": "Tu wallet no tiene una trustline para MXNe. Necesitas agregarla desde Freighter.",
+    "tokenTransfer": "Error al transferir MXNe. Revisa que tengas saldo suficiente y la trustline activa.",
+    "proyectoNoEncontrado": "Proyecto no encontrado. Puede haber sido eliminado o el ID es incorrecto.",
+    "estadoIncorrecto": "Esta acción no está permitida en el estado actual del proyecto.",
+    "aportacionNoEncontrada": "No tienes una aportación registrada en este proyecto.",
+    "fechaInvalida": "La fecha de inicio del proyecto no es válida.",
+    "plazoInvalido": "El plazo del proyecto no es válido. Debe ser entre 1 y 60 meses.",
+    "sesionExpirada": "Tu sesión ha expirado. Reconecta tu wallet para continuar.",
+    "firmaError": "Error de firma digital. Intenta firmar la transacción de nuevo en Freighter.",
+    "metaMayorCero": "La meta del proyecto debe ser mayor a 0 MXNe.",
+    "metaAlcanzada": "Este proyecto ya alcanzó su meta de financiamiento.",
+    "sinFondos": "No hay fondos depositados en este proyecto.",
+    "sinYield": "Todavía no hay yield suficiente acumulado para retirar.",
+    "principalYaRetirado": "Ya retiraste tu capital de este proyecto.",
+    "yaInicializado": "El contrato ya está inicializado.",
+    "cantidadMayorCero": "La cantidad a depositar debe ser mayor a 0.",
+    "soloAdmin": "Solo el administrador puede realizar esta acción.",
+    "authError": "Error de autorización. Verifica que tu wallet esté conectada correctamente.",
+    "contratoError": "Error en el contrato inteligente. El contrato en testnet puede necesitar ser redesplegado. Contacta al administrador.",
+    "firmaRechazada": "Cancelaste la transacción en Freighter.",
+    "freighterNoDevolvio": "Freighter no devolvió la transacción firmada. Intenta de nuevo.",
+    "freighterGenerico": "Error con Freighter Wallet. Asegúrate de que esté desbloqueado y en Testnet.",
+    "esperaAgotada": "La transacción tardó demasiado. Puede haber confirmado igual — verifica en el explorador de Stellar.",
+    "txRechazadaRed": "La transacción fue rechazada por la red. Intenta de nuevo.",
+    "restauracionTtl": "El contrato requiere restauración de TTL. Contacta al administrador.",
+    "redGenerico": "Error de red. Verifica tu conexión a internet.",
+    "noDevolvioValor": "El contrato no respondió. El RPC puede estar caído — intenta en unos minutos.",
+    "saldoInsuficiente": "Saldo insuficiente. Obtén MXNe de prueba con el botón '100 MXNe'.",
+    "fondosInsuficientes": "Fondos insuficientes en tu wallet para cubrir la transacción."
+  },
+  "changelog": {
+    "title": "Novedades",
+    "subtitle": "Historial de cambios de Bimex. Formato <1>Keep a Changelog</1>.",
+    "upcoming": "Próximamente",
+    "sections": {
+      "added": "Agregado",
+      "improved": "Mejorado",
+      "fixed": "Corregido",
+      "securityAudit": "Corregido (auditoría de seguridad)",
+      "changed": "Cambiado"
+    },
+    "releases": [
+      {
+        "versionKey": "upcoming",
+        "date": null,
+        "sections": {
+          "added": [
+            "Actualizaciones en tiempo real vía SSE: el indexer notifica cambios al instante (#62)",
+            "Esta página de changelog (#81)"
+          ]
+        }
+      },
+      {
+        "version": "2.1.0",
+        "date": "2026-05-27",
+        "sections": {
+          "added": [
+            "Dark mode con toggle en navbar (#59)",
+            "Búsqueda de proyectos con debounce (#60)",
+            "Compartir proyecto con código QR (#61)",
+            "Página de transparencia con estadísticas on-chain (#57)",
+            "Panel de recompensas conectado a datos reales del contrato (#56)",
+            "Tasa CETES en vivo vía Etherfuse en la landing (#55)",
+            "Soporte i18n español / inglés (#53)",
+            "Skeleton loading states en todos los componentes (#48)",
+            "Sistema de toasts reemplazando errores inline (#50)"
+          ],
+          "improved": [
+            "Code splitting: bundle reducido ~40% (#47)",
+            "Diseño responsive mobile-first (#49)",
+            "Panel admin con flujo de aprobación y rechazo (#46)"
+          ],
+          "fixed": [
+            "TTL management en storage del contrato (#64)",
+            "Security headers en despliegue Vercel (#65)"
+          ]
+        }
+      },
+      {
+        "version": "2.0.0",
+        "date": "2026-04-23",
+        "sections": {
+          "added": [
+            "Estado EnRevision: proyectos requieren aprobación del admin antes de aceptar fondos",
+            "Funciones admin_aprobar() y admin_rechazar() en el contrato",
+            "Estado Rechazado con campo motivo_rechazo",
+            "doc_hash (BytesN<32>): hash SHA-256 del documento almacenado on-chain",
+            "calcular_yield_detallado(): yield desglosado por CETES y AMM",
+            "estado_capital(): distribución actual del capital",
+            "solicitar_continuar(): permite a un nuevo dueño retomar un proyecto abandonado",
+            "bimex-indexer: servicio de indexación on-chain"
+          ],
+          "securityAudit": [
+            "Patrón CEI aplicado en contribuir(), retirar_principal(), reclamar_yield() y abandonar_proyecto()",
+            "require_auth() movido al inicio de cada función antes de cualquier lectura de storage",
+            "Cap de contribución: cantidad = cantidad.min(restante) previene overfunding",
+            "Top-up preserva el timestamp original del backer",
+            "calcular_yield_seguro() usa división anticipada para evitar overflow en i128",
+            "Bounds check en inicializar(): yield_cetes_bps y yield_amm_bps no pueden exceder 10,000,000 bps"
+          ],
+          "changed": [
+            "Tasas actualizadas a producción: CETES 9.45% APY, AMM 4.00% APY"
+          ]
+        }
+      },
+      {
+        "version": "1.0.0",
+        "date": "2026-03-15",
+        "sections": {
+          "added": [
+            "Demo inicial presentada en Hack+ Alebrije (Stellar | CDMX)",
+            "Funciones base del contrato: crear_proyecto, contribuir, retirar_principal, reclamar_yield",
+            "Frontend React con integración Freighter",
+            "Despliegue en Stellar Testnet"
+          ]
+        }
+      }
+    ]
+  },
+  "comun": {
+    "faucetTitle": "Obtener 100 MXNe de prueba (solo testnet)",
+    "cerrarToastAria": "Cerrar notificación",
+    "volver": "← Volver"
   }
 }
