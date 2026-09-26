@@ -9,8 +9,13 @@
 | [FAQ (Español)](faq-es.md) | Preguntas frecuentes en español |
 | [FAQ (English)](faq-en.md) | Frequently asked questions |
 | [Guía del contribuidor](guia-contribuidor.md) | Cómo apoyar un proyecto como usuario |
+| [Contributor guide (English)](guia-contribuidor-en.md) | Cómo apoyar un proyecto como usuario (English version) |
 | [Guía del creador de proyecto](guia-creador-proyecto.md) | Cómo lanzar un proyecto en Bimex |
+| [Project creator guide (English)](guia-creador-proyecto-en.md) | Cómo lanzar un proyecto en Bimex (English version) |
 | [Guía técnica de integración](guia-tecnica-integracion.md) | ABI, CLI, SDK para desarrolladores |
+| [Technical integration guide (English)](guia-tecnica-integracion-en.md) | ABI, CLI, SDK para desarrolladores (English version) |
+
+> **Por qué traducimos estas guías:** el frontend ya incluye un selector de idioma ES/EN y el FAQ existe en ambos idiomas (`faq-es.md` / `faq-en.md`), pero las guías de contribuidor, creador e integración solo estaban en español. Mantener el par ES/EN evita que los usuarios e integradores en inglés tengan que recurrir a una guía en español; cada archivo `-en` replica su versión en español sección por sección.
 
 ## 🔐 Seguridad y bug bounty
 

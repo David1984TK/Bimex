@@ -50,8 +50,8 @@ You can claim accumulated yield at any time while your project is active (EnProg
 
 ## Resources
 
-- [Contributor guide](guia-contribuidor.md)
-- [Project creator guide](guia-creador-proyecto.md)
+- [Contributor guide](guia-contribuidor-en.md)
+- [Project creator guide](guia-creador-proyecto-en.md)
 - [FAQ en español](faq-es.md)
 - [Technical documentation](../DOCUMENTACION.txt)
 - [Stellar Community](https://stellar.org/community)
