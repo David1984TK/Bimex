@@ -37,3 +37,13 @@ export function formatearNumeroConDecimales(numero, decimales = 2) {
     maximumFractionDigits: decimales,
   }).format(numero);
 }
+
+export function escaparCSV(valor) {
+  const texto = String(valor ?? "");
+  const sanitizado = /^\s*[=+\-@]/.test(texto) ? `'${texto}` : texto;
+  return `"${sanitizado.replace(/"/g, '""')}"`;
+}
+
+export function construirCSV(encabezado, filas) {
+  return [encabezado, ...filas].map((fila) => fila.join(",")).join("\n");
+}
