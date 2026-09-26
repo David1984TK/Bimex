@@ -16,7 +16,7 @@ vi.mock('@supabase/supabase-js', () => {
 });
 
 // Import database.js after mocking
-import { conRetry, upsertProyecto, upsertAportacion, insertEvento, getLastIndexedLedger, supabaseOk } from '../database.js';
+import { conRetry, upsertProyecto, upsertAportacion, insertEvento, getLastIndexedLedger } from '../database.js';
 
 // Retrieve mocked client instance by importing supabase default (which is the created client)
 import supabaseMock from '../database.js';
