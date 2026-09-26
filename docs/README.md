@@ -58,7 +58,7 @@ Ver [DOCUMENTACION.txt](../DOCUMENTACION.txt) en la raíz del proyecto para:
 - Cálculo de yield
 - Despliegue en Testnet y Mainnet
 - Variables de entorno
-- Changelog completo
+- Resumen histórico del changelog (congelado; ver CHANGELOG.md)
 
 ## 🎯 Guías rápidas
 
@@ -107,3 +107,7 @@ Si encuentras errores o quieres mejorar la documentación:
 ---
 
 **¿Tienes dudas?** Revisa el [FAQ](faq-es.md) o contacta al equipo.
+
+## Fuente de verdad del changelog
+
+[`CHANGELOG.md`](../CHANGELOG.md) (raíz del repositorio) es la única fuente de verdad del changelog (formato Keep a Changelog). `DOCUMENTACION.txt` es documentación técnica; su sección de changelog es un resumen histórico congelado y no debe actualizarse en paralelo.
