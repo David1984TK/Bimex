@@ -1,4 +1,46 @@
 import { parseEvent } from './eventParser.js';
+import { hitosCruzados, payloadHito } from './milestones.js';
+
+/**
+ * Detecta hitos de fondeo (30/50/75/100%) cruzados por una contribución y los
+ * notifica (SSE + cola de email en `project_events`).
+ *
+ * Es best-effort: si `obtenerProyecto` no está inyectado, o falla la lectura,
+ * no se notifica nada y el procesamiento continúa. `obtenerProyecto(id)` debe
+ * devolver el proyecto con `total_aportado` **incluyendo** ya la aportación
+ * recién persistida (ver el wiring en index.js).
+ */
+async function notificarHitosFondeo(aportacion, deps) {
+  const { obtenerProyecto, registrarEventoProyecto, notificarClientes } = deps;
+  if (!obtenerProyecto) return;
+  try {
+    const proyecto = await obtenerProyecto(aportacion.proyecto_id);
+    const meta = Number(proyecto?.meta);
+    if (!proyecto || !Number.isFinite(meta) || meta <= 0) return;
+
+    const totalDespues = Number(proyecto.total_aportado ?? 0);
+    const totalAntes = totalDespues - Number(aportacion.monto ?? 0);
+    const hitos = hitosCruzados(totalAntes, totalDespues, meta);
+
+    for (const hito of hitos) {
+      const payload = payloadHito(aportacion.proyecto_id, hito, totalDespues, meta);
+      try { notificarClientes('hito_fondeo', payload); } catch (_) {}
+      if (registrarEventoProyecto) {
+        try {
+          await registrarEventoProyecto({
+            event_type: hito === 100 ? 'meta_alcanzada' : 'hito_fondeo',
+            project_id: aportacion.proyecto_id,
+            project_name: proyecto.nombre ?? '',
+            owner_wallet: proyecto.dueno ?? '',
+            payload,
+          });
+        } catch (_) {}
+      }
+    }
+  } catch (_) {
+    // best-effort: una notificación nunca debe romper el procesamiento
+  }
+}
 
 /**
  * Procesa un batch de eventos de Soroban con garantía de no avanzar el
@@ -106,6 +148,7 @@ export async function processBatch(startLedger, deps) {
     }
     if (aportacion) {
       try { notificarClientes('nueva_contribucion', { proyectoId: aportacion.proyecto_id, monto: aportacion.monto }); } catch (_) {}
+      await notificarHitosFondeo(aportacion, deps);
     }
     if (audit) {
       try { notificarClientes('admin_action', { action: audit.action, target: audit.target }); } catch (_) {}
