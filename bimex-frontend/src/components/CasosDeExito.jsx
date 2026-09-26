@@ -83,6 +83,19 @@ export default function CasosDeExito() {
 
   return (
     <div style={estilos.page}>
+      <header style={estilos.pageHeader}>
+        <h1 style={estilos.pageTitle}>{t("impacto.title")}</h1>
+        <p style={estilos.pageSubtitle}>{t("impacto.subtitle")}</p>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          style={estilos.backBtn}
+          onClick={() => navigate("/proyectos")}
+        >
+          {t("impacto.backToProjects")}
+        </button>
+      </header>
+
       {cargando ? (
         <div style={estilos.grid}>
           {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
@@ -110,11 +123,13 @@ export default function CasosDeExito() {
         <div style={estilos.grid}>
           {completados.map((p) => {
             const evids = evidenciaMap[p.id] ?? [];
+            const testimonio = evids.find((e) => e.tipo === "testimonio") ?? null;
             return (
               <ImpactCard
                 key={p.id}
                 proyecto={p}
                 evidenciaCount={evids.length}
+                testimonio={testimonio}
                 onView={() => navigate(`/proyectos/${p.id}`)}
                 t={t}
               />
@@ -126,7 +141,7 @@ export default function CasosDeExito() {
   );
 }
 
-function ImpactCard({ proyecto, evidenciaCount, onView, t }) {
+export function ImpactCard({ proyecto, evidenciaCount, testimonio = null, onView, t }) {
   const pct = proyecto.porcentaje_devuelto ?? 0;
   const isFullReturn = pct >= 100;
 
@@ -186,6 +201,18 @@ function ImpactCard({ proyecto, evidenciaCount, onView, t }) {
         </div>
       </div>
 
+      {testimonio && (testimonio.descripcion || testimonio.titulo) && (
+        <figure style={estilos.testimonio} data-testid="testimonio">
+          <div style={estilos.testimonioLabel}>{t("impacto.testimonialLabel")}</div>
+          {testimonio.descripcion && (
+            <blockquote style={estilos.testimonioQuote}>"{testimonio.descripcion}"</blockquote>
+          )}
+          {testimonio.titulo && (
+            <figcaption style={estilos.testimonioAutor}>— {testimonio.titulo}</figcaption>
+          )}
+        </figure>
+      )}
+
       <div style={{ padding: "0 20px 16px" }}>
         <div style={{
           display: "flex", justifyContent: "space-between", fontSize: "0.75rem",
@@ -225,6 +252,57 @@ const estilos = {
     maxWidth: "1140px",
     margin: "0 auto",
     padding: "40px 24px",
+  },
+  pageHeader: {
+    marginBottom: 28,
+    paddingBottom: 20,
+    borderBottom: "1px solid var(--border)",
+  },
+  pageTitle: {
+    fontSize: "1.6rem",
+    fontWeight: 700,
+    color: "var(--text)",
+    margin: "0 0 8px",
+    lineHeight: 1.25,
+  },
+  pageSubtitle: {
+    fontSize: "0.92rem",
+    color: "var(--muted)",
+    margin: "0 0 14px",
+    lineHeight: 1.6,
+    maxWidth: "640px",
+  },
+  backBtn: {
+    fontSize: "0.84rem",
+    padding: "6px 12px",
+  },
+  testimonio: {
+    margin: "0 20px 16px",
+    padding: "14px 16px",
+    background: "var(--navy-dim)",
+    border: "1px solid rgba(30,58,95,0.15)",
+    borderRadius: "var(--radius)",
+  },
+  testimonioLabel: {
+    fontSize: "0.68rem",
+    color: "var(--navy)",
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+    fontWeight: 700,
+    marginBottom: 8,
+  },
+  testimonioQuote: {
+    margin: 0,
+    fontSize: "0.86rem",
+    fontStyle: "italic",
+    lineHeight: 1.65,
+    color: "var(--text)",
+  },
+  testimonioAutor: {
+    marginTop: 8,
+    fontSize: "0.76rem",
+    fontWeight: 600,
+    color: "var(--muted)",
   },
   grid: {
     display: "grid",

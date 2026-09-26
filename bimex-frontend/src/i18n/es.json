@@ -7,7 +7,8 @@
     "logout": "Salir",
     "loggingOut": "...",
     "transparency": "Transparencia",
-    "impact": "Impacto"
+    "impact": "Impacto",
+    "successStories": "Casos de éxito"
   },
   "lang": {
     "toggle": "EN",
@@ -359,6 +360,7 @@
     "fundedGoal": "Meta alcanzada",
     "viewDetails": "Ver historia completa →",
     "verifiedBadge": "Verificado en cadena",
+    "testimonialLabel": "Testimonio",
     "transactionCount": "{{count}} transacciones",
     "timeline": "Línea de tiempo",
     "timelineCreated": "Creación",

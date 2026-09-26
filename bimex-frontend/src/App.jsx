@@ -582,6 +582,7 @@ export default function App() {
                   autoConectar={autoConectar}
                   onConectado={manejarConectado}
                   onTransparencia={() => navigate("/transparencia")}
+                  onCasosDeExito={() => navigate("/impacto")}
                   onChangelog={() => navigate("/novedades")}
                   onTerminos={() => navigate("/terminos")}
                   onPrivacidad={() => navigate("/privacidad")}
@@ -675,6 +676,11 @@ export default function App() {
       {pathname !== "/" && (
         <footer style={{ ...st.footer, padding: "16px 40px" }}>
           <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
+            <button type="button" onClick={() => navigate("/impacto")}
+              style={st.footerLink}>
+              {t("nav.successStories")}
+            </button>
+            <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
             <button type="button" onClick={() => navigate("/novedades")}
               style={st.footerLink}>
               Novedades
@@ -699,7 +705,7 @@ export default function App() {
 }
 
 // ── Landing ──────────────────────────────────────────────────────────────────
-function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTerminos, onPrivacidad, tema, setTema, onInstallPwa, installReady }) {
+function Landing({ autoConectar, onConectado, onTransparencia, onCasosDeExito, onChangelog, onTerminos, onPrivacidad, tema, setTema, onInstallPwa, installReady }) {
   const { t } = useTranslation();
   const liveStats = useLiveStats();
   const { rate: cetesRate, error: cetesError } = useCetesRate();
@@ -737,6 +743,13 @@ function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTe
             style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.84rem", fontWeight: 500, color: "var(--navy)", padding: "8px 12px" }}
           >
             Transparencia
+          </button>
+          <button
+            type="button"
+            onClick={onCasosDeExito}
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.84rem", fontWeight: 500, color: "var(--navy)", padding: "8px 12px" }}
+          >
+            {t("nav.successStories")}
           </button>
           <ConectarWallet autoConectar={autoConectar} onConectado={onConectado} inNavbar />
         </div>
@@ -926,6 +939,10 @@ function Landing({ autoConectar, onConectado, onTransparencia, onChangelog, onTe
           Hack+ Alebrije · Stellar · CDMX 2025 · Construido con Soroban y MXNe
         </p>
         <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
+          <button type="button" onClick={onCasosDeExito} style={st.footerLinkLanding}>
+            {t("nav.successStories")}
+          </button>
+          <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
           <button type="button" onClick={onChangelog} style={st.footerLinkLanding}>
             Novedades
           </button>
