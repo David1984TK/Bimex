@@ -100,6 +100,7 @@ function IconIPFS() {
 // ─── Preview de Archivo ───────────────────────────────────────────────────────
 
 function PreviewArchivo({ archivo, onEliminar }) {
+  const { t } = useTranslation();
   const esPdf = archivo.type === "application/pdf";
   const esImagen = archivo.type.startsWith("image/");
   const tamanoMB = (archivo.size / 1024 / 1024).toFixed(2);
@@ -132,7 +133,7 @@ function PreviewArchivo({ archivo, onEliminar }) {
       <button
         type="button"
         onClick={onEliminar}
-        aria-label="Eliminar archivo"
+        aria-label={t("crear.removeFileAria")}
         style={estilos.btnEliminar}
         onMouseEnter={e => { e.target.style.color = "#DC2626"; }}
         onMouseLeave={e => { e.target.style.color = "var(--muted)"; }}
@@ -229,7 +230,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
     descripcion: "",
     meta: "",
     tiempoMeses: "",
-    categoria: "Comunidad",
+    categoria: categorias[0] || "Comunidad",
   });
 
   // ── Paso 2: documentos
@@ -458,7 +459,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
               {yieldEstimado && (
                 <div style={estilos.yieldResumen}>
                   <span style={{ fontSize: "0.72rem", color: "var(--green)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    Ganarías como inversor
+                    {t("crear.investorYieldLabel")}
                   </span>
                   <p style={{ color: "var(--green)", fontWeight: 700, fontSize: "1.15rem", fontVariantNumeric: "tabular-nums", margin: "4px 0" }}>
                     ≈ ${yieldEstimado} MXNe
