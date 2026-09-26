@@ -8,6 +8,7 @@ import usePaginacion from "../hooks/usePaginacion";
 import usePaginacionLocal from "../hooks/usePaginacionLocal";
 import Paginacion from "./Paginacion";
 import AuditoriaBadge from "./AuditoriaBadge";
+import GraficoYieldHistorico from "./GraficoYieldHistorico";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
@@ -320,6 +321,9 @@ export default function Transparencia({ onVolver }) {
               <Paginacion pagina={pagina} totalPaginas={totalPaginas} onChange={handlePaginaChange} />
             </>
           )}
+          {/* Serie de tiempo del yield indexado (issue #352) */}
+          <GraficoYieldHistorico />
+
           {/* Paginated contributions table */}
           <div style={{ marginTop: 28 }}>
             <h2 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: 8 }}>{t("transp.contributionsTitle")}</h2>

@@ -31,7 +31,7 @@ El indexer solo acepta solicitudes cross-origin desde orígenes conocidos defini
    ALLOWED_ORIGINS=https://bimex.vercel.app,https://bimex.mx,https://tudominio.com
    ```
 2. Si el nuevo origen necesita acceder a endpoints protegidos (faucet, SSE), debe estar en esta lista.
-3. Los endpoints públicos de solo lectura (`/proyectos`, `/eventos`, `/stats`) también respetan esta lista.
+3. Los endpoints públicos de solo lectura (`/proyectos`, `/eventos`, `/stats`, `/yield/historico`) también respetan esta lista.
 
 ### Orígenes por defecto (fallback)
 

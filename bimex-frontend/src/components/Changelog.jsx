@@ -6,6 +6,7 @@ const RELEASES = [
       "Agregado": [
         "Actualizaciones en tiempo real vía SSE: el indexer notifica cambios al instante (#62)",
         "Esta página de changelog (#81)",
+        "Gráfico de yield histórico en la página de transparencia, con separación CETES/AMM cuando el contrato la publique (#352)",
       ],
     },
   },

@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 - SSE real-time updates: indexer pushes `proyecto_actualizado`, `nueva_contribucion`, `yield_reclamado` events to connected clients (#62)
 - Public changelog page accessible from the app footer (#81)
+- Historical yield chart on the transparency page: the indexer aggregates the yield events it already indexed into a day / week / month time series, with a CETES vs AMM split distinction when the contract publishes it, plus an explicit note while the split is not available on chain (#352)
 - Security policy and self-hosted bug bounty program (`SECURITY.md`) with Tier 1 rules, disclosure process, and Hall of Fame.
 - Threat model document (`docs/THREAT-MODEL.md`) covering assets, threat actors, attack surface, and mitigations.
 - Contract invariants document (`docs/CONTRACT-INVARIANTS.md`) listing the critical properties the smart contract must never violate.
