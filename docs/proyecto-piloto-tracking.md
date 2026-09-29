@@ -4,12 +4,18 @@
 
 ## Estado actual
 
-**Fase**: Pendiente de inicio  
-**Fecha de inicio**: [TBD]  
-**Organización seleccionada**: [TBD]  
-**Meta de fondeo**: [TBD] MXN  
-**Contract ID Mainnet**: [TBD]  
-**ID del proyecto**: [TBD]
+**Fase**: No iniciado (Fase 0 · pre-lanzamiento)  
+**Fecha de inicio**: Aún no iniciada — se fija al confirmar la organización  
+**Organización seleccionada**: Ninguna — la Fase 1 (Selección) todavía no arrancó  
+**Meta de fondeo**: Por definir — aún no hay plan de proyecto de una organización  
+**Contract ID Mainnet**: No existe — el proyecto no se ha desplegado en Mainnet  
+**ID del proyecto**: No existe — se creará en la Fase 4 (Lanzamiento)
+
+> **Nota de estado (2026-09-29):** verificado contra `main`: ninguna casilla de las Fases 1–6
+> está completada y `docs/checklist-ejecutivo-piloto.md` no registra ningún Contract ID Mainnet,
+> así que el piloto **aún no ha iniciado**. Los campos `[TBD]` que aparecen más abajo son
+> casillas de fases posteriores (datos on-chain, métricas y contactos) que se llenarán cuando
+> ocurran: no son datos olvidados, el estado real siempre está en esta sección.
 
 ## Organizaciones contactadas
 
@@ -168,5 +174,5 @@
 
 ---
 
-**Última actualización**: 2026-04-28  
-**Próxima revisión**: [TBD]
+**Última actualización**: 2026-09-29 (piloto verificado como no iniciado)  
+**Próxima revisión**: 2026-10-13
