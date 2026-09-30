@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ─── Environment MUST be set before any imports that read env vars ─────────
 process.env.SUPABASE_URL = 'https://mock.supabase.co';
@@ -95,7 +95,7 @@ vi.mock('@stellar/stellar-sdk', () => {
       },
       Api: { GetTransactionStatus: { SUCCESS: 'SUCCESS', FAILED: 'FAILED' } },
     },
-    TransactionBuilder: function(account, opts) {
+    TransactionBuilder: function(_account, _opts) {
       return {
         addOperation: function() { return this; },
         setTimeout:   function() { return this; },
