@@ -4,10 +4,9 @@ import { obtenerTodosLosProyectos, obtenerAportacion } from "../stellar/contrato
 import { formatearNumero, formatearNumeroConDecimales } from "../utils/formato.js";
 
 // ── Niveles de confianza ──────────────────────────────────────────────────────
-const NIVELES = [
+const NIVELES_CONFIG = [
   {
     id: "semilla",
-    nombre: "Semilla",
     icono: "🌱",
     min: 0,
     max: 999,
@@ -15,13 +14,12 @@ const NIVELES = [
     bg: "var(--navy-dim)",
     border: "rgba(30,58,95,0.18)",
     recompensas: [
-      { id: "r1", nombre: "Badge Semilla", desc: "Tu primer paso en Bimex",     icono: "🏅", umbral: 0,   desbloqueado: true  },
-      { id: "r2", nombre: "Primer aporte", desc: "Contribuiste tu primer MXNe", icono: "💚", umbral: 1,   desbloqueado: false },
+      { id: "r1", icono: "🏅", umbral: 0,   desbloqueado: true  },
+      { id: "r2", icono: "💚", umbral: 1,   desbloqueado: false },
     ],
   },
   {
     id: "brote",
-    nombre: "Brote",
     icono: "🌿",
     min: 1_000,
     max: 9_999,
@@ -29,13 +27,12 @@ const NIVELES = [
     bg: "var(--green-dim)",
     border: "rgba(22,163,74,0.20)",
     recompensas: [
-      { id: "r3", nombre: "Inversor Brote",   desc: "Invertiste 1,000+ MXNe en total", icono: "🌿", umbral: 1_000, desbloqueado: false },
-      { id: "r4", nombre: "Regalo sorpresa",  desc: "Desbloquea al llegar a 5,000 MXNe", icono: "🎁", umbral: 5_000, desbloqueado: false },
+      { id: "r3", icono: "🌿", umbral: 1_000, desbloqueado: false },
+      { id: "r4", icono: "🎁", umbral: 5_000, desbloqueado: false },
     ],
   },
   {
     id: "arbol",
-    nombre: "Árbol",
     icono: "🌳",
     min: 10_000,
     max: 99_999,
@@ -43,13 +40,12 @@ const NIVELES = [
     bg: "var(--amber-dim)",
     border: "rgba(217,119,6,0.20)",
     recompensas: [
-      { id: "r5", nombre: "Árbol de impacto", desc: "Invertiste 10,000+ MXNe",          icono: "🌳", umbral: 10_000,  desbloqueado: false },
-      { id: "r6", nombre: "Caja misteriosa",  desc: "Acceso exclusivo a proyectos VIP", icono: "📦", umbral: 50_000,  desbloqueado: false },
+      { id: "r5", icono: "🌳", umbral: 10_000,  desbloqueado: false },
+      { id: "r6", icono: "📦", umbral: 50_000,  desbloqueado: false },
     ],
   },
   {
     id: "selva",
-    nombre: "Selva",
     icono: "🌲",
     min: 100_000,
     max: Infinity,
@@ -57,22 +53,34 @@ const NIVELES = [
     bg: "rgba(6,95,70,0.07)",
     border: "rgba(6,95,70,0.20)",
     recompensas: [
-      { id: "r7", nombre: "Guardián Selva", desc: "Invertiste 100,000+ MXNe",    icono: "🌲", umbral: 100_000, desbloqueado: false },
-      { id: "r8", nombre: "NFT exclusivo",  desc: "NFT de colección arte mexicano", icono: "🎨", umbral: 200_000, desbloqueado: false },
+      { id: "r7", icono: "🌲", umbral: 100_000, desbloqueado: false },
+      { id: "r8", icono: "🎨", umbral: 200_000, desbloqueado: false },
     ],
   },
 ];
 
-function nivelActual(totalMXNe) {
-  return NIVELES.slice().reverse().find(n => totalMXNe >= n.min) ?? NIVELES[0];
+function getNiveles(t) {
+  return NIVELES_CONFIG.map(n => ({
+    ...n,
+    nombre: t(`recompensas.tiers.${n.id}`),
+    recompensas: n.recompensas.map(r => ({
+      ...r,
+      nombre: t(`recompensas.items.${r.id}Name`),
+      desc: t(`recompensas.items.${r.id}Desc`),
+    })),
+  }));
 }
 
-function nivelSiguiente(totalMXNe) {
-  return NIVELES.find(n => n.min > totalMXNe) ?? null;
+function nivelActual(totalMXNe, niveles) {
+  return niveles.slice().reverse().find(n => totalMXNe >= n.min) ?? niveles[0];
 }
 
-function calcularRecompensas(totalMXNe) {
-  return NIVELES.flatMap(n =>
+function nivelSiguiente(totalMXNe, niveles) {
+  return niveles.find(n => n.min > totalMXNe) ?? null;
+}
+
+function calcularRecompensas(totalMXNe, niveles) {
+  return niveles.flatMap(n =>
     n.recompensas.map(r => ({ ...r, desbloqueado: totalMXNe >= r.umbral }))
   );
 }
@@ -135,9 +143,10 @@ export default function Recompensas({ direccion, refrescar, totalInvertido: tota
     return () => { document.removeEventListener("keydown", onKey); document.removeEventListener("mousedown", onOutside); };
   }, [abierto]);
 
-  const nivel       = nivelActual(totalMXNe);
-  const siguiente   = nivelSiguiente(totalMXNe);
-  const recompensas = calcularRecompensas(totalMXNe);
+  const niveles     = getNiveles(t);
+  const nivel       = nivelActual(totalMXNe, niveles);
+  const siguiente   = nivelSiguiente(totalMXNe, niveles);
+  const recompensas = calcularRecompensas(totalMXNe, niveles);
   const pct         = siguiente
     ? Math.min(((totalMXNe - nivel.min) / (siguiente.min - nivel.min)) * 100, 100)
     : 100;

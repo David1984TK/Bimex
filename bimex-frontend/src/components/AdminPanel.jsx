@@ -144,7 +144,7 @@ export default function AdminPanel({ direccion, onCerrar }) {
           <div style={{ padding: "20px 0 4px" }}>
             {cargando && (
               <div style={estilos.centrado}>
-                <span style={estilos.spinner} aria-label="Cargando proyectos" />
+                <span style={estilos.spinner} aria-label={t("admin.loadingProjectsAria")} />
                 <span style={{ color: "var(--muted)", fontSize: "0.88rem", marginLeft: "10px" }}>
                   {t("admin.loading")}
                 </span>
