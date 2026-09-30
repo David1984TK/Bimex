@@ -53,7 +53,8 @@ stellar contract build
 
 | Document | Description |
 |---|---|
-| [Technical docs](DOCUMENTACION.txt) | Deployment, contract functions, lifecycle, changelog |
+| [Technical docs](DOCUMENTACION.txt) | Deployment, contract functions, lifecycle (its changelog section is a frozen historical summary) |
+| [Changelog](CHANGELOG.md) | Source of truth for the project changelog (Keep a Changelog format) |
 | [Contributor guide](docs/guia-contribuidor.md) | How to back a project as a user |
 | [Project creator guide](docs/guia-creador-proyecto.md) | How to launch a project on Bimex |
 | [Technical integration guide](docs/guia-tecnica-integracion.md) | ABI, CLI examples, JS SDK integration |

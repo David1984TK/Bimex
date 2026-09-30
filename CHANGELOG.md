@@ -5,6 +5,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+> **Fuente de verdad:** este archivo es el único changelog oficial del proyecto. Todo cambio nuevo se registra aquí, siguiendo el formato Keep a Changelog. `DOCUMENTACION.txt` conserva solo un resumen histórico congelado y no debe actualizarse en paralelo.
+
 ## [Unreleased]
 
 ### Added
