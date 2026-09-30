@@ -12,6 +12,12 @@ import {
   getRateLimitConfig,
 } from './rateLimiter.js';
 import { handleIpfsUpload } from './ipfsProxy.js';
+import {
+  GRANULARIDADES,
+  GRANULARIDAD_POR_DEFECTO,
+  agregarYieldHistorico,
+  esGranularidadValida,
+} from './yieldHistorico.js';
 
 function buildAllowedOrigins() {
   const envOrigins = process.env.ALLOWED_ORIGINS
@@ -37,6 +43,9 @@ export function setCorsHeaders(req, res) {
 
 const PORT = parseInt(process.env.API_PORT ?? '3002', 10);
 const MAX_BODY_BYTES = parseInt(process.env.MAX_BODY_BYTES ?? String(64 * 1024), 10);
+// Tope de eventos de yield leídos por request del histórico: la serie se
+// construye en memoria, así que acotamos para no castigar la API.
+const YIELD_HISTORICO_MAX_EVENTOS = parseInt(process.env.YIELD_HISTORICO_MAX_EVENTOS ?? '5000', 10);
 
 // ─── Rate limiter: 3 requests per wallet per hour ────────────────────────
 const RL_MAX = 3;
@@ -141,6 +150,7 @@ function publicRateLimitedEndpoint(parts) {
   if (parts[0] === 'proyectos') return '/proyectos';
   if (parts[0] === 'eventos' && !parts[1]) return '/eventos';
   if (parts[0] === 'stats' && !parts[1]) return '/stats';
+  if (parts[0] === 'yield' && parts[1] === 'historico' && !parts[2]) return '/yield/historico';
   return null;
 }
 
@@ -346,6 +356,38 @@ async function route(req, res) {
     return error
       ? errorInterno(req, res, '[db-read] GET /backers/:address/aportaciones', error, 'Error de base de datos')
       : jsonCacheable(req, res, 200, data);
+  }
+
+  // GET /yield/historico[?granularidad=dia|semana|mes&proyecto_id=N]
+  // Serie de tiempo del yield ya indexado (issue #352). Se agrega sobre los
+  // eventos persistidos: nunca recalcula yield consultando el contrato.
+  if (parts[0] === 'yield' && parts[1] === 'historico' && !parts[2]) {
+    const granularidad = url.searchParams.get('granularidad') ?? GRANULARIDAD_POR_DEFECTO;
+    if (!esGranularidadValida(granularidad)) {
+      return json(req, res, 400, {
+        error: `Granularidad inválida. Valores permitidos: ${GRANULARIDADES.join(', ')}`,
+      });
+    }
+
+    let proyectoId = null;
+    const proyectoIdRaw = url.searchParams.get('proyecto_id');
+    if (proyectoIdRaw != null && proyectoIdRaw !== '') {
+      proyectoId = Number(proyectoIdRaw);
+      if (!Number.isInteger(proyectoId) || proyectoId < 0) {
+        return json(req, res, 400, { error: 'proyecto_id debe ser un entero no negativo' });
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('eventos')
+      .select('tipo,data,timestamp')
+      .eq('tipo', 'yield_reclamado')
+      .order('timestamp', { ascending: false })
+      .limit(YIELD_HISTORICO_MAX_EVENTOS);
+
+    return error
+      ? errorInterno(req, res, '[db-read] GET /yield/historico', error, 'Error de base de datos')
+      : jsonCacheable(req, res, 200, agregarYieldHistorico(data ?? [], { granularidad, proyectoId }));
   }
 
   // GET /eventos[?tipo=X&limit=N&offset=M]

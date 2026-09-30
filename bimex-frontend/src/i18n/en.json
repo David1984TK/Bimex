@@ -340,7 +340,27 @@
     "colWhen": "When",
     "colHash": "Transaction",
     "viewContract": "View the contract on Stellar Explorer",
-    "viewAccount": "View account on Stellar Explorer"
+    "viewAccount": "View account on Stellar Explorer",
+    "yieldChartTitle": "Historical yield generated",
+    "yieldChartSubtitle": "Time series built from yield events already indexed on chain. It is not recomputed on every visit.",
+    "yieldChartSerie": "Series",
+    "yieldChartSerieTotal": "Total yield",
+    "yieldChartSerieCetes": "CETES",
+    "yieldChartSerieAmm": "AMM",
+    "yieldChartGranularity": "Group by:",
+    "yieldChartGranoDia": "Day",
+    "yieldChartGranoSemana": "Week",
+    "yieldChartGranoMes": "Month",
+    "yieldChartTotal": "Accumulated yield",
+    "yieldChartEvents": "Indexed claims",
+    "yieldChartPeriods": "Periods",
+    "yieldChartLoading": "Loading historical yield…",
+    "yieldChartError": "Could not load the historical yield. Check your connection.",
+    "yieldChartEmpty": "No historical yield yet",
+    "yieldChartEmptyHint": "The chart will fill in once the first yield claims are recorded on chain.",
+    "yieldChartSplitNota": "The CETES vs AMM split is not part of the indexed events yet: the contract computes the split internally, but the claim event only publishes the total yield. That is why the aggregated total is shown here.",
+    "yieldChartAria": "Historical yield chart: {{serie}} series with {{puntos}} data points.",
+    "yieldChartPointAria": "{{periodo}}: {{monto}}"
   },
 
   "impacto": {

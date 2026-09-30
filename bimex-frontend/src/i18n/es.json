@@ -340,7 +340,27 @@
     "colWhen": "Fecha",
     "colHash": "Transacción",
     "viewContract": "Ver el contrato en Stellar Explorer",
-    "viewAccount": "Ver cuenta en Stellar Explorer"
+    "viewAccount": "Ver cuenta en Stellar Explorer",
+    "yieldChartTitle": "Yield histórico generado",
+    "yieldChartSubtitle": "Serie de tiempo construida con los eventos de yield ya indexados en la cadena. No se recalcula en cada visita.",
+    "yieldChartSerie": "Serie",
+    "yieldChartSerieTotal": "Yield total",
+    "yieldChartSerieCetes": "CETES",
+    "yieldChartSerieAmm": "AMM",
+    "yieldChartGranularity": "Agrupar por:",
+    "yieldChartGranoDia": "Día",
+    "yieldChartGranoSemana": "Semana",
+    "yieldChartGranoMes": "Mes",
+    "yieldChartTotal": "Yield acumulado",
+    "yieldChartEvents": "Reclamos indexados",
+    "yieldChartPeriods": "Periodos",
+    "yieldChartLoading": "Cargando yield histórico…",
+    "yieldChartError": "No se pudo cargar el yield histórico. Verifica tu conexión.",
+    "yieldChartEmpty": "Todavía no hay yield histórico",
+    "yieldChartEmptyHint": "El gráfico se llenará cuando se registren los primeros reclamos de yield en la cadena.",
+    "yieldChartSplitNota": "El desglose CETES vs AMM aún no viaja en los eventos indexados: el contrato calcula la separación internamente, pero el evento de reclamo solo publica el yield total. Por eso aquí se muestra el total agregado.",
+    "yieldChartAria": "Gráfico de yield histórico: serie {{serie}} con {{puntos}} puntos de datos.",
+    "yieldChartPointAria": "{{periodo}}: {{monto}}"
   },
 
   "impacto": {

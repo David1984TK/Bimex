@@ -11,6 +11,7 @@ Base URL: configure with `VITE_INDEXER_URL` for the frontend and `API_PORT` for 
 | `GET` | `/proyectos/:id/aportaciones` | Lists contributions for a project. |
 | `GET` | `/eventos` | Lists indexed contract events. Optional query: `tipo`; `limit` is capped at `200`. |
 | `GET` | `/stats` | Returns aggregate platform statistics. |
+| `GET` | `/yield/historico` | Time series of the already-indexed yield. Optional query: `granularidad` (`dia`\|`semana`\|`mes`) and `proyecto_id`. |
 | `GET` | `/sse` | Server-Sent Events stream for project/event updates. |
 | `POST` | `/faucet` | Testnet-only MXNe faucet. Body: `{ "destino": "<stellar-address>" }`. |
 | `POST` | `/ipfs-upload` | Uploads a file to IPFS via Pinata (server-side proxy). Body: `{ "filename": "...", "mimeType": "...", "base64": "<base64>" }`. |
@@ -47,13 +48,58 @@ Server-side proxy that uploads a file to Pinata/IPFS, keeping the Pinata API sec
 - Reads `PINATA_API_KEY` / `PINATA_SECRET` from environment (server-side only, never `VITE_` prefixed)
 - Rate limited (`IPFS_UPLOAD_LIMIT`, default `10`/hour per IP)
 
+## Historical yield
+
+`GET /yield/historico?granularidad=dia|semana|mes&proyecto_id=1`
+
+Aggregates the yield events already stored by the indexer (`eventos` rows with
+`tipo = 'yield_reclamado'`) into a time series for the public transparency page
+(issue #352). The contract is never queried and the yield is **not** recomputed
+per request — the endpoint only buckets what is on chain already.
+
+```json
+{
+  "granularidad": "semana",
+  "proyecto_id": null,
+  "desglose_disponible": false,
+  "total_yield": 3000,
+  "total_cetes": null,
+  "total_amm": null,
+  "total_eventos": 2,
+  "series": [
+    {
+      "fuente": "total",
+      "puntos": [
+        { "periodo": "2026-S36", "yield": 1000, "acumulado": 1000, "eventos": 1 },
+        { "periodo": "2026-S37", "yield": 2000, "acumulado": 3000, "eventos": 1 }
+      ]
+    }
+  ]
+}
+```
+
+- `granularidad`: `dia` (default), `semana` (ISO-8601, UTC) or `mes`. Any other
+  value returns `400`.
+- `proyecto_id`: optional non-negative integer; filters the series to one
+  project. Invalid values return `400`.
+- Amounts are in MXNe stroops (same unit as the contract), so the frontend
+  formats them with `stroopsAMXNe()`.
+- `desglose_disponible` is `true` only when the indexed events carry the
+  CETES/AMM split. Today they do not: `calcular_yield_detallado()` in the
+  contract knows the split, but the emitted `yield` event only publishes the
+  total. When the contract starts publishing the split, `series` will also
+  include the `cetes` and `amm` entries with no API change.
+
+Implementation: `bimex-indexer/yieldHistorico.js` (pure aggregation + unit
+tests), wired in `bimex-indexer/api.js`.
+
 ## Rate limits
 
 The API protects public read endpoints and long-lived SSE connections with `bimex-indexer/rateLimiter.js`.
 
 | Scope | Default limit | Key | Notes |
 | --- | ---: | --- | --- |
-| `/proyectos`, `/eventos`, `/stats` | `60` requests / minute | Client IP | Applies to all `/proyectos*` read routes, `/eventos`, and `/stats`. |
+| `/proyectos`, `/eventos`, `/stats`, `/yield/historico` | `60` requests / minute | Client IP | Applies to all `/proyectos*` read routes, `/eventos`, `/stats`, and `/yield/historico`. |
 | `/sse` | `5` simultaneous connections | Client IP | Limit checked before opening the stream; connections are released when the HTTP request closes. |
 | `/faucet` | `3` requests / hour | Wallet address | Kept wallet-based even when an IP is whitelisted. |
 | `/ipfs-upload` | `10` requests / hour | Client IP | Configurable via `IPFS_UPLOAD_LIMIT`. |
@@ -98,6 +144,7 @@ Content-Type: application/json
 | `RATE_LIMIT_STORE` | `supabase` | `supabase` uses the shared Supabase RPC when available; `memory` forces in-process buckets. |
 | `RATE_LIMIT_WHITELIST_IPS` | empty | Comma-separated exact IPs or IPv4 CIDRs that bypass IP-based public/SSE limits. |
 | `RATE_LIMIT_TRUSTED_IPS` / `INTERNAL_IP_WHITELIST` / `FRONTEND_VERCEL_IP_WHITELIST` | empty | Additional whitelist aliases. |
+| `YIELD_HISTORICO_MAX_EVENTOS` | `5000` | Max indexed yield events read per `/yield/historico` request. |
 
 The API reads the client IP from `X-Forwarded-For`, then `X-Real-IP`, then the socket remote address. Deploy behind a trusted reverse proxy so these headers cannot be spoofed.
 
