@@ -1,8 +1,10 @@
+import i18n from "../i18n/index.js";
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { parsearError, esErrorDeConexion } from '../utils/errores.js';
 
 describe('parsearError', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("es");
     Object.defineProperty(navigator, 'onLine', { value: true, writable: true, configurable: true });
   });
 
