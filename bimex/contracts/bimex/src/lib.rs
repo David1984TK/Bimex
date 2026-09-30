@@ -2,7 +2,7 @@
 
 use soroban_sdk::{
     contract, contractimpl, contracttype,
-    symbol_short, token, Address, BytesN, Env, String,
+    symbol_short, token, Address, BytesN, ContractExecutable, Env, String,
 };
 
 // ============================================================
@@ -841,7 +841,7 @@ impl BimexContrato {
         // WASM is stored in the test ledger (contracts are registered as Rust structs).
         // The auth check above is still fully verified.
         #[cfg(not(test))]
-        env.deployer().update_current_contract_wasm(new_wasm_hash);
+        env.deployer().update_current_contract(ContractExecutable::Wasm(new_wasm_hash));
         #[cfg(test)]
         let _ = new_wasm_hash;
     }

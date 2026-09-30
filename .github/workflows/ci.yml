@@ -22,6 +22,14 @@ jobs:
         run: cd bimex && cargo test --locked
       - name: Build wasm (release)
         run: cd bimex && cargo build --release --target wasm32v1-none --locked
+        env:
+          # soroban-sdk 28+ requires the build system to opt in to spec shaking v2
+          # (normally set by `stellar contract build`); plain `cargo build` needs
+          # this to build at all. See soroban-sdk's build.rs and the v28 migration
+          # guide. We don't run the actual shaking step, so the embedded contract
+          # spec includes unreachable type entries — a size/metadata cost, not a
+          # functional one.
+          SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2: "1"
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked
         working-directory: bimex
