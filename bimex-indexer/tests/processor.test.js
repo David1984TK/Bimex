@@ -287,3 +287,111 @@ describe('processor.js — cursor-hold and retry', () => {
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining('atascado en ledger 60 durante 10 ciclos'));
   });
 });
+
+describe('processor.js — notificaciones por hitos de fondeo', () => {
+  let estado;
+  let notificarClientes;
+
+  beforeEach(() => {
+    estado = {
+      ultimoLedger: 0,
+      txProcesadas: 0,
+      ultimaActualizacion: null,
+      rpcLatencyMs: null,
+      escriturasFallidas: 0,
+      ledgerAtascado: null,
+      ultimoErrorEscritura: null,
+      ciclosAtascado: 0,
+    };
+    notificarClientes = vi.fn();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  function contribuirEvent({ monto, ledger = 10, txHash = 'tx_hito' } = {}) {
+    return makeRawEvent({
+      topic: 'contribuir',
+      actor: 'GAAA',
+      data: [1, String(monto), '1700000000'],
+      ledger,
+      txHash,
+    });
+  }
+
+  function depsBase(overrides = {}) {
+    return {
+      soroban: makeSorobanMock([contribuirEvent({ monto: 30 })], 10, 11),
+      contractId: CONTRACT_ID,
+      insertEvento: vi.fn().mockResolvedValue({ eventoNuevo: true }),
+      upsertProyecto: vi.fn().mockResolvedValue(),
+      upsertAportacion: vi.fn().mockResolvedValue(),
+      insertAuditLog: vi.fn().mockResolvedValue(),
+      notificarClientes,
+      estado,
+      ...overrides,
+    };
+  }
+
+  const hitosEmitidos = () =>
+    notificarClientes.mock.calls.filter(([tipo]) => tipo === 'hito_fondeo').map(([, datos]) => datos);
+
+  it('emite hito_fondeo al cruzar el 30% y encola el evento de email', async () => {
+    const registrarEventoProyecto = vi.fn().mockResolvedValue();
+    const obtenerProyecto = vi
+      .fn()
+      .mockResolvedValue({ id: 1, meta: 100, total_aportado: 30, nombre: 'Pozo', dueno: 'GOWNER' });
+
+    const result = await processBatch(10, depsBase({ obtenerProyecto, registrarEventoProyecto }));
+
+    expect(result.ok).toBe(true);
+    expect(hitosEmitidos()).toHaveLength(1);
+    expect(hitosEmitidos()[0]).toMatchObject({ proyectoId: 1, hito: 30, totalAportado: 30, meta: 100 });
+    expect(registrarEventoProyecto).toHaveBeenCalledWith(
+      expect.objectContaining({ event_type: 'hito_fondeo', project_id: 1, owner_wallet: 'GOWNER' }),
+    );
+  });
+
+  it('usa meta_alcanzada al cruzar el 100%', async () => {
+    const registrarEventoProyecto = vi.fn().mockResolvedValue();
+    const obtenerProyecto = vi
+      .fn()
+      .mockResolvedValue({ id: 1, meta: 100, total_aportado: 100, nombre: 'Pozo', dueno: 'GOWNER' });
+    const deps = depsBase({ obtenerProyecto, registrarEventoProyecto });
+    deps.soroban = makeSorobanMock([contribuirEvent({ monto: 100, txHash: 'tx_100' })], 10, 11);
+
+    await processBatch(10, deps);
+
+    expect(hitosEmitidos().map((h) => h.hito)).toContain(100);
+    expect(registrarEventoProyecto).toHaveBeenCalledWith(
+      expect.objectContaining({ event_type: 'meta_alcanzada' }),
+    );
+  });
+
+  it('no emite hito cuando la contribución no cruza ningún umbral', async () => {
+    const obtenerProyecto = vi
+      .fn()
+      .mockResolvedValue({ id: 1, meta: 100, total_aportado: 31, nombre: 'Pozo', dueno: 'GOWNER' });
+    const deps = depsBase({ obtenerProyecto });
+    deps.soroban = makeSorobanMock([contribuirEvent({ monto: 1, txHash: 'tx_none' })], 10, 11);
+
+    await processBatch(10, deps);
+
+    expect(hitosEmitidos()).toHaveLength(0);
+  });
+
+  it('sin obtenerProyecto no notifica hitos (compatibilidad hacia atrás)', async () => {
+    const result = await processBatch(10, depsBase());
+
+    expect(result.ok).toBe(true);
+    expect(hitosEmitidos()).toHaveLength(0);
+  });
+
+  it('un fallo al leer el proyecto no rompe el procesamiento', async () => {
+    const obtenerProyecto = vi.fn().mockRejectedValue(new Error('supabase caído'));
+
+    const result = await processBatch(10, depsBase({ obtenerProyecto }));
+
+    expect(result.ok).toBe(true);
+    expect(hitosEmitidos()).toHaveLength(0);
+  });
+});

@@ -98,4 +98,46 @@ export async function insertAuditLog(audit) {
   });
 }
 
+/**
+ * Reads a single project row. Returns `null` when it does not exist.
+ */
+export async function getProyecto(id) {
+  return conRetry(async () => {
+    const { data, error } = await supabase
+      .from('proyectos')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return data ?? null;
+  });
+}
+
+/**
+ * Sum of a project's active contributions, used to detect funding-milestone
+ * crossings. `aportaciones` holds one row per contributor, so the sum is the
+ * project's total raised.
+ */
+export async function getTotalAportado(proyectoId) {
+  return conRetry(async () => {
+    const { data, error } = await supabase
+      .from('aportaciones')
+      .select('monto')
+      .eq('proyecto_id', proyectoId);
+    if (error) throw error;
+    return (data ?? []).reduce((sum, row) => sum + Number(row.monto ?? 0), 0);
+  });
+}
+
+/**
+ * Queues a notification event for the email pipeline (Resend) via the
+ * `project_events` table. See `supabase/migration_notifications.sql`.
+ */
+export async function insertProjectEvent(evento) {
+  return conRetry(async () => {
+    const { error } = await supabase.from('project_events').insert(evento);
+    if (error) throw error;
+  });
+}
+
 export default supabase;
