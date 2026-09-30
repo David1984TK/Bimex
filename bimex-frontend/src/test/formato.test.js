@@ -6,6 +6,8 @@ import {
   formatearPorcentaje,
   formatearNumero,
   formatearNumeroConDecimales,
+  escaparCSV,
+  construirCSV,
 } from '../utils/formato.js';
 
 describe('Formatting utilities', () => {
@@ -116,6 +118,38 @@ describe('Formatting utilities', () => {
     it('pads with zeros when needed', () => {
       const result = formatearNumeroConDecimales(1234, 2);
       expect(result).toBe('1,234.00');
+    });
+  });
+
+  describe('escaparCSV', () => {
+    it('wraps plain values in double quotes', () => {
+      expect(escaparCSV('hola')).toBe('"hola"');
+    });
+
+    it('doubles embedded double quotes', () => {
+      expect(escaparCSV('a"b')).toBe('"a""b"');
+    });
+
+    it('neutralizes spreadsheet formula injection', () => {
+      expect(escaparCSV('=1+1')).toBe('"\'=1+1"');
+      expect(escaparCSV('@SUM(A1)')).toBe('"\'@SUM(A1)"');
+      expect(escaparCSV('-2+3')).toBe('"\'-2+3"');
+    });
+
+    it('treats null and undefined as empty strings', () => {
+      expect(escaparCSV(null)).toBe('""');
+      expect(escaparCSV(undefined)).toBe('""');
+    });
+  });
+
+  describe('construirCSV', () => {
+    it('joins a header row and data rows with newlines', () => {
+      const csv = construirCSV(['Proyecto', 'Monto'], [['"A"', '"100.00"'], ['"B"', '"0.00"']]);
+      expect(csv).toBe('Proyecto,Monto\n"A","100.00"\n"B","0.00"');
+    });
+
+    it('returns only the header when there are no rows', () => {
+      expect(construirCSV(['a', 'b'], [])).toBe('a,b');
     });
   });
 
