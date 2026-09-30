@@ -12,7 +12,6 @@ describe('sse.js', () => {
       socket: { remoteAddress: '127.0.0.1' },
     };
     // Clear clients by calling eliminar on any possible added clients
-    const metrics = getSseMetrics();
     // We cannot directly clear the set/map since they are not exported,
     // but we can eliminate clients if we keep track, or rely on them starting empty.
     // However, vitest runs describe blocks independently or we can just make sure we clean up.

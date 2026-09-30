@@ -1,6 +1,6 @@
 const BASE = process.env.FRONTEND_URL ?? "https://bimex.fi";
 
-export function layout(content, proyectoUrl) {
+export function layout(content, _proyectoUrl) {
   return `<!DOCTYPE html>
 <html lang="es">
 <head>

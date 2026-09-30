@@ -376,8 +376,7 @@ function renderTemplate(locale, data) {
 /**
  * Build the HTML for a single project card in the email.
  */
-function construirProyectoHtml(locale, proyecto, aportacion, yieldProyecto, periodoUnix) {
-  const { year, month } = parsePeriodo(PERIODO);
+function construirProyectoHtml(locale, proyecto, aportacion, yieldProyecto, _periodoUnix) {
   const totalAportado = Number(proyecto.total_aportado ?? 0) / STROOPS_POR_MXNE;
   const meta = Number(proyecto.meta ?? 1) / STROOPS_POR_MXNE;
   const progreso = meta > 0 ? Math.min(Math.round((totalAportado / meta) * 100), 100) : 0;
