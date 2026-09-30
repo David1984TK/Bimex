@@ -11,6 +11,8 @@
 | [Guía del contribuidor](guia-contribuidor.md) | Cómo apoyar un proyecto como usuario |
 | [Guía del creador de proyecto](guia-creador-proyecto.md) | Cómo lanzar un proyecto en Bimex |
 | [Guía técnica de integración](guia-tecnica-integracion.md) | ABI, CLI, SDK para desarrolladores |
+| [API del indexer](api.md) | Referencia de la API REST/SSE del indexer (endpoints públicos, faucet e IPFS) |
+| [Decisión: política de retiro anticipado](decision-politica-retiro.md) | Retiro libre e inmediato y política de liquidez para contribuidores |
 
 ## 🔐 Seguridad y bug bounty
 
@@ -44,6 +46,15 @@
 | [Runbook: Admin Multi-Sig](runbook-admin-multisig.md) | Operaciones del contrato con firma múltiple (2-of-3) |
 | [Runbook: Restore DB](runbook-restore-db.md) | Restauración de base de datos desde backup cifrado en R2 |
 | [Runbook: Fallos de dependencias](runbook-dependencias.md) | Procedimientos para los cuatro modos de fallo de dependencias (postmortem 2026-07-14) |
+| [Runbook: Disaster Recovery](disaster-recovery.md) | Recuperación de datos del indexer ante pérdida de Supabase |
+| [Runbook: Proxy /api en producción](activar-proxy-indexer-produccion.md) | Activar el proxy del indexer en producción — paso pendiente del issue #338 |
+
+## 🧪 Entorno Staging
+
+| Documento | Descripción |
+|-----------|-------------|
+| [Guía de staging](staging-environment.md) | Estrategia de tres entornos (development, staging, production) y su configuración |
+| [Staging quick start](STAGING-QUICK-START.md) | Inicio rápido: desplegar y validar en staging (flujo `feature` → `staging` → `main`) |
 
 ## 🛠️ Scripts y herramientas
 
@@ -100,7 +111,7 @@ Si encuentras errores o quieres mejorar la documentación:
 
 ## 📅 Última actualización
 
-**Fecha**: 2026-04-28  
+**Fecha**: 2026-09-28  
 **Versión**: 2.0  
 **Estado**: Activo (Testnet) | Preparando Mainnet
 
