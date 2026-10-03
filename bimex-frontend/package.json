@@ -19,16 +19,16 @@
     "postinstall": "node scripts/fix-freighter-tsconfig.mjs"
   },
   "dependencies": {
-    "@creit.tech/stellar-wallets-kit": "^2.6.0",
-    "@sentry/react": "^10.75.2",
+    "@creit.tech/stellar-wallets-kit": "^2.7.0",
+    "@sentry/react": "^11.1.0",
     "@stellar/freighter-api": "^6.0.1",
-    "@stellar/stellar-sdk": "^17.1.0",
-    "@supabase/supabase-js": "^2.117.0",
+    "@stellar/stellar-sdk": "^17.2.0",
+    "@supabase/supabase-js": "^2.117.2",
     "@vercel/og": "^1.0.3",
     "buffer": "^6.0.3",
     "i18next": "^26.4.2",
     "i18next-browser-languagedetector": "^8.2.1",
-    "lucide-react": "^1.47.0",
+    "lucide-react": "^1.49.0",
     "passkey-kit": "^0.12.1",
     "qrcode.react": "^4.2.0",
     "react": "^19.3.0",
@@ -60,14 +60,14 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
-    "@vitest/coverage-v8": "^5.0.1",
+    "@vitest/coverage-v8": "^5.0.2",
     "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.12.0",
     "jsdom": "^29.1.1",
-    "vite": "^8.3.0",
+    "vite": "^8.3.1",
     "vite-plugin-pwa": "^1.3.0",
-    "vitest": "^5.0.1"
+    "vitest": "^5.0.2"
   }
 }
