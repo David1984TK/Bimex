@@ -143,6 +143,7 @@
       "titulo": "Share project",
       "copiar": "Copy link",
       "copiado": "Link copied!",
+      "errorCopiar": "Could not copy link to clipboard",
       "nativo": "Share via...",
       "cerrar": "Close"
     },

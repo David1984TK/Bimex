@@ -23,6 +23,7 @@ import { aplicarMeta, crearMetaProyecto, DEFAULT_META } from "../utils/metaTags.
 import { calcProyeccion, TASAS } from "../utils/rendimiento.js";
 import { parsearDocHash } from "../utils/ipfs.js";
 import SelloVerificado from "./SelloVerificado.jsx";
+import useFocusTrap from "../hooks/useFocusTrap.js";
 
 function calcMonthlyProjectLoss(aportacionStroops, modo = "inversor") {
   const mxne = Number(stroopsAMXNe(aportacionStroops)) || 0;
@@ -163,8 +164,10 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
   const [vistaRetirar,      setVistaRetirar]      = useState(false);
   const [confirmarAbandonar,setConfirmarAbandonar]= useState(false);
   const [mostrarQR,         setMostrarQR]         = useState(false);
-  const [toastVisible,      setToastVisible]      = useState(false);
+  const [toastCompartir,    setToastCompartir]    = useState(null);
   const [miAportacion,      setMiAportacion]      = useState(BigInt(0));
+
+  const modalCompartirRef = useFocusTrap(mostrarQR, () => setMostrarQR(false));
   const [miYield,           setMiYield]           = useState(BigInt(0));
   const [balanceMXNe,       setBalanceMXNe]       = useState(null);
 
@@ -258,16 +261,14 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
     return () => document.removeEventListener("keydown", onKey);
   }, [onCerrar, navigate, mostrarQR]);
 
-  useEffect(() => {
-    if (!mostrarQR) return;
-    const handler = (e) => { if (e.key === "Escape") setMostrarQR(false); };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [mostrarQR]);
-
-  function mostrarToast() {
-    setToastVisible(true);
-    setTimeout(() => setToastVisible(false), 2000);
+  async function copiarEnlace() {
+    try {
+      await navigator.clipboard.writeText(urlProyecto);
+      setToastCompartir({ texto: t("detalle.compartir.copiado"), tipo: "ok" });
+    } catch {
+      setToastCompartir({ texto: t("detalle.compartir.errorCopiar"), tipo: "error" });
+    }
+    setTimeout(() => setToastCompartir(null), 2500);
   }
 
   function handleCantidadChange(e) {
@@ -857,9 +858,11 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
 
       {mostrarQR && (
         <div
+          ref={modalCompartirRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-compartir-titulo"
+          tabIndex={-1}
           style={{
             position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
             display: "flex", alignItems: "center", justifyContent: "center",
@@ -892,19 +895,24 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
               />
               <button
                 className="btn btn-secondary"
-                onClick={() => {
-                  navigator.clipboard.writeText(urlProyecto);
-                  mostrarToast();
-                }}
+                onClick={copiarEnlace}
                 type="button"
               >
                 📋 {t("detalle.compartir.copiar")}
               </button>
             </div>
 
-            {toastVisible && (
-              <p style={{ color: "var(--green)", fontSize: "0.85rem", margin: 0 }}>
-                {t("detalle.compartir.copiado")}
+            {toastCompartir && (
+              <p
+                role="status"
+                aria-live="polite"
+                style={{
+                  color: toastCompartir.tipo === "error" ? "var(--red, #ef4444)" : "var(--green)",
+                  fontSize: "0.85rem",
+                  margin: 0
+                }}
+              >
+                {toastCompartir.texto}
               </p>
             )}
 
