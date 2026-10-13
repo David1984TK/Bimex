@@ -159,4 +159,65 @@ describe("DetalleProyecto", () => {
     });
     expect(screen.queryByPlaceholderText("Ej. 10,000")).not.toBeInTheDocument();
   });
+
+  it("abre el modal de compartir atrapando el foco y devolviéndolo al botón al cerrar", async () => {
+    obtenerProyecto.mockResolvedValueOnce(proyecto());
+    const user = userEvent.setup();
+
+    renderDetalle();
+
+    await screen.findByRole("heading", { name: "Huerto Comunitario", level: 1 });
+
+    const botonCompartir = screen.getByRole("button", { name: "Compartir proyecto" });
+    botonCompartir.focus();
+    await user.click(botonCompartir);
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toBeInTheDocument();
+
+    const inputUrl = dialog.querySelector("input");
+    expect(document.activeElement).toBe(inputUrl);
+
+    // Escape cierra el modal y devuelve el foco
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(document.activeElement).toBe(botonCompartir);
+  });
+
+  it("muestra mensaje accesible de éxito al copiar enlace al portapapeles", async () => {
+    obtenerProyecto.mockResolvedValueOnce(proyecto());
+    const user = userEvent.setup();
+    const writeSpy = vi.spyOn(navigator.clipboard, "writeText");
+
+    renderDetalle();
+
+    await screen.findByRole("heading", { name: "Huerto Comunitario", level: 1 });
+    await user.click(screen.getByRole("button", { name: "Compartir proyecto" }));
+
+    const botonCopiar = screen.getByRole("button", { name: /copiar link/i });
+    await user.click(botonCopiar);
+
+    expect(writeSpy).toHaveBeenCalled();
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent("¡Link copiado!");
+  });
+
+  it("muestra mensaje accesible de error cuando el portapapeles rechaza la operación", async () => {
+    obtenerProyecto.mockResolvedValueOnce(proyecto());
+    const user = userEvent.setup();
+    const writeSpy = vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(new Error("Permission denied"));
+
+    renderDetalle();
+
+    await screen.findByRole("heading", { name: "Huerto Comunitario", level: 1 });
+    await user.click(screen.getByRole("button", { name: "Compartir proyecto" }));
+
+    const botonCopiar = screen.getByRole("button", { name: /copiar link/i });
+    await user.click(botonCopiar);
+
+    expect(writeSpy).toHaveBeenCalled();
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent("No se pudo copiar el enlace al portapapeles");
+  });
 });
+

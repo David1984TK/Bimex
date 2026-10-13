@@ -77,7 +77,7 @@ describe("GraficoYieldHistorico — yield ya indexado", () => {
 
     const serie = figura.querySelector('[data-serie="total"]');
     expect(serie.querySelectorAll("circle")).toHaveLength(2);
-    expect(serie.querySelector("polyline")).toHaveAttribute("points", /,/);
+    expect(serie.querySelector("polyline").getAttribute("points")).toMatch(/,/);
     // Con una sola serie visible el componente rellena el área bajo la línea.
     expect(serie.querySelector("polygon")).not.toBeNull();
     expect(serie.querySelectorAll("[data-punto]")).toHaveLength(2);

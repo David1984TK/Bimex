@@ -21,3 +21,15 @@ Object.defineProperty(window.navigator, 'standalone', {
   configurable: true,
   value: false,
 });
+
+vi.mock('passkey-kit', () => ({
+  PasskeyKit: class { sign = vi.fn() }
+}));
+
+vi.mock('../stellar/walletKit.js', () => ({
+  getConnectedAddress: vi.fn().mockResolvedValue(null),
+  openWalletModal: vi.fn().mockResolvedValue(null),
+  signWithWalletKit: vi.fn().mockResolvedValue('signed-xdr'),
+  getWalletKit: vi.fn(),
+}));
+
