@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client gnupg awscli docker.io
+          sudo apt-get install -y -qq postgresql-client gnupg docker.io
           gpg --version
           psql --version
           aws --version
