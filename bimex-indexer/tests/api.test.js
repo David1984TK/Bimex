@@ -41,6 +41,7 @@ vi.mock('@supabase/supabase-js', () => {
       }
       return this;
     }),
+    in:     vi.fn().mockReturnThis(),
     gte:    vi.fn().mockReturnThis(),
     lte:    vi.fn().mockReturnThis(),
     range:  vi.fn().mockReturnThis(),
@@ -352,6 +353,49 @@ describe('api.js REST Endpoints', () => {
     });
   });
 
+  // ── GET /backers/:address/aportaciones ────────────────────────────────────
+  describe('GET /backers/:address/aportaciones', () => {
+    it('returns 200 and list of aportaciones with Cache-Control for existing backer', async () => {
+      const mockAportaciones = [
+        {
+          id: 1,
+          proyecto_id: 10,
+          contribuidor: 'GBACKER123',
+          monto: '500',
+          timestamp: '2026-01-01T00:00:00Z',
+          proyectos: { nombre: 'Agua Limpia', estado: 'Liberado' },
+        },
+      ];
+      mockSupabase._data = mockAportaciones;
+      mockSupabase._error = null;
+
+      const res = await req({ path: '/backers/GBACKER123/aportaciones', method: 'GET' });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual(mockAportaciones);
+      expectCacheHeaders(res.headers);
+    });
+
+    it('returns 200 and empty list with Cache-Control when backer has no aportaciones', async () => {
+      mockSupabase._data = [];
+      mockSupabase._error = null;
+
+      const res = await req({ path: '/backers/GBACKERNOAPORTA/aportaciones', method: 'GET' });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([]);
+      expectCacheHeaders(res.headers);
+    });
+
+    it('returns 500 without Cache-Control when database errors on /backers/:address/aportaciones', async () => {
+      mockSupabase._data = null;
+      mockSupabase._error = { message: 'connection failure' };
+
+      const res = await req({ path: '/backers/GBACKER123/aportaciones', method: 'GET' });
+      expect(res.status).toBe(500);
+      expect(res.body.error).toBe('Error de base de datos');
+      expectNoCacheHeaders(res.headers);
+    });
+  });
+
   // ── GET /eventos ─────────────────────────────────────────────────────────
   describe('GET /eventos', () => {
     it('returns 200 and event list with Cache-Control', async () => {
@@ -404,6 +448,169 @@ describe('api.js REST Endpoints', () => {
         numero_contribuidores: 0,
       });
       expectCacheHeaders(res.headers);
+    });
+  });
+
+  // ── GET /impacto ──────────────────────────────────────────────────────────
+  describe('GET /impacto', () => {
+    it('returns completed projects with aggregated timeline, metrics, and tx_hashes', async () => {
+      const proyectosData = [
+        {
+          id: 1,
+          nombre: 'Energía Solar Comunitaria',
+          estado: 'Liberado',
+          yield_entregado: '300',
+          created_at: '2026-01-01T00:00:00Z',
+        },
+      ];
+      const aportacionesData = [
+        {
+          id: 10,
+          proyecto_id: 1,
+          contribuidor: 'GBACKER1',
+          monto: '1000',
+          retirado: true,
+        },
+        {
+          id: 11,
+          proyecto_id: 1,
+          contribuidor: 'GBACKER2',
+          monto: '500',
+          retirado: true,
+        },
+      ];
+      const eventosData = [
+        {
+          tipo: 'nueva_aportacion',
+          data: [1, 'GBACKER1', '1000'],
+          tx_hash: 'tx_aporta_1',
+          ledger: 100,
+          timestamp: '2026-01-02T10:00:00Z',
+        },
+        {
+          tipo: 'nueva_aportacion',
+          data: [1, 'GBACKER2', '500'],
+          tx_hash: 'tx_aporta_2',
+          ledger: 105,
+          timestamp: '2026-01-03T11:00:00Z',
+        },
+        {
+          tipo: 'retiro_principal',
+          data: [1, 'GBACKER1', '1000'],
+          tx_hash: 'tx_retiro_1',
+          ledger: 200,
+          timestamp: '2026-02-01T15:00:00Z',
+        },
+        {
+          tipo: 'yield_reclamado',
+          data: [1, '300'],
+          tx_hash: 'tx_yield_1',
+          ledger: 250,
+          timestamp: '2026-02-10T12:00:00Z',
+        },
+      ];
+
+      mockSupabase.from.mockImplementation((table) => {
+        if (table === 'proyectos') {
+          return {
+            select: () => ({
+              eq: () => ({
+                then: (r) => Promise.resolve({ data: proyectosData, error: null }).then(r),
+              }),
+            }),
+          };
+        }
+        if (table === 'aportaciones') {
+          return {
+            select: () => ({
+              then: (r) => Promise.resolve({ data: aportacionesData, error: null }).then(r),
+            }),
+          };
+        }
+        if (table === 'eventos') {
+          return {
+            select: () => ({
+              in: () => ({
+                order: () => ({
+                  then: (r) => Promise.resolve({ data: eventosData, error: null }).then(r),
+                }),
+              }),
+            }),
+          };
+        }
+      });
+
+      const res = await req({ path: '/impacto', method: 'GET' });
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveLength(1);
+      const item = res.body[0];
+      expect(item.id).toBe(1);
+      expect(item.nombre).toBe('Energía Solar Comunitaria');
+      expect(item.total_contribuido).toBe(1500);
+      expect(item.num_contribuidores).toBe(2);
+      expect(item.capital_devuelto).toBe(1500);
+      expect(item.porcentaje_devuelto).toBe(100);
+      expect(item.yield_generado).toBe(300);
+      expect(item.timeline).toEqual({
+        creacion: '2026-01-01T00:00:00Z',
+        primera_contribucion: '2026-01-02T10:00:00Z',
+        ultima_contribucion: '2026-01-03T11:00:00Z',
+        primer_retiro: '2026-02-01T15:00:00Z',
+      });
+      expect(item.tx_hashes).toEqual({
+        contribuciones: ['tx_aporta_1', 'tx_aporta_2'],
+        retiros: ['tx_retiro_1'],
+        yield: ['tx_yield_1'],
+      });
+    });
+
+    it('returns empty array when there are no completed projects or aportaciones remain pending', async () => {
+      mockSupabase.from.mockImplementation((table) => {
+        if (table === 'proyectos') {
+          return {
+            select: () => ({
+              eq: () => ({
+                then: (r) => Promise.resolve({ data: [], error: null }).then(r),
+              }),
+            }),
+          };
+        }
+        if (table === 'aportaciones') {
+          return { select: () => ({ then: (r) => Promise.resolve({ data: [], error: null }).then(r) }) };
+        }
+        if (table === 'eventos') {
+          return { select: () => ({ in: () => ({ order: () => ({ then: (r) => Promise.resolve({ data: [], error: null }).then(r) }) }) }) };
+        }
+      });
+
+      const res = await req({ path: '/impacto', method: 'GET' });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([]);
+    });
+
+    it('returns 500 without Cache-Control when database errors on /impacto', async () => {
+      mockSupabase.from.mockImplementation((table) => {
+        if (table === 'proyectos') {
+          return {
+            select: () => ({
+              eq: () => ({
+                then: (r) => Promise.resolve({ data: null, error: { message: 'db error on proyectos' } }).then(r),
+              }),
+            }),
+          };
+        }
+        if (table === 'aportaciones') {
+          return { select: () => ({ then: (r) => Promise.resolve({ data: [], error: null }).then(r) }) };
+        }
+        if (table === 'eventos') {
+          return { select: () => ({ in: () => ({ order: () => ({ then: (r) => Promise.resolve({ data: [], error: null }).then(r) }) }) }) };
+        }
+      });
+
+      const res = await req({ path: '/impacto', method: 'GET' });
+      expect(res.status).toBe(500);
+      expect(res.body.error).toBe('Error de base de datos');
+      expectNoCacheHeaders(res.headers);
     });
   });
 
