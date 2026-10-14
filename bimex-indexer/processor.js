@@ -1,5 +1,22 @@
-import { parseEvent } from './eventParser.js';
+import { xdr } from '@stellar/stellar-sdk';
+import { parseEvent, CONTRACT_EVENT_SYMBOLS } from './eventParser.js';
 import { hitosCruzados, payloadHito } from './milestones.js';
+
+export function buildEventFilters(contractId) {
+  const symbols = [...CONTRACT_EVENT_SYMBOLS, 'contribuir'];
+  const s = sym => xdr.ScVal.scvSymbol(sym).toXDR('base64');
+
+  const chunks = [];
+  for (let i = 0; i < symbols.length; i += 4) {
+    chunks.push(symbols.slice(i, i + 4).map(s));
+  }
+
+  return chunks.map(chunk => ({
+    type: 'contract',
+    contractIds: [contractId],
+    topics: [chunk, ['*']],
+  }));
+}
 
 /**
  * Detecta hitos de fondeo (30/50/75/100%) cruzados por una contribución y los
@@ -79,10 +96,7 @@ export async function processBatch(startLedger, deps) {
   const inicioRpc = Date.now();
   const resp = await soroban.getEvents({
     startLedger,
-    filters: [{
-      contractIds: [contractId],
-      topics: [['contribuir'], ['yield'], ['retiro'], ['aprobar'], ['rechazar'], ['pausar'], ['reanudar'], ['upgrade']],
-    }],
+    filters: buildEventFilters(contractId),
     pagination: { limit: 200 },
   });
   const finRpc = Date.now();
