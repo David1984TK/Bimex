@@ -6,17 +6,18 @@ Base URL: configure with `VITE_INDEXER_URL` for the frontend and `API_PORT` for 
 
 | Method | Endpoint | Description |
 | --- | --- | --- |
-| `GET` | `/proyectos` | Lists indexed projects. Optional query: `estado`. |
+| `GET` | `/proyectos` | Lists indexed projects. Optional query: `estado`, `limit` (max 200, def 50), `offset`. |
 | `GET` | `/proyectos/:id` | Returns one indexed project. |
-| `GET` | `/proyectos/:id/aportaciones` | Lists contributions for a project. |
-| `GET` | `/backers/:address/aportaciones` | Lists every contribution made by a backer address, each with its project `nombre` and `estado`. |
-| `GET` | `/eventos` | Lists indexed contract events. Optional query: `tipo`; `limit` is capped at `200`. |
-| `GET` | `/stats` | Returns aggregate platform statistics. |
+| `GET` | `/proyectos/:id/aportaciones` | Lists contributions for a project. Optional query: `limit` (max 200, def 50), `offset`. |
+| `GET` | `/backers/:address/aportaciones` | Lists every contribution made by a backer address, with project `nombre` and `estado`. Optional query: `limit` (max 200, def 50), `offset`. |
+| `GET` | `/eventos` | Lists indexed contract events. Optional query: `tipo`, `limit` (max 200, def 50), `offset`. |
+| `GET` | `/stats` | Returns aggregate platform statistics (O(1) SQL aggregation with server caching). |
 | `GET` | `/yield/historico` | Time series of the already-indexed yield. Optional query: `granularidad` (`dia`\|`semana`\|`mes`) and `proyecto_id`. |
-| `GET` | `/audit` | Paginated admin audit log. Optional query: `action`, `actor`, `start_date`, `end_date`, `limit` (capped at `1000`), `offset`, `format=csv`. |
-| `GET` | `/impacto` | Historical summary of completed (`Liberado`) projects, including timeline and transaction hashes. |
+| `GET` | `/audit` | Paginated admin audit log. Optional query: `action`, `actor`, `start_date`, `end_date`, `limit` (max 1000, def 50), `offset`, `format=csv`. |
+| `GET` | `/impacto` | Historical summary of completed (`Liberado`) projects, including timeline and transaction hashes. Cached with `Cache-Control`. |
+| `GET` | `/cetes-rate` | Returns current CETES APY from server-side proxy with fallback and caching. |
 | `GET` | `/sse` | Server-Sent Events stream for project/event updates. |
-| `POST` | `/faucet` | Testnet-only MXNe faucet. Body: `{ "destino": "<stellar-address>" }`. |
+| `POST` | `/faucet` | Testnet-only MXNe faucet. Body: `{ "destino": "<stellar-address>" }`. Atomic rate limiting (3/hr per wallet). |
 | `POST` | `/ipfs-upload` | Uploads a file to IPFS via Pinata (server-side proxy). Body: `{ "filename": "...", "mimeType": "...", "base64": "<base64>" }`. |
 
 ## Authentication
