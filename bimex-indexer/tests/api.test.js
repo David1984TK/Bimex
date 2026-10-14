@@ -456,4 +456,17 @@ describe('api.js REST Endpoints', () => {
       expect(res.body).toEqual({ exito: true, cantidad: 100 });
     });
   });
+
+  // ── GET /cetes-rate ───────────────────────────────────────────────────────
+  describe('GET /cetes-rate', () => {
+    it('returns 200 with rate and Cache-Control headers', async () => {
+      const res = await req({ path: '/cetes-rate' });
+      expect(res.status).toBe(200);
+      expect(typeof res.body.rate).toBe('number');
+      expect(res.body.rate).toBeGreaterThan(0);
+      expect(res.body.source).toBeDefined();
+      expect(res.body.cached_at).toBeDefined();
+      expectCacheHeaders(res.headers);
+    });
+  });
 });
