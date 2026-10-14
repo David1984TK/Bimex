@@ -1,3 +1,5 @@
+import logger from './logger.js';
+
 const TIPOS_PERMITIDOS = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
 const EXTENSIONES_PERMITIDAS = ['.pdf', '.png', '.jpg', '.jpeg'];
 const TAMANO_MAX_BYTES = 10 * 1024 * 1024;
@@ -119,7 +121,7 @@ export async function handleIpfsUpload(req) {
     const IpfsHash = await subirAPinata(body.base64, body.mimeType, body.filename);
     return { status: 200, data: { IpfsHash } };
   } catch (e) {
-    console.error('[ipfs] Error al subir a Pinata:', e.message);
+    logger.error('[ipfs] Error al subir a Pinata', { err: e, filename: body?.filename });
     return { status: 502, error: 'Error al subir a IPFS' };
   }
 }

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import logger from './logger.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -19,7 +20,7 @@ export async function conRetry(fn, maxIntentos = 3, baseDelayMs = 500) {
         throw err;
       }
       const delay = baseDelayMs * Math.pow(2, intento - 1);
-      console.warn(`Intento ${intento} fallido de base de datos, reintentando en ${delay}ms...`, err.message);
+      logger.warn(`Intento ${intento} fallido de base de datos, reintentando en ${delay}ms...`, { intento, delay, err });
       await new Promise(r => setTimeout(r, delay));
     }
   }

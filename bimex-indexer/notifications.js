@@ -10,6 +10,7 @@ import {
   tmplAprobacionHTML,
   tmplYieldDisponible,
 } from "./templates/index.js";
+import logger from "./logger.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM   = process.env.RESEND_FROM ?? "Bimex <notificaciones@bimex.fi>";
@@ -43,6 +44,8 @@ export async function enviarNotificacion(eventType, toEmail, data) {
   const proyectoUrl = data.proyectoUrl ?? `${BASE}/?proyecto=${data.idProyecto}`;
   const html = tpl.html({ ...data, proyectoUrl });
 
+  logger.info('Enviando notificación por email', { eventType, toEmail, idProyecto: data.idProyecto });
+
   const { error } = await resend.emails.send({
     from:    FROM,
     to:      toEmail,
@@ -50,5 +53,8 @@ export async function enviarNotificacion(eventType, toEmail, data) {
     html,
   });
 
-  if (error) throw new Error(`Resend error: ${JSON.stringify(error)}`);
+  if (error) {
+    logger.error('Error al enviar email via Resend', { err: error, eventType, toEmail });
+    throw new Error(`Resend error: ${JSON.stringify(error)}`);
+  }
 }
