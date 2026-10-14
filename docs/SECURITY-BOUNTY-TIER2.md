@@ -2,10 +2,10 @@
 
 > Decision record and budget proposal for migrating the Bimex bug-bounty program from self-hosted (Tier 1) to a managed platform (Tier 2) after the Mainnet pilot.
 
-**Status**: Proposed  
-**Last updated**: 2026-06-24  
-**Decision deadline**: 2 weeks after the pilot project ends  
-**Target launch**: 4 weeks after the platform is selected
+**Status**: In Review / Pre-selected (Pending Pilot Ratification)  
+**Last updated**: 2026-10-13  
+**Target Decision Date**: 2026-11-15 (or 2 weeks after the Mainnet pilot evaluation)  
+**Target Launch Date**: 2026-12-15 (4 weeks after platform ratification)
 
 ---
 
@@ -43,6 +43,17 @@ Once the first Mainnet pilot project completes and the protocol enters a steady 
 | HackerOne | 3/5 | 4/5 | 3/5 | 4/5 | 3/5 | **17/25** |
 
 > **Recommendation**: Immunefi is the preferred candidate due to its crypto-native focus and researcher community. The final decision will be ratified by the security team after the pilot.
+
+### 2.1 Decision Status & Target Timeline
+
+- **Current Status**: Platform evaluation concluded with Immunefi pre-selected (22/25 points) ahead of HackerOne (17/25 points).
+- **Target Ratification Date**: **2026-11-15** (or within 2 weeks of Mainnet pilot conclusion).
+- **Target Launch Date on Platform**: **2026-12-15** (within 4 weeks of formal ratification).
+- **Pre-requisites for Final Ratification**:
+  1. Mainnet pilot phase completes with zero critical unhandled protocol incidents.
+  2. Core security lead and project lead formal sign-off on the managed platform terms.
+  3. Legal/KYC entity confirmation for paying bounties via stablecoins.
+  4. Final escrow allocation and deposit for the $50,000 bounty reward pool.
 
 ---
 
@@ -132,6 +143,7 @@ Tier 2 will be considered successfully launched when all of the following are tr
 | 2026-06-24 | Tier 1 launched as self-hosted program in `SECURITY.md` | No budget for paid rewards before pilot; still need ongoing coverage. | ✅ Approved |
 | 2026-06-24 | Pre-select Immunefi as Tier 2 platform | Best crypto-native fit, largest web3 researcher community, flexible stablecoin payouts. | 🔄 Pending pilot evaluation |
 | 2026-06-24 | Set annual Tier 2 bounty budget at $50,000 | Conservative cap aligned with pilot TVL and expected protocol growth. | 🔄 Pending final approval |
+| 2026-10-13 | Formalize target decision timeline | Clarified Immunefi pre-selection status and set explicit target ratification date (2026-11-15) and launch date (2026-12-15) post-pilot. | ✅ Documented |
 
 ---
 
