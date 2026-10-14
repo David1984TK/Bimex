@@ -179,8 +179,13 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
   const esAbandonado = estado === "Abandonado";
   const aceptaFondos = estado === "EtapaInicial" || estado === "EnProgreso";
 
-  // eslint-disable-next-line react-hooks/purity
-  const ahora = useMemo(() => Math.floor(Date.now() / 1000), []);
+  const [ahora, setAhora] = useState(() => Math.floor(Date.now() / 1000));
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setAhora(Math.floor(Date.now() / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
   const tsVencimiento = proyecto.timestamp_vencimiento ?? 0;
   const plazoVencido  = tsVencimiento > 0 && ahora >= tsVencimiento;
   const fechaVencimiento = tsVencimiento > 0
