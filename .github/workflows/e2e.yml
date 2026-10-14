@@ -2,13 +2,20 @@ name: E2E Tests (Playwright)
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - 'bimex-frontend/**'
   pull_request:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - 'bimex-frontend/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 defaults:
   run:
