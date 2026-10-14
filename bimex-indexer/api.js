@@ -151,7 +151,61 @@ function publicRateLimitedEndpoint(parts) {
   if (parts[0] === 'eventos' && !parts[1]) return '/eventos';
   if (parts[0] === 'stats' && !parts[1]) return '/stats';
   if (parts[0] === 'yield' && parts[1] === 'historico' && !parts[2]) return '/yield/historico';
+  if (parts[0] === 'cetes-rate' && !parts[1]) return '/cetes-rate';
   return null;
+}
+
+// ─── Etherfuse CETES Rate Proxy ───────────────────────────────────────────
+let cachedCetesRate = {
+  rate: 9.45,
+  ts: 0,
+  source: 'default',
+};
+const CETES_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
+
+export function setCachedCetesRate(newCache) {
+  cachedCetesRate = { ...cachedCetesRate, ...newCache };
+}
+
+export async function obtenerTasaCetes() {
+  const now = Date.now();
+  if (now - cachedCetesRate.ts < CETES_CACHE_TTL_MS && cachedCetesRate.ts > 0) {
+    return cachedCetesRate;
+  }
+
+  const apiKey = process.env.ETHERFUSE_API_KEY;
+  if (!apiKey) {
+    cachedCetesRate = { rate: 9.45, ts: now, source: 'fallback-no-key' };
+    return cachedCetesRate;
+  }
+
+  try {
+    const res = await fetch('https://api.sand.etherfuse.com/v1/assets', {
+      headers: { 'Authorization': apiKey },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) {
+      throw new Error(`Etherfuse API HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    const cetes = Array.isArray(data) ? data.find(a =>
+      a.symbol?.includes('CETES') || a.name?.includes('CETES') || a.asset_type?.includes('cetes')
+    ) : null;
+    const apy = Number(cetes?.apy ?? cetes?.rate ?? cetes?.annual_yield ?? 9.45);
+    cachedCetesRate = {
+      rate: Number.isFinite(apy) && apy > 0 ? apy : 9.45,
+      ts: now,
+      source: 'etherfuse',
+    };
+  } catch (err) {
+    console.warn('Error al consultar Etherfuse API, usando fallback:', err.message);
+    cachedCetesRate = {
+      rate: cachedCetesRate.rate ?? 9.45,
+      ts: now,
+      source: 'fallback-error',
+    };
+  }
+  return cachedCetesRate;
 }
 
 function csvEscape(val) {
@@ -388,6 +442,16 @@ async function route(req, res) {
     return error
       ? errorInterno(req, res, '[db-read] GET /yield/historico', error, 'Error de base de datos')
       : jsonCacheable(req, res, 200, agregarYieldHistorico(data ?? [], { granularidad, proyectoId }));
+  }
+
+  // GET /cetes-rate
+  if (parts[0] === 'cetes-rate' && !parts[1]) {
+    const data = await obtenerTasaCetes();
+    return jsonCacheable(req, res, 200, {
+      rate: data.rate,
+      source: data.source,
+      cached_at: new Date(data.ts).toISOString(),
+    });
   }
 
   // GET /eventos[?tipo=X&limit=N&offset=M]
