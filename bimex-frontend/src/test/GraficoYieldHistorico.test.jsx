@@ -2,8 +2,26 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import i18n from "../i18n/index.js";
-import GraficoYieldHistorico from "../components/GraficoYieldHistorico.jsx";
+
+vi.mock('@stellar/freighter-api', () => ({
+  isConnected: vi.fn(),
+  isAllowed: vi.fn(),
+  requestAccess: vi.fn(),
+  getAddress: vi.fn(),
+  getNetwork: vi.fn(),
+  setAllowed: vi.fn(),
+  signTransaction: vi.fn(),
+  signAuthEntry: vi.fn(),
+  signMessage: vi.fn(),
+}));
+
 import { formatearMXNe, formatearNumero } from "../utils/formato.js";
+
+vi.mock("../stellar/contrato", () => ({
+  stroopsAMXNe: (stroops) => `${formatearMXNe(stroops)} MXNe`,
+}));
+
+import GraficoYieldHistorico from "../components/GraficoYieldHistorico.jsx";
 
 const API = "http://api.test";
 const fetchMock = vi.fn();
@@ -77,7 +95,7 @@ describe("GraficoYieldHistorico — yield ya indexado", () => {
 
     const serie = figura.querySelector('[data-serie="total"]');
     expect(serie.querySelectorAll("circle")).toHaveLength(2);
-    expect(serie.querySelector("polyline")).toHaveAttribute("points", /,/);
+    expect(serie.querySelector("polyline").getAttribute("points")).toMatch(/,/);
     // Con una sola serie visible el componente rellena el área bajo la línea.
     expect(serie.querySelector("polygon")).not.toBeNull();
     expect(serie.querySelectorAll("[data-punto]")).toHaveLength(2);

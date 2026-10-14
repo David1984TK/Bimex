@@ -21,3 +21,15 @@ Object.defineProperty(window.navigator, 'standalone', {
   configurable: true,
   value: false,
 });
+
+vi.mock('@stellar/freighter-api', () => ({
+  isConnected: vi.fn(),
+  isAllowed: vi.fn(),
+  requestAccess: vi.fn(),
+  getAddress: vi.fn(),
+  getNetwork: vi.fn(),
+  setAllowed: vi.fn(),
+  signTransaction: vi.fn(),
+  signAuthEntry: vi.fn(),
+  signMessage: vi.fn(),
+}));
