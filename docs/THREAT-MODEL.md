@@ -2,9 +2,9 @@
 
 > Threat model, trust assumptions, and attack surface for the Bimex zero-loss crowdfunding protocol on Stellar/Soroban.
 
-**Version**: 1.0  
-**Last updated**: 2026-06-24  
-**Next review**: 2026-09-24
+**Version**: 1.1  
+**Last updated**: 2026-10-14  
+**Next review**: 2027-01-14
 
 ---
 
@@ -198,9 +198,9 @@ The protocol is designed so that contributors never lose their principal, assumi
 | TM-15 | Supply-chain attack on Stellar SDK or Freighter | T8 | A1 | Critical | Low | Medium | Pin dependency versions; audit lockfiles; Snyk/Dependabot. |
 | TM-16 | Social engineering of team members | T1 | A6 | Critical | Medium | High | Training, 2FA, hardware keys, no seed sharing. |
 | TM-17 | DoS against public RPC | T1 | Availability | Low | High | Low | Use robust RPC providers; out of scope for bounty. |
-| TM-18 | Storage TTL expiration causing data loss | T1/T6 | A4, A5 | High | Low | Medium | TTL extension on every state-mutating and read call. |
-| TM-19 | Unauthorized WASM upgrade | T4 | Entire contract | Critical | Low | Medium | Admin-only upgrade; plan for multi-sig/timelock in future. |
-| TM-20 | i128 overflow in yield calculation | T1/T2 | A2 | High | Low | Medium | `calcular_yield_seguro` divides before multiplying. |
+| TM-18 | Storage TTL expiration causing data loss | T1/T6 | A4, A5 | High | Low | Medium | TTL extension on state-mutating and read calls, rolling TTL keeper functions for up to 120 months (`STORAGE-09`), and `ContadorEnRevision` TTL refresh (`STORAGE-08`). |
+| TM-19 | Unauthorized WASM upgrade | T4 | Entire contract | Critical | Low | Medium | Admin-only upgrade enforced with 24-hour timelock (`UPGRADE-04`). |
+| TM-20 | i128 overflow or truncation in yield calculation | T1/T2 | A2 | High | Low | Medium | `calcular_yield_seguro` evaluates full precision with `checked_mul` and fallback. |
 
 ---
 
@@ -215,13 +215,13 @@ The protocol is designed so that contributors never lose their principal, assumi
 | Contribution cap to prevent overfunding | `contribuir`: `cantidad = cantidad.min(restante)` | ✅ |
 | Yield-rate bounds | `inicializar`: `assert!(bps <= 10_000_000)` | ✅ |
 | State-machine enforcement | `assert!` guards on every state transition | ✅ |
-| Circuit breaker (pause) | `admin_pausar` / `admin_reanudar` | ✅ |
-| Overflow-safe yield math | `calcular_yield_seguro` | ✅ |
+| Circuit breaker (pause) | `admin_pausar` / `admin_reanudar` (enforced on all user ops including `abandonar_proyecto`, closing STATE-10) | ✅ |
+| Overflow-safe & precision-preserving yield math | `calcular_yield_seguro` (checked multiplication before division) | ✅ |
 | Top-up preserves yield timestamp | `contribuir` reuses existing `Aportacion.timestamp` | ✅ |
 | New owner resets yield clock | `solicitar_continuar` resets `timestamp_inicio` | ✅ |
-| TTL extension | `extender_ttl_*` helpers | ✅ |
+| TTL extension | `extender_ttl_*` helpers (instance on admin calls, `ContadorEnRevision`, and public keeper functions) | ✅ |
 | Admin rotation | `admin_cambiar_admin` | ✅ |
-| Upgrade path | `admin_upgrade` (admin-only) | ✅ |
+| Upgrade path with timelock | `admin_upgrade` + `admin_execute_upgrade` (24h timelock) | ✅ |
 
 ### 8.2 Frontend
 
@@ -252,12 +252,13 @@ These risks are accepted or planned for future mitigation:
 
 | ID | Risk | Owner | Planned mitigation |
 |---|---|---|---|
-| RR-01 | Single admin key with no multi-sig/timelock | Security team | Evaluate multi-sig admin for Mainnet (post-pilot). |
+| RR-01 | Single admin key with no multi-sig (timelock now active) | Security team | 24-hour timelock implemented in contract; evaluate multi-sig admin for Mainnet. |
 | RR-02 | Reliance on public Stellar RPC | DevOps | Add fallback RPC providers and private node option. |
-| RR-03 | No formal external audit yet | Security team | Complete external audit before large-scale Mainnet launch. |
+| RR-03 | No formal external audit yet | Security team | Complete external audit (#136) before large-scale Mainnet launch. |
 | RR-04 | Dependence on third-party wallets (Freighter) | Frontend team | Support additional wallets and verify signature integrity. |
 | RR-05 | Off-chain indexer as source of truth for UX | Backend team | Frontend always re-verifies balances and states on-chain. |
 | RR-06 | Social engineering / team credential theft | Operations | 2FA, hardware keys, security training, and incident response plan. |
+| RR-07 | Unfunded yield liquidity cannibalization risk | Economics / Security | Documented in `docs/AUDITORIA-CONTRATO-2026-10-14.md`. In production, external yield reserve funding is required to preserve FUNDS-01/FUNDS-03 backer solvency. |
 
 ---
 
