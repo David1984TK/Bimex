@@ -121,6 +121,16 @@ export default defineConfig(({ mode }) => {
       globals: true,
       setupFiles: './src/test/setup.js',
       include: ['src/**/*.{test,spec}.{js,jsx,ts,tsx}'],
+      testTimeout: 15000,
+      coverage: {
+        provider: 'v8',
+        thresholds: {
+          lines: 55,
+          functions: 48,
+          branches: 48,
+          statements: 54,
+        },
+      },
     },
   }
 })
