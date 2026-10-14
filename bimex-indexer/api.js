@@ -2,6 +2,7 @@ import 'dotenv/config';
 import http from 'node:http';
 import { Contract, rpc, TransactionBuilder, Networks, Address, Keypair, nativeToScVal } from '@stellar/stellar-sdk';
 import supabase from './database.js';
+import logger from './logger.js';
 import { agregarCliente, eliminarCliente } from './sse.js';
 import {
   acquireSseConnection,
@@ -56,7 +57,7 @@ async function checkRateLimit(wallet) {
 
   const { error: insertError } = await supabase.from('faucet_rate_limit').insert({ wallet });
   if (insertError) {
-    console.error('Rate limit insert error:', insertError);
+    logger.error('Rate limit insert error', { err: insertError, wallet });
     return { allowed: false, retryAfter: 3600 };
   }
 
@@ -68,7 +69,7 @@ async function checkRateLimit(wallet) {
     .order('granted_at', { ascending: true });
 
   if (error) {
-    console.error('Rate limit DB error:', error);
+    logger.error('Rate limit DB error', { err: error, wallet });
     return { allowed: false, retryAfter: 3600 };
   }
 
@@ -135,7 +136,7 @@ function jsonCacheable(req, res, status, data) {
  * @param {string} mensaje   — the safe message sent to the client
  */
 function errorInterno(req, res, contexto, err, mensaje) {
-  console.error(`${contexto}`, err);
+  logger.error(contexto, { err, route: req.url, method: req.method });
   return json(req, res, 500, { error: mensaje });
 }
 
@@ -589,4 +590,4 @@ const server = http.createServer(async (req, res) => {
 server.headersTimeout = 30_000;
 server.requestTimeout = 60_000;
 
-server.listen(PORT, () => console.log(`Bimex API listening on port ${PORT}`));
+server.listen(PORT, () => logger.info(`Bimex API listening on port ${PORT}`, { port: PORT }));

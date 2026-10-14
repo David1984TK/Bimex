@@ -1,3 +1,5 @@
+import logger from './logger.js';
+
 // Shared SSE client registry — imported by both api.js and index.js
 const clientes = new Set();
 const connectionsByIp = new Map(); // ip -> Set of responses
@@ -15,6 +17,7 @@ setInterval(() => {
       if (!ok) throw new Error('Backpressure');
     } catch {
       // Remove problematic client
+      logger.debug('SSE heartbeat backpressure detected, removing client');
       eliminarCliente(cliente);
     }
   }
@@ -25,6 +28,7 @@ export function agregarCliente(res, ip) {
   const total = clientes.size;
   const perIpSet = connectionsByIp.get(clientIp) || new Set();
   if (total >= MAX_TOTAL || perIpSet.size >= MAX_PER_IP) {
+    logger.warn('SSE connection rejected due to limits', { total, clientIp, perIpCount: perIpSet.size });
     // Reject connection
     try {
       res.writeHead(429);
@@ -55,6 +59,7 @@ export function notificarClientes(tipo, datos) {
       const ok = cliente.write(msg);
       if (!ok) throw new Error('Backpressure');
     } catch {
+      logger.debug('SSE send backpressure detected, removing client', { tipo });
       clientes.delete(cliente);
       eliminarCliente(cliente);
     }

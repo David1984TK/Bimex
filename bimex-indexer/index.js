@@ -5,6 +5,7 @@ import { upsertProyecto, upsertAportacion, insertEvento, insertAuditLog, getLast
 import { notificarClientes, getSseMetrics } from './sse.js';
 import { setCorsHeaders } from './api.js'; // start HTTP + SSE server in the same process
 import { processBatch } from './processor.js';
+import logger from './logger.js';
 
 const RPC_URL         = process.env.STELLAR_RPC_URL;
 const CONTRACT_ID     = process.env.CONTRACT_ID;
@@ -54,7 +55,7 @@ http.createServer(async (req, res) => {
     res.end(JSON.stringify({ error: 'Not found' }));
   }
 }).listen(parseInt(process.env.HEALTH_PORT ?? '3001', 10), () => {
-  console.log(`Bimex Indexer Health Server listening on port ${process.env.HEALTH_PORT ?? '3001'}`);
+  logger.info(`Bimex Indexer Health Server listening on port ${process.env.HEALTH_PORT ?? '3001'}`, { port: process.env.HEALTH_PORT ?? '3001' });
 });
 
 async function getStartLedger() {
@@ -95,13 +96,13 @@ async function runOnce(startLedger) {
 
 async function run() {
   let cursor = await getStartLedger();
-  console.log(`Bimex indexer starting at ledger ${cursor}`);
+  logger.info(`Bimex indexer starting at ledger ${cursor}`, { cursor });
 
   while (true) {
     try {
       cursor = await runOnce(cursor);
     } catch (err) {
-      console.error('Poll error:', err.message);
+      logger.error('Poll error', { err });
     }
     await new Promise(r => setTimeout(r, POLL_INTERVAL));
   }

@@ -77,3 +77,10 @@ Para garantizar la tolerancia a fallos ante caídas de red o cortes temporales d
 - Todas las operaciones de escritura (upserts/rpc) en la base de datos se ejecutan a través de un mecanismo de **reintento automático con Backoff Exponencial**.
 - Se realizan hasta **3 intentos** de manera automática.
 - El retraso entre intentos aumenta exponencialmente (`500ms`, `1000ms`, `2000ms`), previniendo saturación y permitiendo la recuperación del servicio base.
+
+## Observabilidad y Logging Estructurado (JSON)
+
+El indexer emite todas sus trazas y eventos en formato **JSON estructurado** (newline-delimited JSON) a través de `logger.js`:
+- **Niveles configurables** vía variable de entorno `LOG_LEVEL`: `debug`, `info`, `warn`, `error` (por defecto `info`).
+- **Campos estándar**: `level`, `ts` (ISO-8601), `msg`, y metadatos contextuales (`route`, `err`, `ledger`, etc.).
+- **Redacción automática de secretos y PII**: Redacta tokens Bearer, JWTs, llaves secretas de Stellar (`S...`), contraseñas, API keys de servicios (Supabase, Pinata, Resend), y enmascara direcciones de correo electrónico para proteger la privacidad.

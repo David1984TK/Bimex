@@ -28,6 +28,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { dirname, join } from 'path';
 import { t, mesNombre, numberLocale } from './locales.js';
+import logger from '../logger.js';
 
 // ─── Path setup ──────────────────────────────────────────────────────────
 const __filename = fileURLToPath(import.meta.url);
@@ -221,13 +222,13 @@ async function verificarMigracion() {
     .limit(1);
 
   if (error && error.code === '42P01') {
-    console.log('⚠️  Migration required. Run in Supabase SQL editor:');
-    console.log('   ' + join(__dirname, '..', 'supabase', 'migration_reporte_mensual.sql'));
-    console.log('');
+    logger.error('Migration required. Run in Supabase SQL editor: migration_reporte_mensual.sql', {
+      migrationFile: join(__dirname, '..', 'supabase', 'migration_reporte_mensual.sql'),
+    });
     throw new Error('Database not migrated. Please run migration_reporte_mensual.sql');
   }
   // If table exists, migration is applied
-  console.log('✅ Migration verified.');
+  logger.info('Migration verified');
 }
 
 /**
@@ -326,7 +327,7 @@ async function registrarEnvio(walletAddress, periodo, snapshots) {
   if (rmError) {
     // If duplicate (already sent), that's fine — idempotent
     if (!rmError.message?.includes('duplicate') && !rmError.code?.includes('23505')) {
-      console.warn(`⚠️  Error recording report: ${rmError.message}`);
+      logger.warn('Error recording report', { err: rmError, walletAddress });
     }
     // Only throw if it's not a duplicate key violation
     if (rmError.code && rmError.code !== '23505') throw rmError;
@@ -344,7 +345,7 @@ async function registrarEnvio(walletAddress, periodo, snapshots) {
       });
 
     if (ysError && ysError.code !== '23505') {
-      console.warn(`⚠️  Error recording snapshot: ${ysError.message}`);
+      logger.warn('Error recording snapshot', { err: ysError, snap });
     }
   }
 }
@@ -450,7 +451,7 @@ async function enviarConReintento(toEmail, subject, html, intento = 1) {
   } catch (err) {
     if (intento < MAX_RETRIES) {
       const delay = RETRY_BASE_DELAY_MS * Math.pow(2, intento - 1);
-      console.warn(`  ⚠️  Retry ${intento}/${MAX_RETRIES} for ${toEmail} in ${delay}ms: ${err.message}`);
+      logger.warn(`Retry ${intento}/${MAX_RETRIES} for email send in ${delay}ms`, { intento, maxRetries: MAX_RETRIES, toEmail, delay, err });
       await sleep(delay);
       return enviarConReintento(toEmail, subject, html, intento + 1);
     }
@@ -469,7 +470,7 @@ async function procesarContribuidor(wallet, proyectos, periodo) {
   const email = proyectos[0]?.user_notifications?.email;
 
   if (!email) {
-    console.warn(`  ⚠️  Skipping ${wallet}: no email address`);
+    logger.warn('Skipping contributor: no email address', { wallet });
     return { status: 'skipped', reason: 'no-email' };
   }
 
@@ -554,12 +555,15 @@ async function procesarContribuidor(wallet, proyectos, periodo) {
   const html = renderTemplate(locale, data);
 
   if (DRY_RUN) {
-    console.log(`  📝 [DRY-RUN] Would send to ${email} (${wallet}):
-    Subject: ${subject}
-    Total: ${data.totalContribuidoValor} MXNe
-    Yield this month: ${data.yieldEsteMesValor} MXNe
-    Yield total: ${data.yieldAcumuladoValor} MXNe
-    Projects: ${numProyectos}`);
+    logger.info('[DRY-RUN] Would send monthly report email', {
+      email,
+      wallet,
+      subject,
+      totalContribuido: data.totalContribuidoValor,
+      yieldEsteMes: data.yieldEsteMesValor,
+      yieldAcumulado: data.yieldAcumuladoValor,
+      projects: numProyectos,
+    });
     return { status: 'dry-run' };
   }
 
@@ -596,36 +600,34 @@ export function agruparPorContribuidor(rows) {
 }
 
 async function main() {
-  console.log(`\n📊 Bimex — Reporte Mensual`);
-  console.log(`   Periodo: ${PERIODO}`);
-  console.log(`   Fecha:   ${new Date().toISOString()}`);
-  if (DRY_RUN) console.log(`   🏷️  DRY RUN — no emails will be sent`);
-  console.log('');
+  logger.info('Bimex — Iniciando reporte mensual', {
+    periodo: PERIODO,
+    dryRun: DRY_RUN,
+  });
 
   // Step 1: Verify migration
   await verificarMigracion();
 
   // Step 2: Fetch contributors
-  console.log('🔍 Fetching active contributors...');
+  logger.info('Fetching active contributors...');
   let contributors;
   try {
     contributors = await obtenerContribuidoresActivos(PERIODO);
   } catch (err) {
-    console.error('❌ Failed to fetch contributors:', err.message);
+    logger.error('Failed to fetch contributors', { err });
     process.exit(1);
   }
 
-  console.log(`   Found ${contributors.length} active contributor(s) to process.`);
+  logger.info('Contribuidores activos obtenidos', { count: contributors.length });
   if (contributors.length === 0) {
-    console.log('✅ No contributors to process. Exiting.');
+    logger.info('No contributors to process. Exiting.');
     return;
   }
 
   // Step 3: Group by wallet address
   const groups = agruparPorContribuidor(contributors);
 
-  console.log(`   Total unique contributors: ${groups.size}`);
-  console.log('');
+  logger.info('Contribuidores únicos agrupados', { uniqueContributors: groups.size });
 
   // Step 4: Process in batches with concurrency limit
   const walletList = Array.from(groups.entries());
@@ -636,7 +638,13 @@ async function main() {
 
   for (let i = 0; i < walletList.length; i += BATCH_SIZE) {
     const batch = walletList.slice(i, i + BATCH_SIZE);
-    console.log(`📬 Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(walletList.length / BATCH_SIZE)} (${batch.length} contributors)...`);
+    const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+    const totalBatches = Math.ceil(walletList.length / BATCH_SIZE);
+    logger.info(`Processing batch ${batchNum}/${totalBatches}`, {
+      batchNum,
+      totalBatches,
+      batchSize: batch.length,
+    });
 
     // Process batch with limited concurrency
     const results = [];
@@ -661,7 +669,7 @@ async function main() {
         else skipped++;
       } else {
         failed++;
-        console.error(`  ❌ Error: ${result.reason?.message ?? result.reason}`);
+        logger.error('Error processing contributor', { err: result.reason });
       }
     }
 
@@ -672,15 +680,14 @@ async function main() {
   }
 
   // Summary
-  console.log('');
-  console.log('═'.repeat(50));
-  console.log(`📊 REPORTE MENSUAL — ${PERIODO} — COMPLETADO`);
-  console.log(`   Total contributors:   ${groups.size}`);
-  console.log(`   Sent:                ${sent}`);
-  if (DRY_RUN) console.log(`   Dry-run:             ${dryRun}`);
-  console.log(`   Skipped (no email):  ${skipped}`);
-  console.log(`   Failed:              ${failed}`);
-  console.log('═'.repeat(50));
+  logger.info('Reporte mensual completado', {
+    periodo: PERIODO,
+    totalContributors: groups.size,
+    sent,
+    dryRun,
+    skipped,
+    failed,
+  });
 
   if (failed > 0) process.exit(1);
 }
@@ -692,7 +699,7 @@ const invokedDirectly = process.argv[1] &&
 
 if (invokedDirectly) {
   main().catch(err => {
-    console.error('💥 Fatal error:', err);
+    logger.error('Fatal error in reporte mensual', { err });
     process.exit(1);
   });
 }
