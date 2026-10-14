@@ -1,7 +1,26 @@
 import 'dotenv/config';
 import http from 'node:http';
-import { Contract, rpc, TransactionBuilder, Networks, Address, Keypair, nativeToScVal } from '@stellar/stellar-sdk';
+import { Contract, rpc, TransactionBuilder, Networks, Address, Keypair, nativeToScVal, StrKey } from '@stellar/stellar-sdk';
 import supabase from './database.js';
+
+function esEnteroPositivo(val) {
+  if (typeof val !== 'string' && typeof val !== 'number') return false;
+  const str = String(val).trim();
+  if (!/^\d+$/.test(str)) return false;
+  const n = Number(str);
+  return Number.isSafeInteger(n) && n > 0;
+}
+
+function esDireccionStellar(address) {
+  if (typeof address !== 'string') return false;
+  try {
+    return typeof StrKey?.isValidEd25519PublicKey === 'function'
+      ? StrKey.isValidEd25519PublicKey(address)
+      : /^G[A-Z2-7]{55}$/.test(address);
+  } catch {
+    return false;
+  }
+}
 import { agregarCliente, eliminarCliente } from './sse.js';
 import {
   acquireSseConnection,
@@ -328,8 +347,11 @@ async function route(req, res) {
 
   // GET /proyectos/:id
   if (parts[0] === 'proyectos' && parts[1] && !parts[2]) {
+    if (!esEnteroPositivo(parts[1])) {
+      return json(req, res, 400, { error: 'ID de proyecto inválido: debe ser un entero positivo' });
+    }
     const { data, error } = await supabase
-      .from('proyectos').select('*').eq('id', parts[1]).single();
+      .from('proyectos').select('*').eq('id', Number(parts[1])).single();
     if (error) {
       if (error.code === 'PGRST116') {
         return json(req, res, 404, { error: 'Proyecto no encontrado' });
@@ -341,8 +363,11 @@ async function route(req, res) {
 
   // GET /proyectos/:id/aportaciones
   if (parts[0] === 'proyectos' && parts[1] && parts[2] === 'aportaciones') {
+    if (!esEnteroPositivo(parts[1])) {
+      return json(req, res, 400, { error: 'ID de proyecto inválido: debe ser un entero positivo' });
+    }
     const { data, error } = await supabase
-      .from('aportaciones').select('*').eq('proyecto_id', parts[1]).order('timestamp');
+      .from('aportaciones').select('*').eq('proyecto_id', Number(parts[1])).order('timestamp');
     return error
       ? errorInterno(req, res, '[db-read] GET /proyectos/:id/aportaciones', error, 'Error de base de datos')
       : jsonCacheable(req, res, 200, data);
@@ -350,6 +375,9 @@ async function route(req, res) {
 
   // GET /backers/:address/aportaciones
   if (parts[0] === 'backers' && parts[1] && parts[2] === 'aportaciones') {
+    if (!esDireccionStellar(parts[1])) {
+      return json(req, res, 400, { error: 'Dirección de backer inválida: debe ser una dirección Stellar válida' });
+    }
     const { data, error } = await supabase
       .from('aportaciones').select('*, proyectos(nombre,estado)')
       .eq('contribuidor', parts[1]).order('timestamp');
@@ -475,17 +503,29 @@ async function route(req, res) {
   // GET /impacto — Historical summary for completed projects
   if (parts[0] === 'impacto' && !parts[1]) {
     try {
-      const [proyectosRes, aportacionesRes, eventosRes] = await Promise.all([
-        supabase.from('proyectos').select('*').eq('estado', 'Liberado'),
-        supabase.from('aportaciones').select('*'),
-        supabase.from('eventos').select('tipo,data,tx_hash,ledger,timestamp')
-          .in('tipo', ['nueva_aportacion','retiro_principal','yield_reclamado'])
-          .order('ledger', { ascending: true }),
-      ]);
+      const proyectosRes = await supabase.from('proyectos').select('*').eq('estado', 'Liberado');
       if (proyectosRes.error)
         return errorInterno(req, res, '[db-read] GET /impacto', proyectosRes.error, 'Error de base de datos');
 
       const proyectos = proyectosRes.data ?? [];
+      if (proyectos.length === 0) {
+        return json(req, res, 200, []);
+      }
+
+      const proyectoIds = proyectos.map(p => p.id);
+
+      const [aportacionesRes, eventosRes] = await Promise.all([
+        supabase.from('aportaciones').select('*').in('proyecto_id', proyectoIds),
+        supabase.from('eventos').select('tipo,data,tx_hash,ledger,timestamp')
+          .in('tipo', ['nueva_aportacion','retiro_principal','yield_reclamado'])
+          .order('ledger', { ascending: true }),
+      ]);
+
+      if (aportacionesRes.error)
+        return errorInterno(req, res, '[db-read] GET /impacto', aportacionesRes.error, 'Error de base de datos');
+      if (eventosRes.error)
+        return errorInterno(req, res, '[db-read] GET /impacto', eventosRes.error, 'Error de base de datos');
+
       const aportaciones = aportacionesRes.data ?? [];
       const eventos = eventosRes.data ?? [];
 

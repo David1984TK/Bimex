@@ -41,6 +41,7 @@ vi.mock('@supabase/supabase-js', () => {
       }
       return this;
     }),
+    in:     vi.fn().mockReturnThis(),
     gte:    vi.fn().mockReturnThis(),
     lte:    vi.fn().mockReturnThis(),
     range:  vi.fn().mockReturnThis(),
@@ -110,6 +111,11 @@ vi.mock('@stellar/stellar-sdk', () => {
       },
     },
     nativeToScVal: function() { return {}; },
+    StrKey: {
+      isValidEd25519PublicKey: function(key) {
+        return typeof key === 'string' && /^G[A-Z2-70-9]{55}$/.test(key);
+      },
+    },
   };
 });
 
@@ -350,6 +356,34 @@ describe('api.js REST Endpoints', () => {
       expect(res.body.error).toBe('Proyecto no encontrado');
       expectNoCacheHeaders(res.headers);
     });
+
+    it('returns 400 when :id is not a positive integer (e.g. /proyectos/abc)', async () => {
+      const res = await req({ path: '/proyectos/abc', method: 'GET' });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('ID de proyecto inválido');
+      expectNoCacheHeaders(res.headers);
+    });
+  });
+
+  // ── GET /backers/:address/aportaciones ────────────────────────────────────
+  describe('GET /backers/:address/aportaciones', () => {
+    it('returns 400 when :address is not a valid Stellar address', async () => {
+      const res = await req({ path: '/backers/no-es-direccion/aportaciones', method: 'GET' });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('Dirección de backer inválida');
+      expectNoCacheHeaders(res.headers);
+    });
+
+    it('returns 200 with Cache-Control for valid Stellar address', async () => {
+      const mockData = [{ id: 1, monto: '500', contribuidor: 'GDLCJGQLXZGDAAT5QGRF6FM2MBEER3FPYGCSVPXYL47G2ABIOX2M2S6K' }];
+      mockSupabase._data = mockData;
+      mockSupabase._error = null;
+
+      const res = await req({ path: '/backers/GDLCJGQLXZGDAAT5QGRF6FM2MBEER3FPYGCSVPXYL47G2ABIOX2M2S6K/aportaciones', method: 'GET' });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual(mockData);
+      expectCacheHeaders(res.headers);
+    });
   });
 
   // ── GET /eventos ─────────────────────────────────────────────────────────
@@ -404,6 +438,167 @@ describe('api.js REST Endpoints', () => {
         numero_contribuidores: 0,
       });
       expectCacheHeaders(res.headers);
+    });
+  });
+
+  // ── GET /impacto ──────────────────────────────────────────────────────────
+  describe('GET /impacto', () => {
+    it('filters aportaciones by proyecto_id and aggregates completed projects', async () => {
+      const proyectosData = [
+        { id: 1, nombre: 'Solar', estado: 'Liberado', yield_entregado: '200', created_at: '2026-01-01' },
+      ];
+      const aportacionesData = [
+        { id: 10, proyecto_id: 1, contribuidor: 'GUSER1', monto: '1000', retirado: true },
+      ];
+      const eventosData = [
+        { tipo: 'nueva_aportacion', data: [1, 'GUSER1', '1000'], tx_hash: 'tx1', ledger: 10, timestamp: '2026-01-02' },
+        { tipo: 'retiro_principal', data: [1, 'GUSER1', '1000'], tx_hash: 'tx2', ledger: 20, timestamp: '2026-01-03' },
+      ];
+
+      let aportacionesFilteredByIn = null;
+      mockSupabase.from.mockImplementation((table) => {
+        if (table === 'proyectos') {
+          return {
+            select: () => ({
+              eq: () => ({
+                then: (r) => Promise.resolve({ data: proyectosData, error: null }).then(r),
+              }),
+            }),
+          };
+        }
+        if (table === 'aportaciones') {
+          return {
+            select: () => ({
+              in: (col, val) => {
+                aportacionesFilteredByIn = { col, val };
+                return {
+                  then: (r) => Promise.resolve({ data: aportacionesData, error: null }).then(r),
+                };
+              },
+            }),
+          };
+        }
+        if (table === 'eventos') {
+          return {
+            select: () => ({
+              in: () => ({
+                order: () => ({
+                  then: (r) => Promise.resolve({ data: eventosData, error: null }).then(r),
+                }),
+              }),
+            }),
+          };
+        }
+      });
+
+      const res = await req({ path: '/impacto', method: 'GET' });
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveLength(1);
+      expect(res.body[0].id).toBe(1);
+      expect(res.body[0].total_contribuido).toBe(1000);
+      expect(res.body[0].capital_devuelto).toBe(1000);
+      expect(res.body[0].porcentaje_devuelto).toBe(100);
+      expect(aportacionesFilteredByIn).toEqual({ col: 'proyecto_id', val: [1] });
+    });
+
+    it('returns 500 without internal details when proyectos query errors', async () => {
+      mockSupabase.from.mockImplementation((table) => {
+        if (table === 'proyectos') {
+          return {
+            select: () => ({
+              eq: () => ({
+                then: (r) => Promise.resolve({ data: null, error: { message: 'db internal error on proyectos' } }).then(r),
+              }),
+            }),
+          };
+        }
+      });
+
+      const res = await req({ path: '/impacto', method: 'GET' });
+      expect(res.status).toBe(500);
+      expect(res.body.error).toBe('Error de base de datos');
+      expect(res.body.error).not.toContain('internal');
+      expectNoCacheHeaders(res.headers);
+    });
+
+    it('returns 500 without internal details when aportaciones query errors', async () => {
+      mockSupabase.from.mockImplementation((table) => {
+        if (table === 'proyectos') {
+          return {
+            select: () => ({
+              eq: () => ({
+                then: (r) => Promise.resolve({ data: [{ id: 1, estado: 'Liberado' }], error: null }).then(r),
+              }),
+            }),
+          };
+        }
+        if (table === 'aportaciones') {
+          return {
+            select: () => ({
+              in: () => ({
+                then: (r) => Promise.resolve({ data: null, error: { message: 'db error in aportaciones' } }).then(r),
+              }),
+            }),
+          };
+        }
+        if (table === 'eventos') {
+          return {
+            select: () => ({
+              in: () => ({
+                order: () => ({
+                  then: (r) => Promise.resolve({ data: [], error: null }).then(r),
+                }),
+              }),
+            }),
+          };
+        }
+      });
+
+      const res = await req({ path: '/impacto', method: 'GET' });
+      expect(res.status).toBe(500);
+      expect(res.body.error).toBe('Error de base de datos');
+      expect(res.body.error).not.toContain('aportaciones');
+      expectNoCacheHeaders(res.headers);
+    });
+
+    it('returns 500 without internal details when eventos query errors', async () => {
+      mockSupabase.from.mockImplementation((table) => {
+        if (table === 'proyectos') {
+          return {
+            select: () => ({
+              eq: () => ({
+                then: (r) => Promise.resolve({ data: [{ id: 1, estado: 'Liberado' }], error: null }).then(r),
+              }),
+            }),
+          };
+        }
+        if (table === 'aportaciones') {
+          return {
+            select: () => ({
+              in: () => ({
+                then: (r) => Promise.resolve({ data: [], error: null }).then(r),
+              }),
+            }),
+          };
+        }
+        if (table === 'eventos') {
+          return {
+            select: () => ({
+              in: () => ({
+                order: () => ({
+                  then: (r) => Promise.resolve({ data: null, error: { message: 'db error in eventos' } }).then(r),
+                }),
+              }),
+            }),
+          };
+        }
+      });
+
+      const res = await req({ path: '/impacto', method: 'GET' });
+      expect(res.status).toBe(500);
+      expect(res.body.error).toBe('Error de base de datos');
+      expect(res.body.error).not.toContain('eventos');
+      expectNoCacheHeaders(res.headers);
     });
   });
 

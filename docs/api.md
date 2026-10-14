@@ -7,9 +7,9 @@ Base URL: configure with `VITE_INDEXER_URL` for the frontend and `API_PORT` for 
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `GET` | `/proyectos` | Lists indexed projects. Optional query: `estado`. |
-| `GET` | `/proyectos/:id` | Returns one indexed project. |
-| `GET` | `/proyectos/:id/aportaciones` | Lists contributions for a project. |
-| `GET` | `/backers/:address/aportaciones` | Lists every contribution made by a backer address, each with its project `nombre` and `estado`. |
+| `GET` | `/proyectos/:id` | Returns one indexed project. Returns `400` if `:id` is not a positive integer. |
+| `GET` | `/proyectos/:id/aportaciones` | Lists contributions for a project. Returns `400` if `:id` is not a positive integer. |
+| `GET` | `/backers/:address/aportaciones` | Lists every contribution made by a backer address, each with its project `nombre` and `estado`. Returns `400` if `:address` is not a valid Stellar address (`G...`). |
 | `GET` | `/eventos` | Lists indexed contract events. Optional query: `tipo`; `limit` is capped at `200`. |
 | `GET` | `/stats` | Returns aggregate platform statistics. |
 | `GET` | `/yield/historico` | Time series of the already-indexed yield. Optional query: `granularidad` (`dia`\|`semana`\|`mes`) and `proyecto_id`. |
@@ -168,7 +168,7 @@ Rate-limited responses (`429`) add `retry_after` — seconds until the next allo
 | --- | --- |
 | `200 OK` | Successful request. |
 | `204 No Content` | `OPTIONS` preflight response. |
-| `400 Bad Request` | Malformed JSON body, missing required fields, or invalid `/ipfs-upload` file type, extension, base64, or size (> 10 MB). |
+| `400 Bad Request` | Malformed JSON body, missing required fields, invalid `:id` or `:address` route parameters, or invalid `/ipfs-upload` file type, extension, base64, or size (> 10 MB). |
 | `404 Not Found` | Unknown route, or `GET /proyectos/:id` for an id that does not exist. |
 | `405 Method Not Allowed` | A non-`GET` request to any route other than `POST /faucet` and `POST /ipfs-upload`. |
 | `413 Payload Too Large` | `POST /faucet` body exceeds `MAX_BODY_BYTES` (default 64 KiB). |
