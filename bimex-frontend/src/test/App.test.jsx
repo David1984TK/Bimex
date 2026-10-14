@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import App from "../App.jsx";
+import App, { ToastContainer } from "../App.jsx";
 import { getRouteTitle } from "../utils/documentTitle.js";
 import i18n from "../i18n/index.js";
 import { getStorage } from "../utils/storage.js";
@@ -44,7 +44,13 @@ vi.mock("../components/CrearProyecto", () => ({
 }));
 
 vi.mock("../components/DetalleProyecto", () => ({
-  default: () => null,
+  default: ({ onError, onToast }) => (
+    <div>
+      <button className="back-link" type="button">Volver</button>
+      <button type="button" onClick={() => onError(new Error("Error de contrato de prueba"))}>Trigger Error</button>
+      <button type="button" onClick={() => onToast("Operación exitosa")}>Trigger Success</button>
+    </div>
+  ),
 }));
 
 vi.mock("../components/MiCuenta", () => ({
@@ -222,6 +228,44 @@ describe("App document title", () => {
 
     await waitFor(() => {
       expect(document.title).toBe("Proyecto Cafetal · Bimex");
+    });
+  });
+
+  describe("ToastContainer y notificaciones de error/éxito", () => {
+    it("renderiza toasts de error y éxito sin fallar por 't is not a function' y con accesibilidad", async () => {
+      const onRemove = vi.fn();
+      render(
+        <ToastContainer
+          toasts={[
+            { id: 1, msg: "Fallo de conexión", tipo: "error" },
+            { id: 2, msg: "Inversión realizada", tipo: "success" },
+          ]}
+          onRemove={onRemove}
+        />
+      );
+
+      expect(screen.getByRole("alert")).toHaveTextContent("Fallo de conexión");
+      expect(screen.getByRole("status")).toHaveTextContent("Inversión realizada");
+
+      const closeButtons = screen.getAllByRole("button", { name: "Cerrar notificación" });
+      expect(closeButtons).toHaveLength(2);
+
+      await userEvent.click(closeButtons[0]);
+      expect(onRemove).toHaveBeenCalledWith(1);
+    });
+
+    it("muestra toast cuando DetalleProyecto dispara onError", async () => {
+      renderApp(["/proyectos/1"]);
+
+      const triggerBtn = await screen.findByRole("button", { name: "Trigger Error" });
+      await userEvent.click(triggerBtn);
+
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toHaveTextContent("Error de contrato de prueba");
+      });
+
+      const closeBtn = screen.getByRole("button", { name: "Cerrar notificación" });
+      await userEvent.click(closeBtn);
     });
   });
 });
