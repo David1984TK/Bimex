@@ -1,4 +1,30 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// Environment variables to prevent unhandled configuration errors in test
+process.env.SUPABASE_URL = 'https://mock.supabase.co';
+process.env.SUPABASE_KEY = 'mockkey';
+process.env.STELLAR_RPC_URL = 'https://soroban-testnet.stellar.org';
+process.env.TOKEN_MXNE = 'CA7QYNF7SOWQ3GLR2BGMZEHXR2YW6GKQJ6LMBSEPAMQ';
+process.env.FAUCET_SECRET = 'SCZANGBA5IOZSBA4K5NKMQ6MBWCQELZUYFQ3HMVH7VLEP6HWLDM3NAR';
+process.env.API_PORT = '3011';
+
+// Mock @supabase/supabase-js to prevent realtime-js native WebSocket error in Node 20 CI
+vi.mock('@supabase/supabase-js', () => {
+  const mockSupabase = {
+    from: vi.fn().mockReturnThis(),
+    rpc: vi.fn(),
+    select: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    range: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    single: vi.fn().mockReturnThis(),
+  };
+  return {
+    createClient: () => mockSupabase,
+  };
+});
+
 import { parseLimitOffset, publicRateLimitedEndpoint } from '../api.js';
 
 describe('API Audit & Hardening (Issue #411)', () => {
