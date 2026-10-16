@@ -181,7 +181,8 @@ function BtnFaucet({ direccion }) {
 }
 
 // ── Toast Container ──────────────────────────────────────────────────────────
-function ToastContainer({ toasts, onRemove }) {
+export function ToastContainer({ toasts, onRemove }) {
+  const { t } = useTranslation();
   if (!toasts.length) return null;
   return (
     <div
@@ -193,16 +194,16 @@ function ToastContainer({ toasts, onRemove }) {
         maxWidth: 380, width: "calc(100vw - 32px)",
       }}
     >
-      {toasts.map(t => (
+      {toasts.map(toast => (
         <div
-          key={t.id}
-          role={t.tipo === "error" ? "alert" : "status"}
-          aria-live={t.tipo === "error" ? "assertive" : "polite"}
+          key={toast.id}
+          role={toast.tipo === "error" ? "alert" : "status"}
+          aria-live={toast.tipo === "error" ? "assertive" : "polite"}
           aria-atomic="true"
           style={{
-            background: t.tipo === "error" ? "#FEF2F2" : "#F0FDF4",
-            border: `1px solid ${t.tipo === "error" ? "rgba(220,38,38,0.20)" : "rgba(22,163,74,0.20)"}`,
-            borderLeft: `4px solid ${t.tipo === "error" ? "#DC2626" : "var(--green)"}`,
+            background: toast.tipo === "error" ? "#FEF2F2" : "#F0FDF4",
+            border: `1px solid ${toast.tipo === "error" ? "rgba(220,38,38,0.20)" : "rgba(22,163,74,0.20)"}`,
+            borderLeft: `4px solid ${toast.tipo === "error" ? "#DC2626" : "var(--green)"}`,
             borderRadius: "var(--radius-sm)",
             padding: "12px 14px",
             boxShadow: "var(--shadow-md)",
@@ -211,7 +212,7 @@ function ToastContainer({ toasts, onRemove }) {
           }}>
           {/* Icono */}
           <div style={{ flexShrink: 0, marginTop: 1 }}>
-            {t.tipo === "error" ? (
+            {toast.tipo === "error" ? (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
@@ -225,25 +226,25 @@ function ToastContainer({ toasts, onRemove }) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{
               fontSize: "0.78rem", fontWeight: 700, margin: 0,
-              color: t.tipo === "error" ? "#991B1B" : "#166534",
+              color: toast.tipo === "error" ? "#991B1B" : "#166534",
             }}>
-              {t.tipo === "error" ? "Error" : "Éxito"}
+              {toast.tipo === "error" ? "Error" : "Éxito"}
             </p>
             <p style={{
               fontSize: "0.79rem", margin: "3px 0 0", lineHeight: 1.5,
-              color: t.tipo === "error" ? "#7F1D1D" : "#14532D",
+              color: toast.tipo === "error" ? "#7F1D1D" : "#14532D",
               wordBreak: "break-word",
             }}>
-              {t.msg}
+              {toast.msg}
             </p>
           </div>
           {/* Botón cerrar */}
           <button
-            onClick={() => onRemove(t.id)}
+            onClick={() => onRemove(toast.id)}
             aria-label={t("comun.cerrarToastAria")}
             style={{
               flexShrink: 0, background: "none", border: "none", cursor: "pointer",
-              color: t.tipo === "error" ? "#DC2626" : "var(--green)",
+              color: toast.tipo === "error" ? "#DC2626" : "var(--green)",
               padding: "1px 3px", lineHeight: 1, fontSize: "0.85rem",
               opacity: 0.7, marginTop: -1,
             }}
