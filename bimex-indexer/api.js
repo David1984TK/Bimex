@@ -47,43 +47,36 @@ const MAX_BODY_BYTES = parseInt(process.env.MAX_BODY_BYTES ?? String(64 * 1024),
 // construye en memoria, así que acotamos para no castigar la API.
 const YIELD_HISTORICO_MAX_EVENTOS = parseInt(process.env.YIELD_HISTORICO_MAX_EVENTOS ?? '5000', 10);
 
-// ─── Rate limiter: 3 requests per wallet per hour ────────────────────────
-const RL_MAX = 3;
-const RL_WINDOW_MS = 60 * 60 * 1000;
+// ─── Paginación Segura ───────────────────────────────────────────────────
+export function parseLimitOffset(searchParams, { defaultLimit = 50, maxLimit = 100 } = {}) {
+  let limit = defaultLimit;
+  let offset = 0;
 
-async function checkRateLimit(wallet) {
-  const oneHourAgo = new Date(Date.now() - RL_WINDOW_MS).toISOString();
-
-  const { error: insertError } = await supabase.from('faucet_rate_limit').insert({ wallet });
-  if (insertError) {
-    console.error('Rate limit insert error:', insertError);
-    return { allowed: false, retryAfter: 3600 };
+  if (searchParams.has('limit')) {
+    const rawLimit = searchParams.get('limit');
+    if (!/^\d+$/.test(rawLimit)) {
+      return { error: 'El parámetro "limit" debe ser un número entero positivo' };
+    }
+    const parsedLimit = parseInt(rawLimit, 10);
+    if (!Number.isFinite(parsedLimit) || parsedLimit <= 0) {
+      return { error: 'El parámetro "limit" debe ser un número entero positivo' };
+    }
+    limit = Math.min(parsedLimit, maxLimit);
   }
 
-  const { data, error } = await supabase
-    .from('faucet_rate_limit')
-    .select('granted_at')
-    .eq('wallet', wallet)
-    .gte('granted_at', oneHourAgo)
-    .order('granted_at', { ascending: true });
-
-  if (error) {
-    console.error('Rate limit DB error:', error);
-    return { allowed: false, retryAfter: 3600 };
+  if (searchParams.has('offset')) {
+    const rawOffset = searchParams.get('offset');
+    if (!/^\d+$/.test(rawOffset)) {
+      return { error: 'El parámetro "offset" debe ser un número entero no negativo' };
+    }
+    const parsedOffset = parseInt(rawOffset, 10);
+    if (!Number.isFinite(parsedOffset) || parsedOffset < 0) {
+      return { error: 'El parámetro "offset" debe ser un número entero no negativo' };
+    }
+    offset = parsedOffset;
   }
 
-  if (data.length > RL_MAX) {
-    const latest = data[data.length - 1].granted_at;
-    await supabase.from('faucet_rate_limit').delete()
-      .eq('wallet', wallet)
-      .eq('granted_at', latest);
-
-    const oldest = new Date(data[0].granted_at).getTime();
-    const retryAfterSeconds = Math.ceil((oldest + RL_WINDOW_MS - Date.now()) / 1000);
-    return { allowed: false, retryAfter: Math.max(1, retryAfterSeconds) };
-  }
-
-  return { allowed: true };
+  return { limit, offset };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
@@ -146,11 +139,19 @@ function rateLimitExceeded(req, res, result, message) {
   });
 }
 
-function publicRateLimitedEndpoint(parts) {
-  if (parts[0] === 'proyectos') return '/proyectos';
+export function publicRateLimitedEndpoint(parts) {
+  if (parts[0] === 'proyectos') {
+    if (!parts[1]) return '/proyectos';
+    if (parts[2] === 'aportaciones') return '/proyectos/:id/aportaciones';
+    return '/proyectos/:id';
+  }
+  if (parts[0] === 'backers' && parts[2] === 'aportaciones') return '/backers/:address/aportaciones';
   if (parts[0] === 'eventos' && !parts[1]) return '/eventos';
   if (parts[0] === 'stats' && !parts[1]) return '/stats';
   if (parts[0] === 'yield' && parts[1] === 'historico' && !parts[2]) return '/yield/historico';
+  if (parts[0] === 'audit' && !parts[1]) return '/audit';
+  if (parts[0] === 'impacto' && !parts[1]) return '/impacto';
+  if (parts[0] === 'cetes-rate' && !parts[1]) return '/cetes-rate';
   return null;
 }
 
@@ -203,7 +204,16 @@ function readBody(req, res) {
 const FAUCET_RPC        = new rpc.Server(process.env.STELLAR_RPC_URL, { allowHttp: false });
 const FAUCET_TOKEN_ID   = process.env.TOKEN_MXNE;
 const FAUCET_SECRET     = process.env.FAUCET_SECRET;
-const FAUCET_KEYPAIR    = FAUCET_SECRET ? Keypair.fromSecret(FAUCET_SECRET) : null;
+function getFaucetKeypair(secret) {
+  if (!secret) return null;
+  try {
+    return Keypair.fromSecret(secret);
+  } catch (err) {
+    console.warn('[faucet] Invalid FAUCET_SECRET:', err.message);
+    return null;
+  }
+}
+const FAUCET_KEYPAIR    = getFaucetKeypair(FAUCET_SECRET);
 
 async function mintearMXNe(destino, cantidad = BigInt(1_000_000_000)) {
   if (!FAUCET_SECRET || !FAUCET_KEYPAIR) throw new Error('Faucet no configurado (FAUCET_SECRET)');
@@ -265,13 +275,9 @@ async function route(req, res) {
       windowMs: rateLimitConfig.faucetWindowMs,
       honorIpWhitelist: false,
     });
-    if (!faucetLimit.allowed)
+    if (!faucetLimit.allowed) {
+      res.setHeader('Retry-After', String(faucetLimit.retryAfter ?? 3600));
       return rateLimitExceeded(req, res, faucetLimit, 'Límite de 3 solicitudes por hora por wallet');
-
-    const rl = await checkRateLimit(destino);
-    if (!rl.allowed) {
-      res.setHeader('Retry-After', rl.retryAfter.toString());
-      return json(req, res, 429, { error: 'Límite de 3 solicitudes por hora por wallet' });
     }
 
     try {
@@ -316,9 +322,13 @@ async function route(req, res) {
       return rateLimitExceeded(req, res, publicLimit, 'Demasiadas solicitudes. Intenta de nuevo más tarde.');
   }
 
-  // GET /proyectos[?estado=X]
+  // GET /proyectos[?estado=X&limit=N&offset=M]
   if (parts[0] === 'proyectos' && !parts[1]) {
-    let q = supabase.from('proyectos').select('*').order('id');
+    const limOff = parseLimitOffset(url.searchParams, { defaultLimit: 50, maxLimit: 200 });
+    if (limOff.error) return json(req, res, 400, { error: limOff.error });
+    const { limit, offset } = limOff;
+
+    let q = supabase.from('proyectos').select('*').order('id').range(offset, offset + limit - 1);
     if (url.searchParams.has('estado')) q = q.eq('estado', url.searchParams.get('estado'));
     const { data, error } = await q;
     return error
@@ -339,20 +349,28 @@ async function route(req, res) {
     return jsonCacheable(req, res, 200, data);
   }
 
-  // GET /proyectos/:id/aportaciones
+  // GET /proyectos/:id/aportaciones[?limit=N&offset=M]
   if (parts[0] === 'proyectos' && parts[1] && parts[2] === 'aportaciones') {
+    const limOff = parseLimitOffset(url.searchParams, { defaultLimit: 50, maxLimit: 200 });
+    if (limOff.error) return json(req, res, 400, { error: limOff.error });
+    const { limit, offset } = limOff;
+
     const { data, error } = await supabase
-      .from('aportaciones').select('*').eq('proyecto_id', parts[1]).order('timestamp');
+      .from('aportaciones').select('*').eq('proyecto_id', parts[1]).order('timestamp').range(offset, offset + limit - 1);
     return error
       ? errorInterno(req, res, '[db-read] GET /proyectos/:id/aportaciones', error, 'Error de base de datos')
       : jsonCacheable(req, res, 200, data);
   }
 
-  // GET /backers/:address/aportaciones
+  // GET /backers/:address/aportaciones[?limit=N&offset=M]
   if (parts[0] === 'backers' && parts[1] && parts[2] === 'aportaciones') {
+    const limOff = parseLimitOffset(url.searchParams, { defaultLimit: 50, maxLimit: 200 });
+    if (limOff.error) return json(req, res, 400, { error: limOff.error });
+    const { limit, offset } = limOff;
+
     const { data, error } = await supabase
       .from('aportaciones').select('*, proyectos(nombre,estado)')
-      .eq('contribuidor', parts[1]).order('timestamp');
+      .eq('contribuidor', parts[1]).order('timestamp').range(offset, offset + limit - 1);
     return error
       ? errorInterno(req, res, '[db-read] GET /backers/:address/aportaciones', error, 'Error de base de datos')
       : jsonCacheable(req, res, 200, data);
@@ -392,8 +410,10 @@ async function route(req, res) {
 
   // GET /eventos[?tipo=X&limit=N&offset=M]
   if (parts[0] === 'eventos' && !parts[1]) {
-    const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50', 10), 200);
-    const offset = parseInt(url.searchParams.get('offset') ?? '0', 10);
+    const limOff = parseLimitOffset(url.searchParams, { defaultLimit: 50, maxLimit: 200 });
+    if (limOff.error) return json(req, res, 400, { error: limOff.error });
+    const { limit, offset } = limOff;
+
     let q = supabase.from('eventos').select('*', { count: 'exact' }).order('ledger', { ascending: false }).range(offset, offset + limit - 1);
     if (url.searchParams.has('tipo')) q = q.eq('tipo', url.searchParams.get('tipo'));
     const { data, count, error } = await q;
@@ -404,6 +424,16 @@ async function route(req, res) {
 
   // GET /stats
   if (parts[0] === 'stats' && !parts[1]) {
+    try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('obtener_stats_agregadas');
+      if (!rpcError && rpcData) {
+        const statsObj = typeof rpcData === 'string' ? JSON.parse(rpcData) : rpcData;
+        return jsonCacheable(req, res, 200, statsObj);
+      }
+    } catch {
+      // Fallback a reducers en memoria si la función RPC aún no está creada
+    }
+
     const [proyectos, aportaciones] = await Promise.all([
       supabase.from('proyectos').select('estado,total_aportado,yield_entregado,meta'),
       supabase.from('aportaciones').select('monto,retirado,contribuidor'),
@@ -411,7 +441,7 @@ async function route(req, res) {
     if (proyectos.error)
       return errorInterno(req, res, '[db-read] GET /stats', proyectos.error, 'Error de base de datos');
 
-    const ps = proyectos.data;
+    const ps = proyectos.data ?? [];
     const aports = aportaciones.data ?? [];
     const contribuidoresUnicos = new Set(aports.filter(a => a.contribuidor).map(a => a.contribuidor));
     const stats = {
@@ -429,8 +459,10 @@ async function route(req, res) {
 
   // GET /audit[?action=X&limit=N&offset=M&format=csv]
   if (parts[0] === 'audit' && !parts[1]) {
-    const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50', 10), 1000);
-    const offset = parseInt(url.searchParams.get('offset') ?? '0', 10);
+    const limOff = parseLimitOffset(url.searchParams, { defaultLimit: 50, maxLimit: 1000 });
+    if (limOff.error) return json(req, res, 400, { error: limOff.error });
+    const { limit, offset } = limOff;
+
     let q = supabase.from('audit_log').select('*', { count: 'exact' }).order('block_time', { ascending: false }).range(offset, offset + limit - 1);
     
     if (url.searchParams.has('action') && url.searchParams.get('action') !== 'Todos') {
@@ -469,23 +501,37 @@ async function route(req, res) {
       });
       return res.end();
     }
-    return json(req, res, 200, { data, count });
+    return jsonCacheable(req, res, 200, { data, count });
   }
 
   // GET /impacto — Historical summary for completed projects
   if (parts[0] === 'impacto' && !parts[1]) {
     try {
-      const [proyectosRes, aportacionesRes, eventosRes] = await Promise.all([
-        supabase.from('proyectos').select('*').eq('estado', 'Liberado'),
-        supabase.from('aportaciones').select('*'),
+      const { data: proyectosLiberados, error: proyError } = await supabase
+        .from('proyectos')
+        .select('*')
+        .eq('estado', 'Liberado');
+
+      if (proyError)
+        return errorInterno(req, res, '[db-read] GET /impacto', proyError, 'Error de base de datos');
+
+      const proyectos = proyectosLiberados ?? [];
+      if (proyectos.length === 0) {
+        return jsonCacheable(req, res, 200, []);
+      }
+
+      const pids = proyectos.map(p => p.id);
+      const [aportacionesRes, eventosRes] = await Promise.all([
+        supabase.from('aportaciones').select('*').in('proyecto_id', pids),
         supabase.from('eventos').select('tipo,data,tx_hash,ledger,timestamp')
           .in('tipo', ['nueva_aportacion','retiro_principal','yield_reclamado'])
           .order('ledger', { ascending: true }),
       ]);
-      if (proyectosRes.error)
-        return errorInterno(req, res, '[db-read] GET /impacto', proyectosRes.error, 'Error de base de datos');
+      if (aportacionesRes.error)
+        return errorInterno(req, res, '[db-read] GET /impacto', aportacionesRes.error, 'Error de base de datos');
+      if (eventosRes.error)
+        return errorInterno(req, res, '[db-read] GET /impacto', eventosRes.error, 'Error de base de datos');
 
-      const proyectos = proyectosRes.data ?? [];
       const aportaciones = aportacionesRes.data ?? [];
       const eventos = eventosRes.data ?? [];
 
@@ -539,7 +585,7 @@ async function route(req, res) {
         });
       }
 
-      return json(req, res, 200, completados);
+      return jsonCacheable(req, res, 200, completados);
     } catch (err) {
       return errorInterno(req, res, '[impacto]', err, 'Error interno del servidor');
     }
@@ -584,6 +630,13 @@ const server = http.createServer(async (req, res) => {
   } catch (err) {
     errorInterno(req, res, '[unhandled]', err, 'Error interno del servidor');
   }
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE' && (process.env.NODE_ENV === 'test' || process.env.VITEST)) {
+    return;
+  }
+  console.error('[server error]', err);
 });
 
 server.headersTimeout = 30_000;
