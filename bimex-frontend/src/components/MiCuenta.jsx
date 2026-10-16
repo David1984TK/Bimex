@@ -10,6 +10,8 @@ import {
   obtenerAportacion,
   calcularYield,
   stroopsAMXNe,
+  obtenerAportacionesIndexer,
+  ejecutarConcurrente,
 } from "../stellar/contrato";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
@@ -273,11 +275,23 @@ function TabMisProyectos({ proyectos, direccion, onVerProyecto }) {
 
 // ─── Pestaña: Mis contribuciones ──────────────────────────────────────────────
 
-function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
+function TabMisContribuciones({
+  proyectos,
+  direccion,
+  onVerProyecto,
+  contribucionesExternas,
+  cargandoExterno,
+  errorExterno,
+}) {
   const { t } = useTranslation();
-  const [contribuciones, setContribuciones] = useState([]);
-  const [cargando, setCargando] = useState(true);
-  const [errorContrib, setErrorContrib] = useState(null);
+  const [contribucionesLocales, setContribucionesLocales] = useState([]);
+  const [cargandoLocal, setCargandoLocal] = useState(true);
+  const [errorLocal, setErrorLocal] = useState(null);
+
+  const tieneExterno = contribucionesExternas !== undefined;
+  const contribuciones = tieneExterno ? contribucionesExternas : contribucionesLocales;
+  const cargando = tieneExterno && cargandoExterno !== undefined ? cargandoExterno : cargandoLocal;
+  const errorContrib = tieneExterno && errorExterno !== undefined ? errorExterno : errorLocal;
   const tableTopRef = useRef(null);
 
   function exportarCSV(rows) {
@@ -336,32 +350,39 @@ function TabMisContribuciones({ proyectos, direccion, onVerProyecto }) {
   );
 
   useEffect(() => {
+    if (tieneExterno) return;
     let mounted = true;
     async function loadFallback() {
       // fallback to previous behavior (on-chain lookups) when Supabase is not available
       if (useSupabasePagination) return;
-      if (proyectos.length === 0) { setCargando(false); return; }
-      setCargando(true); setErrorContrib(null);
+      if (proyectos.length === 0) { setCargandoLocal(false); return; }
+      setCargandoLocal(true); setErrorLocal(null);
       try {
-        const resultados = await Promise.all(
-          proyectos.map(async (p) => {
+        const resultados = await ejecutarConcurrente(
+          proyectos,
+          async (p) => {
             const [aportacion, yieldAcum] = await Promise.all([
               obtenerAportacion(p.id, direccion),
               calcularYield(p.id, direccion),
             ]);
             return { proyecto: p, aportacion, yieldAcum };
-          })
+          },
+          { concurrencia: 5 }
         );
         if (!mounted) return;
-        setContribuciones(resultados.filter((r) => r.aportacion > BigInt(0)));
+        setContribucionesLocales(
+          resultados
+            .filter((r) => r.status === "fulfilled" && r.value?.aportacion > BigInt(0))
+            .map((r) => r.value)
+        );
       } catch (e) {
         if (!mounted) return;
-        setErrorContrib(parsearError(e));
-      } finally { if (mounted) setCargando(false); }
+        setErrorLocal(parsearError(e));
+      } finally { if (mounted) setCargandoLocal(false); }
     }
     loadFallback();
     return () => { mounted = false; };
-  }, [proyectos, direccion, useSupabasePagination]);
+  }, [proyectos, direccion, useSupabasePagination, tieneExterno]);
 
   if (cargando) {
     return (
@@ -608,72 +629,135 @@ export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido })
   const [cargando, setCargando] = useState(true);
   const [errorPrincipal, setErrorPrincipal] = useState(null);
 
-  useEffect(() => {
-    async function cargar() {
-      setCargando(true);
-      setErrorPrincipal(null);
-      try {
-        const data = await obtenerTodosLosProyectos();
-        setProyectos(data);
-      } catch (e) {
-        setErrorPrincipal(parsearError(e));
-      } finally {
-        setCargando(false);
-      }
-    }
-    cargar();
-  }, [direccion]);
-
-  const numCreados = useMemo(() => proyectos.filter((p) => p.dueno === direccion).length, [proyectos, direccion]);
-
   const [numApoyados,   setNumApoyados]   = useState(null);
   const [totalInvertido, setTotalInvertido] = useState(null);
   const [totalYield,     setTotalYield]     = useState(null);
+  const [contribuciones, setContribuciones] = useState([]);
+  const [cargandoContrib, setCargandoContrib] = useState(true);
+  const [errorContrib, setErrorContrib] = useState(null);
 
   useEffect(() => {
-    if (proyectos.length === 0) {
-      setNumApoyados(0);
-      setTotalInvertido(BigInt(0));
-      setTotalYield(BigInt(0));
-      return;
-    }
-
     let cancelado = false;
 
-    async function calcularResumen() {
+    async function cargar() {
+      setCargando(true);
+      setCargandoContrib(true);
+      setErrorPrincipal(null);
+      setErrorContrib(null);
+
       try {
-        const resultados = await Promise.all(
-          proyectos.map(async (p) => {
-            const [aportacion, yieldAcum] = await Promise.all([
-              obtenerAportacion(p.id, direccion),
-              calcularYield(p.id, direccion),
-            ]);
-            return { aportacion, yieldAcum };
-          })
-        );
+        const ps = await obtenerTodosLosProyectos({ propagarError: false });
         if (cancelado) return;
-        const positivos = resultados.filter((r) => r.aportacion > BigInt(0));
-        const total  = positivos.reduce((acc, r) => acc + r.aportacion, BigInt(0));
-        const totalY = positivos.reduce((acc, r) => {
+        setProyectos(ps);
+
+        if (!direccion || ps.length === 0) {
+          setNumApoyados(0);
+          setTotalInvertido(BigInt(0));
+          setTotalYield(BigInt(0));
+          setContribuciones([]);
+          setCargandoContrib(false);
+          setCargando(false);
+          return;
+        }
+
+        // 1. Intentar obtener aportaciones indexadas (/backers/:address/aportaciones)
+        const indexerAports = await obtenerAportacionesIndexer(direccion);
+        if (cancelado) return;
+
+        let listaContribuciones = [];
+
+        if (Array.isArray(indexerAports)) {
+          // INDEXER DISPONIBLE: filtrar aportaciones no retiradas
+          const aportsActivas = indexerAports.filter(
+            (a) => !a.retirado && BigInt(a.monto || 0) > BigInt(0)
+          );
+
+          if (aportsActivas.length === 0) {
+            listaContribuciones = [];
+          } else {
+            // Consultar on-chain ÚNICAMENTE los proyectos con aportación del backer
+            const proyectosConAport = aportsActivas.map((a) => {
+              const idNum = Number(a.proyecto_id);
+              const proj = ps.find((p) => Number(p.id) === idNum) || {
+                id: idNum,
+                nombre: a.proyectos?.nombre || `#${idNum}`,
+                estado: a.proyectos?.estado || "EtapaInicial",
+              };
+              return proj;
+            });
+
+            const resAports = await ejecutarConcurrente(
+              proyectosConAport,
+              async (p) => {
+                const [aportacion, yieldAcum] = await Promise.all([
+                  obtenerAportacion(p.id, direccion),
+                  calcularYield(p.id, direccion),
+                ]);
+                return { proyecto: p, aportacion, yieldAcum };
+              },
+              { concurrencia: 5 }
+            );
+
+            if (cancelado) return;
+            listaContribuciones = resAports
+              .filter((r) => r.status === "fulfilled" && r.value?.aportacion > BigInt(0))
+              .map((r) => r.value);
+          }
+        } else {
+          // FALLBACK ON-CHAIN: Indexer caído o no disponible.
+          // Ejecutamos escaneo controlado con concurrencia máxima 5 y backoff en una sola pasada.
+          const resAports = await ejecutarConcurrente(
+            ps,
+            async (p) => {
+              const [aportacion, yieldAcum] = await Promise.all([
+                obtenerAportacion(p.id, direccion),
+                calcularYield(p.id, direccion),
+              ]);
+              return { proyecto: p, aportacion, yieldAcum };
+            },
+            { concurrencia: 5 }
+          );
+
+          if (cancelado) return;
+          listaContribuciones = resAports
+            .filter((r) => r.status === "fulfilled" && r.value?.aportacion > BigInt(0))
+            .map((r) => r.value);
+        }
+
+        if (cancelado) return;
+        const total = listaContribuciones.reduce((acc, r) => acc + r.aportacion, BigInt(0));
+        const totalY = listaContribuciones.reduce((acc, r) => {
           try { return acc + BigInt(r.yieldAcum ?? 0); } catch { return acc; }
         }, BigInt(0));
-        setNumApoyados(positivos.length);
+
+        setContribuciones(listaContribuciones);
+        setNumApoyados(listaContribuciones.length);
         setTotalInvertido(total);
         setTotalYield(totalY);
         onTotalInvertido?.(total);
       } catch (e) {
         if (!cancelado) {
-          setErrorPrincipal(parsearError(e));
+          const errStr = parsearError(e);
+          setErrorPrincipal(errStr);
+          setErrorContrib(errStr);
           setNumApoyados(0);
           setTotalInvertido(BigInt(0));
           setTotalYield(BigInt(0));
+          setContribuciones([]);
+        }
+      } finally {
+        if (!cancelado) {
+          setCargando(false);
+          setCargandoContrib(false);
         }
       }
     }
 
-    calcularResumen();
+    cargar();
     return () => { cancelado = true; };
-  }, [proyectos, direccion, onTotalInvertido]);
+  }, [direccion, onTotalInvertido]);
+
+  const numCreados = useMemo(() => proyectos.filter((p) => p.dueno === direccion).length, [proyectos, direccion]);
 
   const resumenListo = numApoyados !== null && totalInvertido !== null;
 
@@ -802,6 +886,9 @@ export default function MiCuenta({ direccion, onVerProyecto, onTotalInvertido })
                 proyectos={proyectos}
                 direccion={direccion}
                 onVerProyecto={onVerProyecto}
+                contribucionesExternas={contribuciones}
+                cargandoExterno={cargandoContrib}
+                errorExterno={errorContrib}
               />
             )}
           </div>

@@ -54,6 +54,18 @@ let _proyectosCache = null;
 let _proyectosTimestamp = 0;
 let _proyectosPromise = null;
 
+export const DEFAULT_RPC_CONCURRENCY = 5;
+
+// Cache en memoria para aportaciones y yields (TTL 15s, invalidado en escrituras)
+const APORTACIONES_CACHE_TTL = 15_000;
+const _aportacionesCache = new Map();
+const _yieldCache = new Map();
+
+export function invalidarCacheAportaciones() {
+  _aportacionesCache.clear();
+  _yieldCache.clear();
+}
+
 // URL pública en stellar.expert para verificar contratos, cuentas o transacciones
 export function urlExplorer(tipo, valor) {
   return `https://stellar.expert/explorer/${_isMainnet ? "public" : "testnet"}/${tipo}/${valor}`;
@@ -190,7 +202,7 @@ async function firmarYEnviar(txPreparada, cuentaPublica) {
   while (intentos < 20) {
     await new Promise((r) => setTimeout(r, 2000));
     const estado = await servidor.getTransaction(envioHash);
-    if (estado.status === rpc.Api.GetTransactionStatus.SUCCESS) { _proyectosCache = null; _proyectosTimestamp = 0; return estado; }
+    if (estado.status === rpc.Api.GetTransactionStatus.SUCCESS) { _proyectosCache = null; _proyectosTimestamp = 0; invalidarCacheAportaciones(); return estado; }
     if (estado.status === rpc.Api.GetTransactionStatus.FAILED) {
       const xdrFallo = estado.resultXdr ? estado.resultXdr.toXDR("base64") : envioHash;
       throw new Error(`La transacción falló en la red. XDR: ${xdrFallo}`);
@@ -285,31 +297,84 @@ export async function obtenerProyecto(id) {
   };
 }
 
-export async function calcularYield(idProyecto, direccionBacker) {
+export async function ejecutarConcurrente(
+  items,
+  fn,
+  { concurrencia = DEFAULT_RPC_CONCURRENCY, maxRetries = 2, baseDelayMs = 200 } = {}
+) {
+  if (!items || items.length === 0) return [];
+  const limite = Math.max(1, Math.min(concurrencia, items.length));
+  const resultados = new Array(items.length);
+  let indice = 0;
+
+  async function worker() {
+    while (indice < items.length) {
+      const i = indice++;
+      let intento = 0;
+      while (true) {
+        try {
+          const val = await fn(items[i], i);
+          resultados[i] = { status: "fulfilled", value: val };
+          break;
+        } catch (reason) {
+          if (intento >= maxRetries) {
+            resultados[i] = { status: "rejected", reason };
+            break;
+          }
+          intento++;
+          const delay = baseDelayMs * Math.pow(2, intento - 1);
+          await new Promise((r) => setTimeout(r, delay));
+        }
+      }
+    }
+  }
+
+  const workers = Array.from({ length: limite }, () => worker());
+  await Promise.all(workers);
+  return resultados;
+}
+
+export async function calcularYield(idProyecto, direccionBacker, { forzar = false } = {}) {
   if (!esDireccionValida(direccionBacker) && !esContractIdValido(direccionBacker)) {
     return BigInt(0);
+  }
+  const clave = `${idProyecto}:${direccionBacker}`;
+  const cached = _yieldCache.get(clave);
+  const ahora = Date.now();
+  if (!forzar && cached && (ahora - cached.timestamp) < APORTACIONES_CACHE_TTL) {
+    return cached.valor;
   }
   try {
     const raw = await simularLectura("calcular_yield", [
       nativeToScVal(idProyecto, { type: "u32" }),
       dirAScVal(direccionBacker),
     ]);
-    return BigInt(raw ?? 0);
+    const res = BigInt(raw ?? 0);
+    _yieldCache.set(clave, { valor: res, timestamp: ahora });
+    return res;
   } catch {
     return BigInt(0);
   }
 }
 
-export async function obtenerAportacion(idProyecto, direccionBacker) {
+export async function obtenerAportacion(idProyecto, direccionBacker, { forzar = false } = {}) {
   if (!esDireccionValida(direccionBacker) && !esContractIdValido(direccionBacker)) {
     return BigInt(0);
+  }
+  const clave = `${idProyecto}:${direccionBacker}`;
+  const cached = _aportacionesCache.get(clave);
+  const ahora = Date.now();
+  if (!forzar && cached && (ahora - cached.timestamp) < APORTACIONES_CACHE_TTL) {
+    return cached.valor;
   }
   try {
     const raw = await simularLectura("obtener_aportacion", [
       nativeToScVal(idProyecto, { type: "u32" }),
       dirAScVal(direccionBacker),
     ]);
-    return BigInt(raw?.cantidad ?? 0);
+    const res = BigInt(raw?.cantidad ?? 0);
+    _aportacionesCache.set(clave, { valor: res, timestamp: ahora });
+    return res;
   } catch {
     return BigInt(0);
   }
@@ -345,7 +410,7 @@ export async function obtenerEstadoCapital(idProyecto) {
   }
 }
 
-export async function obtenerTodosLosProyectos({ propagarError = false, forzar = false } = {}) {
+export async function obtenerTodosLosProyectos({ propagarError = false, forzar = false, concurrencia = DEFAULT_RPC_CONCURRENCY } = {}) {
   const ahora = Date.now();
   if (!forzar && _proyectosCache && (ahora - _proyectosTimestamp) < CACHE_TTL) {
     return _proyectosCache;
@@ -359,8 +424,11 @@ export async function obtenerTodosLosProyectos({ propagarError = false, forzar =
     try {
       const total = await obtenerTotalProyectos({ propagarError });
       if (total === 0) return [];
-      const resultados = await Promise.allSettled(
-        Array.from({ length: total }, (_, i) => obtenerProyecto(i))
+      const indices = Array.from({ length: total }, (_, i) => i);
+      const resultados = await ejecutarConcurrente(
+        indices,
+        (i) => obtenerProyecto(i),
+        { concurrencia }
       );
       const proyectos = resultados
         .filter((resultado) => resultado.status === "fulfilled" && resultado.value)
@@ -379,6 +447,27 @@ export async function obtenerTodosLosProyectos({ propagarError = false, forzar =
   })();
 
   return _proyectosPromise;
+}
+
+/**
+ * Consulta el endpoint del indexer /backers/:address/aportaciones.
+ * Permite a MiCuenta saber en qué proyectos tiene aportación el backer
+ * para consultar on-chain únicamente donde hay fondos, eliminando el patrón N+1.
+ * Retorna array de aportaciones indexadas, o null si el indexer está caído/no configurado.
+ */
+export async function obtenerAportacionesIndexer(direccion) {
+  if (!esDireccionValida(direccion) && !esContractIdValido(direccion)) return null;
+  const baseUrl = (import.meta.env.VITE_INDEXER_URL || import.meta.env.VITE_API_URL || "http://localhost:3001").replace(/\/$/, "");
+  try {
+    const res = await fetch(`${baseUrl}/backers/${direccion}/aportaciones`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return Array.isArray(data) ? data : null;
+  } catch {
+    return null;
+  }
 }
 
 // ─── Funciones de ESCRITURA ───────────────────────────────────────────────────

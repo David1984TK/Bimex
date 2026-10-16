@@ -63,6 +63,11 @@ vi.mock('@stellar/stellar-sdk', () => ({
   },
   nativeToScVal: vi.fn(),
   scValToNative: mockScValToNative,
+  StrKey: {
+    isValidEd25519PublicKey: vi.fn((addr) => typeof addr === 'string' && addr.startsWith('G')),
+    isValidMed25519PublicKey: vi.fn(() => false),
+    isValidContract: vi.fn((addr) => typeof addr === 'string' && addr.startsWith('C')),
+  },
 }));
 
 vi.mock('@stellar/freighter-api', () => ({
@@ -91,6 +96,12 @@ import {
   urlFriendbot,
   obtenerTodosLosProyectos,
   contribuir,
+  DEFAULT_RPC_CONCURRENCY,
+  ejecutarConcurrente,
+  obtenerAportacion,
+  calcularYield,
+  invalidarCacheAportaciones,
+  obtenerAportacionesIndexer,
 } from '../stellar/contrato.js';
 
 describe('stroopsAMXNe', () => {
@@ -327,3 +338,139 @@ describe('obtenerTodosLosProyectos — cache TTL, forzar, dedup e invalidación'
     expect(mockSimulateTransaction).toHaveBeenCalledTimes(4);
   });
 });
+
+describe('ejecutarConcurrente (concurrencia configurable y backoff)', () => {
+  it('DEFAULT_RPC_CONCURRENCY está configurado en 5', () => {
+    expect(DEFAULT_RPC_CONCURRENCY).toBe(5);
+  });
+
+  it('respeta la concurrencia máxima en ráfagas de 30 tareas', async () => {
+    let activas = 0;
+    let maxActivas = 0;
+    const tareas = Array.from({ length: 30 }, (_, i) => i);
+
+    const resultados = await ejecutarConcurrente(
+      tareas,
+      async (n) => {
+        activas++;
+        maxActivas = Math.max(maxActivas, activas);
+        await new Promise((r) => setTimeout(r, 10));
+        activas--;
+        return n * 2;
+      },
+      { concurrencia: 4 }
+    );
+
+    expect(maxActivas).toBeLessThanOrEqual(4);
+    expect(resultados.length).toBe(30);
+    expect(resultados.every((r) => r.status === 'fulfilled')).toBe(true);
+    expect(resultados[5].value).toBe(10);
+  });
+
+  it('reintenta con backoff ante fallas transitorias y se recupera', async () => {
+    let intentos = 0;
+    const items = [1];
+
+    const resultados = await ejecutarConcurrente(
+      items,
+      async () => {
+        intentos++;
+        if (intentos < 2) throw new Error('RPC Rate Limit 429');
+        return 'recuperado';
+      },
+      { concurrencia: 1, maxRetries: 2, baseDelayMs: 10 }
+    );
+
+    expect(intentos).toBe(2);
+    expect(resultados[0].status).toBe('fulfilled');
+    expect(resultados[0].value).toBe('recuperado');
+  });
+
+  it('marca como rejected tras agotar maxRetries', async () => {
+    const items = [1];
+    const resultados = await ejecutarConcurrente(
+      items,
+      async () => {
+        throw new Error('Servidor RPC caído');
+      },
+      { concurrencia: 1, maxRetries: 1, baseDelayMs: 5 }
+    );
+
+    expect(resultados[0].status).toBe('rejected');
+    expect(resultados[0].reason.message).toContain('Servidor RPC caído');
+  });
+});
+
+describe('cache de aportaciones y yields', () => {
+  const DIR_PRUEBA = 'GA7QYNF7SOWQ3GLR2BGMZEHXAVIRZA4KVWLTJJFC7MGXUA74P7UJVSGZ';
+
+  beforeEach(() => {
+    invalidarCacheAportaciones();
+    vi.clearAllMocks();
+  });
+
+  it('reutiliza el valor de aportación cacheado dentro del TTL', async () => {
+    mockScValToNative.mockReturnValueOnce({ cantidad: 50_000_000 });
+    const primera = await obtenerAportacion(0, DIR_PRUEBA);
+    expect(primera).toBe(50_000_000n);
+    expect(mockSimulateTransaction).toHaveBeenCalledTimes(1);
+
+    // Segunda llamada inmediata
+    const segunda = await obtenerAportacion(0, DIR_PRUEBA);
+    expect(segunda).toBe(50_000_000n);
+    expect(mockSimulateTransaction).toHaveBeenCalledTimes(1); // No hace segundo RPC
+  });
+
+  it('reutiliza el yield cacheado dentro del TTL', async () => {
+    mockScValToNative.mockReturnValueOnce(1_500_000);
+    const primera = await calcularYield(0, DIR_PRUEBA);
+    expect(primera).toBe(1_500_000n);
+    expect(mockSimulateTransaction).toHaveBeenCalledTimes(1);
+
+    const segunda = await calcularYield(0, DIR_PRUEBA);
+    expect(segunda).toBe(1_500_000n);
+    expect(mockSimulateTransaction).toHaveBeenCalledTimes(1); // No hace segundo RPC
+  });
+
+  it('invalidarCacheAportaciones fuerza nueva lectura on-chain', async () => {
+    mockScValToNative.mockReturnValueOnce({ cantidad: 10_000_000 });
+    await obtenerAportacion(0, DIR_PRUEBA);
+    expect(mockSimulateTransaction).toHaveBeenCalledTimes(1);
+
+    invalidarCacheAportaciones();
+
+    mockScValToNative.mockReturnValueOnce({ cantidad: 20_000_000 });
+    const nueva = await obtenerAportacion(0, DIR_PRUEBA);
+    expect(nueva).toBe(20_000_000n);
+    expect(mockSimulateTransaction).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('obtenerAportacionesIndexer', () => {
+  const DIR = 'GA7QYNF7SOWQ3GLR2BGMZEHXAVIRZA4KVWLTJJFC7MGXUA74P7UJVSGZ';
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('devuelve array cuando el indexer responde HTTP 200', async () => {
+    const aportacionesMock = [
+      { proyecto_id: 1, monto: '50000000', retirado: false },
+      { proyecto_id: 2, monto: '10000000', retirado: false },
+    ];
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => aportacionesMock,
+    });
+
+    const res = await obtenerAportacionesIndexer(DIR);
+    expect(res).toEqual(aportacionesMock);
+  });
+
+  it('devuelve null cuando el indexer responde con error o está caído', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('Network error'));
+    const res = await obtenerAportacionesIndexer(DIR);
+    expect(res).toBeNull();
+  });
+});
+
