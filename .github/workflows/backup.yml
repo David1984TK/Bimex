@@ -19,7 +19,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client gnupg awscli
+          sudo apt-get install -y -qq postgresql-client gnupg
           gpg --version
           psql --version
           aws --version
