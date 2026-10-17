@@ -29,6 +29,23 @@ Gracias por aportar. Bimex recibe contribuciones de mucha gente distinta (waves,
 
 A veces un PR llega con conflictos o queda desactualizado antes de revisarse, y el mantenedor reaplica el cambio en un PR nuevo en vez de resolver conflictos sobre el tuyo. Si eso pasa con tu contribución, seguís apareciendo como autor original en el historial de commits y se te agradece explícitamente en el PR/issue relacionado — no se pierde el crédito, pero si puedes, prioriza mantener tu rama actualizada para evitar que esto sea necesario.
 
+### Ejemplo concreto: reaplicación de un PR con conflictos
+
+Supongamos que abrís el PR #210 con un fix para `bimex-frontend`, pero antes de que alguien lo revise, `main` avanzó y tu rama quedó con conflictos que no podés resolver a tiempo. El mantenedor reaplica tu trabajo así:
+
+1. Crea una rama nueva desde `main` actualizado y aplica tus cambios manualmente (o con `git cherry-pick <tu-commit>`).
+2. Abre un PR nuevo (digamos #214) con tu cambio. En la descripción escribe algo como:
+
+   > Reaplica el trabajo de @tu-usuario del PR #210, que quedó con conflictos irresolubles.
+   > `Closes #209` (el issue que el PR original intentaba resolver).
+
+3. Te acredita como autor original de dos formas:
+   - El commit conserva tu autoría (`Author: Tu Nombre <tu@email.com>`, visible con `git log`).
+   - La descripción del PR #214 te menciona con `@tu-usuario` y agradece tu contribución.
+4. Al mergearse el PR #214, el issue #209 se cierra automáticamente por el `Closes #209` — el crédito queda registrado en el historial de git y en el PR.
+
+Moraleja: si tu PR se reaplica, no perdés el crédito. Pero evitá que pase manteniendo tu rama al día (`git pull --rebase origin main`) antes de pedir review.
+
 ## Dependencias (Dependabot)
 
 Los PRs de Dependabot (`bimex/Cargo.toml`, `bimex-frontend/package.json`, `bimex-indexer/package.json`, `.github/workflows/`) se revisan igual que cualquier otro PR: CI en verde antes de mergear. Si un bump rompe CI:
