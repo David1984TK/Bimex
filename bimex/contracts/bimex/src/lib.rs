@@ -2,8 +2,10 @@
 
 use soroban_sdk::{
     contract, contractimpl, contracttype,
-    symbol_short, token, Address, BytesN, ContractExecutable, Env, String,
+    symbol_short, token, Address, BytesN, Env, String,
 };
+#[cfg(not(test))]
+use soroban_sdk::ContractExecutable;
 
 // ============================================================
 //  TIPOS DE DATOS
@@ -283,8 +285,9 @@ impl BimexContrato {
         backer.require_auth();
         assert!(cantidad > 0, "Cantidad debe ser mayor a 0");
 
+        let clave_proyecto = Clave::Proyecto(id_proyecto);
         let mut proyecto: Proyecto = env
-            .storage().persistent().get(&Clave::Proyecto(id_proyecto))
+            .storage().persistent().get(&clave_proyecto)
             .expect("Proyecto no existe");
 
         assert!(
@@ -305,8 +308,9 @@ impl BimexContrato {
         assert!(restante > 0, "El proyecto ya alcanzo su meta");
         let cantidad = cantidad.min(restante);
 
+        let clave_aportacion = Clave::Aportacion(id_proyecto, backer.clone());
         let aportacion_existente: Option<Aportacion> = env
-            .storage().persistent().get(&Clave::Aportacion(id_proyecto, backer.clone()));
+            .storage().persistent().get(&clave_aportacion);
 
         // Preserve original timestamp on top-up to avoid yield clock reset
         let nueva_aportacion = match aportacion_existente {
@@ -318,7 +322,7 @@ impl BimexContrato {
         let token = token::Client::new(&env, &token_mxne);
 
         // EFFECTS before interaction
-        env.storage().persistent().set(&Clave::Aportacion(id_proyecto, backer.clone()), &nueva_aportacion);
+        env.storage().persistent().set(&clave_aportacion, &nueva_aportacion);
         proyecto.total_aportado += cantidad;
 
         let mitad = cantidad / 2;
@@ -331,10 +335,18 @@ impl BimexContrato {
             proyecto.estado = EstadoProyecto::EnProgreso;
         }
 
-        env.storage().persistent().set(&Clave::Proyecto(id_proyecto), &proyecto);
+        env.storage().persistent().set(&clave_proyecto, &proyecto);
         extender_ttl_instancia(&env);
-        extender_ttl_proyecto(&env, id_proyecto);
-        extender_ttl_aportacion(&env, id_proyecto, &backer);
+        env.storage().persistent().extend_ttl(
+            &clave_proyecto,
+            PERSISTENT_LIFETIME_THRESHOLD,
+            PERSISTENT_BUMP_AMOUNT,
+        );
+        env.storage().persistent().extend_ttl(
+            &clave_aportacion,
+            PERSISTENT_LIFETIME_THRESHOLD,
+            PERSISTENT_BUMP_AMOUNT,
+        );
 
         #[allow(deprecated)]
         env.events().publish(
@@ -347,10 +359,10 @@ impl BimexContrato {
     }
 
     /// Calcula el yield pendiente de un backer específico en stroops.
-    /// No modifica el estado del contrato.
+    /// No modifica el estado del contrato ni incurre en footprint de escritura.
     pub fn calcular_yield(env: Env, id_proyecto: u32, backer: Address) -> i128 {
         let aportacion: Aportacion = env
-            .storage().persistent().get(&Clave::Aportacion(id_proyecto, backer.clone()))
+            .storage().persistent().get(&Clave::Aportacion(id_proyecto, backer))
             .expect("Este backer no tiene aportacion en este proyecto");
 
         let cetes_bps = env.storage().instance().get::<_, u32>(&Clave::YieldCetesBps).unwrap_or(DEFAULT_CETES_BPS) as i128;
@@ -362,9 +374,6 @@ impl BimexContrato {
         let mitad       = aportacion.cantidad / 2;
         let yield_cetes = calcular_yield_seguro(mitad, cetes_bps, minutos);
         let yield_amm   = calcular_yield_seguro(aportacion.cantidad - mitad, amm_bps, minutos);
-
-        extender_ttl_instancia(&env);
-        extender_ttl_aportacion(&env, id_proyecto, &backer);
 
         yield_cetes + yield_amm
     }
@@ -384,9 +393,6 @@ impl BimexContrato {
         let yield_cetes = calcular_yield_seguro(proyecto.capital_en_cetes, cetes_bps, minutos);
         let yield_amm   = calcular_yield_seguro(proyecto.capital_en_amm,   amm_bps,   minutos);
 
-        extender_ttl_instancia(&env);
-        extender_ttl_proyecto(&env, id_proyecto);
-
         YieldDetallado { cetes: yield_cetes, amm: yield_amm, total: yield_cetes + yield_amm }
     }
 
@@ -395,8 +401,6 @@ impl BimexContrato {
         let proyecto: Proyecto = env
             .storage().persistent().get(&Clave::Proyecto(id_proyecto))
             .expect("Proyecto no existe");
-
-        extender_ttl_proyecto(&env, id_proyecto);
 
         CapitalEstado {
             en_cetes: proyecto.capital_en_cetes,
@@ -478,8 +482,9 @@ impl BimexContrato {
         // AUTH FIRST
         backer.require_auth();
 
+        let clave_proyecto = Clave::Proyecto(id_proyecto);
         let mut proyecto: Proyecto = env
-            .storage().persistent().get(&Clave::Proyecto(id_proyecto))
+            .storage().persistent().get(&clave_proyecto)
             .expect("Proyecto no existe");
 
         let ahora = env.ledger().timestamp();
@@ -496,19 +501,23 @@ impl BimexContrato {
             "Solo puedes retirar cuando el proyecto este activo, liberado, abandonado o haya vencido el plazo"
         );
 
+        let clave_aportacion = Clave::Aportacion(id_proyecto, backer.clone());
         let aportacion: Aportacion = env
-            .storage().persistent().get(&Clave::Aportacion(id_proyecto, backer.clone()))
+            .storage().persistent().get(&clave_aportacion)
             .expect("No tienes aportacion en este proyecto");
 
         assert!(aportacion.cantidad > 0, "Principal ya retirado");
 
         let monto = aportacion.cantidad;
 
-        // EFFECTS first
+        // EFFECTS first — optimización: no extender TTL de aportación que se elimina inmediatamente
         extender_ttl_instancia(&env);
-        extender_ttl_proyecto(&env, id_proyecto);
-        extender_ttl_aportacion(&env, id_proyecto, &backer);
-        env.storage().persistent().remove(&Clave::Aportacion(id_proyecto, backer.clone()));
+        env.storage().persistent().extend_ttl(
+            &clave_proyecto,
+            PERSISTENT_LIFETIME_THRESHOLD,
+            PERSISTENT_BUMP_AMOUNT,
+        );
+        env.storage().persistent().remove(&clave_aportacion);
         proyecto.total_aportado -= monto;
 
         let mitad = monto / 2;
@@ -520,7 +529,7 @@ impl BimexContrato {
             proyecto.estado = EstadoProyecto::EtapaInicial;
         }
 
-        env.storage().persistent().set(&Clave::Proyecto(id_proyecto), &proyecto);
+        env.storage().persistent().set(&clave_proyecto, &proyecto);
 
         #[allow(deprecated)]
         env.events().publish(
@@ -551,8 +560,9 @@ impl BimexContrato {
         // AUTH FIRST
         backer.require_auth();
 
+        let clave_proyecto = Clave::Proyecto(id_proyecto);
         let mut proyecto: Proyecto = env
-            .storage().persistent().get(&Clave::Proyecto(id_proyecto))
+            .storage().persistent().get(&clave_proyecto)
             .expect("Proyecto no existe");
 
         assert!(
@@ -567,19 +577,23 @@ impl BimexContrato {
             "El plazo ya vencio, usa retirar_principal"
         );
 
+        let clave_aportacion = Clave::Aportacion(id_proyecto, backer.clone());
         let aportacion: Aportacion = env
-            .storage().persistent().get(&Clave::Aportacion(id_proyecto, backer.clone()))
+            .storage().persistent().get(&clave_aportacion)
             .expect("No tienes aportacion en este proyecto");
 
         assert!(aportacion.cantidad > 0, "Principal ya retirado");
 
         let monto = aportacion.cantidad;
 
-        // EFFECTS first — yield acumulado se queda en el proyecto
+        // EFFECTS first — yield acumulado se queda en el proyecto; no extender TTL de aportación que se elimina
         extender_ttl_instancia(&env);
-        extender_ttl_proyecto(&env, id_proyecto);
-        extender_ttl_aportacion(&env, id_proyecto, &backer);
-        env.storage().persistent().remove(&Clave::Aportacion(id_proyecto, backer.clone()));
+        env.storage().persistent().extend_ttl(
+            &clave_proyecto,
+            PERSISTENT_LIFETIME_THRESHOLD,
+            PERSISTENT_BUMP_AMOUNT,
+        );
+        env.storage().persistent().remove(&clave_aportacion);
         proyecto.total_aportado -= monto;
 
         let mitad = monto / 2;
@@ -590,7 +604,7 @@ impl BimexContrato {
             proyecto.estado = EstadoProyecto::EtapaInicial;
         }
 
-        env.storage().persistent().set(&Clave::Proyecto(id_proyecto), &proyecto);
+        env.storage().persistent().set(&clave_proyecto, &proyecto);
 
         #[allow(deprecated)]
         env.events().publish(

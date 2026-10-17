@@ -1,4 +1,7 @@
 use super::*;
+extern crate std;
+use std::println;
+
 use soroban_sdk::{
     testutils::{Address as _, Events as _, Ledger},
     token::StellarAssetClient,
@@ -770,7 +773,7 @@ fn test_solicitar_continuar_proyecto_activo_falla() {
 #[test]
 #[should_panic(expected = "Ya inicializado")]
 fn test_inicializar_dos_veces_falla() {
-    let (env, cliente, admin, _dueno, _backer, token_mxne) = setup_con_token();
+    let (_env, cliente, admin, _dueno, _backer, token_mxne) = setup_con_token();
     cliente.inicializar(&admin, &token_mxne, &100u32, &100u32);
 }
 
@@ -877,14 +880,14 @@ fn test_reanudacion_permite_contribuciones() {
 #[test]
 #[should_panic(expected = "Solo el admin puede pausar")]
 fn test_solo_admin_puede_pausar() {
-    let (env, cliente, _admin, _dueno, backer) = setup();
+    let (_env, cliente, _admin, _dueno, backer) = setup();
     cliente.admin_pausar(&backer);
 }
 
 #[test]
 #[should_panic(expected = "Solo el admin puede reanudar")]
 fn test_solo_admin_puede_reanudar() {
-    let (env, cliente, _admin, _dueno, backer) = setup();
+    let (_env, cliente, _admin, _dueno, backer) = setup();
     cliente.admin_reanudar(&backer);
 }
 
@@ -1165,4 +1168,116 @@ fn test_admin_upgrade_con_timelock() {
     // Si se intenta otra vez, debe fallar porque ya no hay propuesta
     let res2 = cliente.try_admin_execute_upgrade(&admin);
     assert!(res2.is_err());
+}
+
+#[test]
+fn test_benchmark_top_10_functions() {
+    let env = Env::default();
+    env.mock_all_auths();
+    env.ledger().with_mut(|l| l.timestamp = 0);
+
+    let admin = Address::generate(&env);
+    let dueno = Address::generate(&env);
+    let backer = Address::generate(&env);
+    let token_admin = Address::generate(&env);
+    let token_id = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_mxne = token_id.address();
+
+    let asset = StellarAssetClient::new(&env, &token_mxne);
+    asset.mint(&backer, &10_000_000_000i128);
+
+    let contrato_id = env.register(BimexContrato, ());
+    let cliente = BimexContratoClient::new(&env, &contrato_id);
+    asset.mint(&contrato_id, &100_000_000_000i128);
+
+    // Helper closure to measure a function invocation
+    let measure = |name: &str, f: &mut dyn FnMut()| -> (u64, u64) {
+        env.cost_estimate().budget().reset_unlimited();
+        let cpu_start = env.cost_estimate().budget().cpu_instruction_cost();
+        let mem_start = env.cost_estimate().budget().memory_bytes_cost();
+        f();
+        let cpu_end = env.cost_estimate().budget().cpu_instruction_cost();
+        let mem_end = env.cost_estimate().budget().memory_bytes_cost();
+        let cpu = cpu_end - cpu_start;
+        let mem = mem_end - mem_start;
+        println!("| {:<28} | {:>14} | {:>14} |", name, cpu, mem);
+        (cpu, mem)
+    };
+
+    println!("\n=== BENCHMARK BIMEX TOP 10 FUNCTIONS ===");
+    println!("| {:<28} | {:>14} | {:>14} |", "Función", "CPU (insns)", "Memoria (bytes)");
+    println!("|{:-<30}|{:-<16}|{:-<16}|", "", "", "");
+
+    // 1. inicializar
+    measure("1. inicializar", &mut || {
+        cliente.inicializar(&admin, &token_mxne, &945u32, &400u32);
+    });
+
+    // 2. crear_proyecto
+    let mut id_proyecto = 0;
+    measure("2. crear_proyecto", &mut || {
+        id_proyecto = cliente.crear_proyecto(
+            &dueno,
+            &String::from_str(&env, "Proyecto Benchmark"),
+            &100_000_000i128,
+            &doc_cid_vacio(&env),
+            &6u32,
+        );
+    });
+
+    // 3. admin_aprobar
+    measure("3. admin_aprobar", &mut || {
+        cliente.admin_aprobar(&id_proyecto);
+    });
+
+    // 4. contribuir (primer depósito)
+    measure("4. contribuir (primero)", &mut || {
+        cliente.contribuir(&backer, &id_proyecto, &20_000_000i128);
+    });
+
+    // 5. contribuir (top-up / adicional)
+    measure("5. contribuir (top-up)", &mut || {
+        cliente.contribuir(&backer, &id_proyecto, &10_000_000i128);
+    });
+
+    // Advance 30 days of time for yield accrual
+    env.ledger().with_mut(|l| l.timestamp = 30 * 24 * 3600);
+
+    // 6. calcular_yield_detallado (vista)
+    measure("6. calcular_yield_detallado", &mut || {
+        let _ = cliente.calcular_yield_detallado(&id_proyecto);
+    });
+
+    // 7. estado_capital (vista)
+    measure("7. estado_capital", &mut || {
+        let _ = cliente.estado_capital(&id_proyecto);
+    });
+
+    // 8. reclamar_yield
+    measure("8. reclamar_yield", &mut || {
+        cliente.reclamar_yield(&id_proyecto);
+    });
+
+    // Setup another project for withdrawal comparisons
+    let id_retiro_anticipado = cliente.crear_proyecto(
+        &dueno,
+        &String::from_str(&env, "Proyecto Retiro Ant"),
+        &50_000_000i128,
+        &doc_cid_vacio(&env),
+        &6u32,
+    );
+    cliente.admin_aprobar(&id_retiro_anticipado);
+    cliente.contribuir(&backer, &id_retiro_anticipado, &15_000_000i128);
+
+    // 9. retiro_anticipado
+    measure("9. retiro_anticipado", &mut || {
+        cliente.retiro_anticipado(&backer, &id_retiro_anticipado);
+    });
+
+    // 10. retirar_principal
+    measure("10. retirar_principal", &mut || {
+        cliente.retirar_principal(&backer, &id_proyecto);
+    });
+
+    println!("========================================\n");
 }
