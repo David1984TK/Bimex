@@ -5,6 +5,16 @@ import i18n from "../i18n/index.js";
 import GraficoYieldHistorico from "../components/GraficoYieldHistorico.jsx";
 import { formatearMXNe, formatearNumero } from "../utils/formato.js";
 
+// Evita importar la cadena real stellar/contrato.js → stellar/walletKit.js →
+// @stellar/freighter-api (construye un PasskeyKit real al cargar el módulo,
+// inviable bajo jsdom) — igual que el resto de los tests de componentes.
+vi.mock("../stellar/contrato", async () => {
+  const { formatearMXNe } = await vi.importActual("../utils/formato.js");
+  return {
+    stroopsAMXNe: (stroops) => `${formatearMXNe(stroops)} MXNe`,
+  };
+});
+
 const API = "http://api.test";
 const fetchMock = vi.fn();
 
@@ -77,7 +87,7 @@ describe("GraficoYieldHistorico — yield ya indexado", () => {
 
     const serie = figura.querySelector('[data-serie="total"]');
     expect(serie.querySelectorAll("circle")).toHaveLength(2);
-    expect(serie.querySelector("polyline")).toHaveAttribute("points", /,/);
+    expect(serie.querySelector("polyline")).toHaveAttribute("points", expect.stringMatching(/,/));
     // Con una sola serie visible el componente rellena el área bajo la línea.
     expect(serie.querySelector("polygon")).not.toBeNull();
     expect(serie.querySelectorAll("[data-punto]")).toHaveLength(2);
