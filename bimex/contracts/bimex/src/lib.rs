@@ -2,8 +2,10 @@
 
 use soroban_sdk::{
     contract, contractimpl, contracttype,
-    symbol_short, token, Address, BytesN, ContractExecutable, Env, String,
+    symbol_short, token, Address, BytesN, Env, String,
 };
+#[cfg(not(test))]
+use soroban_sdk::ContractExecutable;
 
 // ============================================================
 //  TIPOS DE DATOS
@@ -153,17 +155,42 @@ fn extender_ttl_aportacion(env: &Env, id: u32, backer: &Address) {
     );
 }
 
-/// Overflow-safe yield calculation.
+fn extender_ttl_contador_en_revision(env: &Env, dueno: &Address) {
+    env.storage().persistent().extend_ttl(
+        &Clave::ContadorEnRevision(dueno.clone()),
+        PERSISTENT_LIFETIME_THRESHOLD,
+        PERSISTENT_BUMP_AMOUNT,
+    );
+}
+
+/// Overflow-safe and precision-preserving yield calculation.
 ///
 /// Formula: yield = capital * bps / 10_000 * minutos / MINUTOS_ANO
 ///
-/// Division is performed before multiplication to keep intermediate i128 values
-/// within bounds for capital up to ~1e18 stroops and bps up to 10_000_000.
-/// The remainder term preserves precision lost in the integer division.
+/// Multiplies before dividing wherever safe to prevent truncation and precision loss
+/// for small amounts or short durations. For typical amounts (capital up to 10^24 stroops),
+/// full checked multiplication is evaluated first. A mathematically equivalent safe fallback
+/// is provided for extreme edge cases to guarantee no integer overflow.
 fn calcular_yield_seguro(capital: i128, bps: i128, minutos: i128) -> i128 {
     const MINUTOS_ANO: i128 = 525_600;
-    (capital / MINUTOS_ANO) * bps / 10_000 * minutos
-        + (capital % MINUTOS_ANO) * bps / 10_000 * minutos / MINUTOS_ANO
+    const DENOMINADOR: i128 = 10_000 * MINUTOS_ANO; // 5_256_000_000
+
+    if capital <= 0 || bps <= 0 || minutos <= 0 {
+        return 0;
+    }
+
+    if let Some(prod1) = capital.checked_mul(bps) {
+        if let Some(prod2) = prod1.checked_mul(minutos) {
+            return prod2 / DENOMINADOR;
+        }
+    }
+
+    // Fallback for extreme inputs (> 10^24 stroops):
+    // Multiply by minutos before dividing to preserve precision.
+    let rem = capital % MINUTOS_ANO;
+    let quotient_term = (capital / MINUTOS_ANO) * bps * minutos / 10_000;
+    let remainder_term = (rem * bps * minutos) / DENOMINADOR;
+    quotient_term + remainder_term
 }
 
 fn verificar_no_pausado(env: &Env) {
@@ -264,6 +291,7 @@ impl BimexContrato {
             &Clave::ContadorEnRevision(dueno.clone()),
             &(en_revision + 1),
         );
+        extender_ttl_contador_en_revision(&env, &dueno);
         extender_ttl_instancia(&env);
         extender_ttl_proyecto(&env, id);
         id
@@ -610,6 +638,7 @@ impl BimexContrato {
     /// Válido en EtapaInicial, EnProgreso o Liberado.
     /// Tras esto, los backers pueden retirar su principal.
     pub fn abandonar_proyecto(env: Env, id_proyecto: u32) {
+        verificar_no_pausado(&env);
         let mut proyecto: Proyecto = env
             .storage().persistent().get(&Clave::Proyecto(id_proyecto))
             .expect("Proyecto no existe");
@@ -686,6 +715,7 @@ impl BimexContrato {
             &Clave::ContadorEnRevision(proyecto.dueno.clone()),
             &prev.saturating_sub(1),
         );
+        extender_ttl_contador_en_revision(&env, &proyecto.dueno);
 
         proyecto.estado = EstadoProyecto::EtapaInicial;
         env.storage().persistent().set(&Clave::Proyecto(id_proyecto), &proyecto);
@@ -722,6 +752,7 @@ impl BimexContrato {
             &Clave::ContadorEnRevision(proyecto.dueno.clone()),
             &prev.saturating_sub(1),
         );
+        extender_ttl_contador_en_revision(&env, &proyecto.dueno);
 
         let motivo_event = motivo.clone();
         proyecto.estado = EstadoProyecto::Rechazado;
@@ -779,6 +810,7 @@ impl BimexContrato {
         let admin_guardado: Address = env.storage().instance().get(&Clave::Admin).expect("No inicializado");
         assert!(admin == admin_guardado, "Solo el admin puede pausar");
         env.storage().instance().set(&Clave::Pausado, &true);
+        extender_ttl_instancia(&env);
 
         #[allow(deprecated)]
         env.events().publish(
@@ -792,6 +824,7 @@ impl BimexContrato {
         let admin_guardado: Address = env.storage().instance().get(&Clave::Admin).expect("No inicializado");
         assert!(admin == admin_guardado, "Solo el admin puede reanudar");
         env.storage().instance().set(&Clave::Pausado, &false);
+        extender_ttl_instancia(&env);
 
         #[allow(deprecated)]
         env.events().publish(
@@ -808,6 +841,7 @@ impl BimexContrato {
 
         let timestamp = env.ledger().timestamp();
         env.storage().instance().set(&Clave::PropuestaUpgrade, &(new_wasm_hash.clone(), timestamp));
+        extender_ttl_instancia(&env);
 
         #[allow(deprecated)]
         env.events().publish(
@@ -830,6 +864,7 @@ impl BimexContrato {
 
         // Limpiar propuesta
         env.storage().instance().remove(&Clave::PropuestaUpgrade);
+        extender_ttl_instancia(&env);
 
         #[allow(deprecated)]
         env.events().publish(
@@ -844,6 +879,25 @@ impl BimexContrato {
         env.deployer().update_current_contract(ContractExecutable::Wasm(new_wasm_hash));
         #[cfg(test)]
         let _ = new_wasm_hash;
+    }
+
+    /// Permite a cualquier usuario, keeper o indexador extender el TTL de un proyecto persistente
+    /// sin modificar su estado (indispensable para proyectos de largo plazo hasta 120 meses).
+    pub fn extender_ttl_proyecto_publico(env: Env, id_proyecto: u32) {
+        assert!(env.storage().persistent().has(&Clave::Proyecto(id_proyecto)), "Proyecto no existe");
+        extender_ttl_instancia(&env);
+        extender_ttl_proyecto(&env, id_proyecto);
+    }
+
+    /// Permite a cualquier usuario, keeper o indexador extender el TTL de una aportación persistente
+    /// sin modificar su estado.
+    pub fn extender_ttl_aportacion_publica(env: Env, id_proyecto: u32, backer: Address) {
+        assert!(
+            env.storage().persistent().has(&Clave::Aportacion(id_proyecto, backer.clone())),
+            "Sin aportacion"
+        );
+        extender_ttl_instancia(&env);
+        extender_ttl_aportacion(&env, id_proyecto, &backer);
     }
 }
 

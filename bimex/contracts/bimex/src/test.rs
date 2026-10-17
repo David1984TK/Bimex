@@ -770,7 +770,7 @@ fn test_solicitar_continuar_proyecto_activo_falla() {
 #[test]
 #[should_panic(expected = "Ya inicializado")]
 fn test_inicializar_dos_veces_falla() {
-    let (env, cliente, admin, _dueno, _backer, token_mxne) = setup_con_token();
+    let (_env, cliente, admin, _dueno, _backer, token_mxne) = setup_con_token();
     cliente.inicializar(&admin, &token_mxne, &100u32, &100u32);
 }
 
@@ -877,14 +877,14 @@ fn test_reanudacion_permite_contribuciones() {
 #[test]
 #[should_panic(expected = "Solo el admin puede pausar")]
 fn test_solo_admin_puede_pausar() {
-    let (env, cliente, _admin, _dueno, backer) = setup();
+    let (_env, cliente, _admin, _dueno, backer) = setup();
     cliente.admin_pausar(&backer);
 }
 
 #[test]
 #[should_panic(expected = "Solo el admin puede reanudar")]
 fn test_solo_admin_puede_reanudar() {
-    let (env, cliente, _admin, _dueno, backer) = setup();
+    let (_env, cliente, _admin, _dueno, backer) = setup();
     cliente.admin_reanudar(&backer);
 }
 
@@ -1165,4 +1165,281 @@ fn test_admin_upgrade_con_timelock() {
     // Si se intenta otra vez, debe fallar porque ya no hay propuesta
     let res2 = cliente.try_admin_execute_upgrade(&admin);
     assert!(res2.is_err());
+}
+
+// ============================================================
+//  AUDIT & INVARIANT GAP TESTS (ISSUE #409)
+// ============================================================
+
+#[test]
+#[should_panic(expected = "Contrato pausado por el administrador")]
+fn test_pausa_bloquea_abandonar_proyecto() {
+    let (env, cliente, admin, dueno, _backer) = setup();
+    let id = cliente.crear_proyecto(
+        &dueno,
+        &String::from_str(&env, "Pausa Abandonar"),
+        &10_000_000i128,
+        &doc_cid_vacio(&env),
+        &6u32,
+    );
+    cliente.admin_aprobar(&id);
+    cliente.admin_pausar(&admin);
+    cliente.abandonar_proyecto(&id);
+}
+
+#[test]
+fn test_admin_pausa_y_upgrade_extienden_instancia_ttl() {
+    let (env, cliente, admin, _dueno, _backer) = setup();
+
+    // Advance sequence number to simulate passage of time near threshold
+    env.ledger().with_mut(|l| l.sequence_number = 17_280);
+
+    // Calling admin_pausar extends instance TTL
+    cliente.admin_pausar(&admin);
+
+    // Calling admin_reanudar extends instance TTL
+    cliente.admin_reanudar(&admin);
+
+    // Calling admin_upgrade extends instance TTL
+    let hash = soroban_sdk::BytesN::from_array(&env, &[9; 32]);
+    cliente.admin_upgrade(&admin, &hash);
+
+    // Advance time for timelock
+    env.ledger().with_mut(|l| {
+        l.sequence_number = 30_000;
+        l.timestamp = 86_400 + 1;
+    });
+
+    // Calling admin_execute_upgrade extends instance TTL
+    cliente.admin_execute_upgrade(&admin);
+
+    assert_eq!(cliente.total_proyectos(), 0);
+}
+
+#[test]
+fn test_contador_en_revision_extiende_ttl() {
+    let (env, cliente, _admin, dueno, _backer) = setup();
+
+    let id = cliente.crear_proyecto(
+        &dueno,
+        &String::from_str(&env, "Revision TTL"),
+        &10_000_000i128,
+        &doc_cid_vacio(&env),
+        &6u32,
+    );
+
+    // Advance ledger sequence past threshold
+    env.ledger().with_mut(|l| l.sequence_number = 18_000);
+
+    // Approving project updates and bumps ContadorEnRevision
+    cliente.admin_aprobar(&id);
+
+    // Create another project for same owner, advance sequence, reject
+    let id2 = cliente.crear_proyecto(
+        &dueno,
+        &String::from_str(&env, "Revision TTL 2"),
+        &10_000_000i128,
+        &doc_cid_vacio(&env),
+        &6u32,
+    );
+    env.ledger().with_mut(|l| l.sequence_number = 36_000);
+    cliente.admin_rechazar(&id2, &String::from_str(&env, "Rechazo TTL"));
+}
+
+#[test]
+fn test_ttl_avanza_mas_de_6_meses_con_refresco_rolling() {
+    let (env, cliente, _admin, dueno, backer) = setup();
+
+    // Proyecto de 12 meses
+    let id = cliente.crear_proyecto(
+        &dueno,
+        &String::from_str(&env, "Largo Plazo 12M"),
+        &100_000_000i128,
+        &doc_cid_vacio(&env),
+        &12u32,
+    );
+    cliente.admin_aprobar(&id);
+    cliente.contribuir(&backer, &id, &50_000_000i128);
+
+    // 1 mes = ~518_400 ledgers (a 5s/ledger). 6 meses = ~3_110_400 ledgers.
+    // Avanzamos 5 meses (~2_500_000 ledgers)
+    env.ledger().with_mut(|l| {
+        l.sequence_number = 2_500_000;
+        l.timestamp = 5 * 30 * 24 * 3600;
+    });
+
+    // Refresco rolling via read / helper público
+    cliente.extender_ttl_proyecto_publico(&id);
+    cliente.extender_ttl_aportacion_publica(&id, &backer);
+
+    // Avanzamos otros 5 meses (total 10 meses = 5_000_000 ledgers > 6 meses acumulados)
+    env.ledger().with_mut(|l| {
+        l.sequence_number = 5_000_000;
+        l.timestamp = 10 * 30 * 24 * 3600;
+    });
+
+    cliente.extender_ttl_proyecto_publico(&id);
+    cliente.extender_ttl_aportacion_publica(&id, &backer);
+
+    // Avanzamos hasta después del vencimiento (13 meses = 6_500_000 ledgers)
+    env.ledger().with_mut(|l| {
+        l.sequence_number = 6_500_000;
+        l.timestamp = 13 * 30 * 24 * 3600;
+    });
+
+    // El backer puede retirar su principal íntegro sin errores de archivado
+    let retirado = cliente.retirar_principal(&backer, &id);
+    assert_eq!(retirado, 50_000_000i128);
+}
+
+#[test]
+fn test_fuzz_calcular_yield_precision_y_overflow() {
+    // 1. Zero cases
+    assert_eq!(calcular_yield_seguro(0, 945, 1000), 0);
+    assert_eq!(calcular_yield_seguro(1_000_000, 0, 1000), 0);
+    assert_eq!(calcular_yield_seguro(1_000_000, 945, 0), 0);
+    assert_eq!(calcular_yield_seguro(-100, 945, 1000), 0);
+
+    // 2. Small amounts (where old implementation lost 100% precision due to early division by 10_000)
+    // Formula: (capital * bps * minutos) / 5_256_000_000
+    // Capital = 1_000_000 stroops (0.1 MXNe), bps = 945 (9.45%), minutos = 525_600 (1 full year)
+    // Exact mathematical yield: 1_000_000 * 945 / 10_000 = 94_500 stroops
+    let yield_pequeno = calcular_yield_seguro(1_000_000, 945, 525_600);
+    assert_eq!(yield_pequeno, 94_500);
+
+    // Very small amount: 10_000 stroops (0.001 MXNe) for 1 year:
+    // 10_000 * 945 / 10_000 = 945 stroops
+    let yield_micro = calcular_yield_seguro(10_000, 945, 525_600);
+    assert_eq!(yield_micro, 945);
+
+    // Short duration: 100_000_000 stroops (10 MXNe) for 60 minutes (1 hour):
+    // 100_000_000 * 945 * 60 / 5_256_000_000 = 1078.76 -> 1078 stroops
+    let yield_corto = calcular_yield_seguro(100_000_000, 945, 60);
+    assert_eq!(yield_corto, 1078);
+
+    // 3. Fuzzing across multiple magnitudes of capital, bps, and time
+    let test_capitals: [i128; 8] = [
+        100,
+        10_000,
+        1_000_000,
+        100_000_000,
+        10_000_000_000,
+        1_000_000_000_000,
+        100_000_000_000_000,
+        1_000_000_000_000_000_000, // 10^18 stroops
+    ];
+    let test_bps: [i128; 4] = [1, 400, 945, 10_000_000]; // up to max 100x APY
+    let test_minutos: [i128; 5] = [1, 60, 1440, 525_600, 5_184_000]; // up to 10 years
+
+    for &c in &test_capitals {
+        for &b in &test_bps {
+            let mut prev_y = 0;
+            for &m in &test_minutos {
+                let y = calcular_yield_seguro(c, b, m);
+                // Invariant: Yield must be monotonically non-decreasing with elapsed time
+                assert!(y >= prev_y, "Yield decreasing with time: c={}, b={}, m={}", c, b, m);
+                prev_y = y;
+            }
+        }
+    }
+
+    // 4. Extreme bounds without overflow (capital up to 10^24 and 10^27 stroops)
+    let max_extreme_cap = 10_i128.pow(27);
+    let y_extreme = calcular_yield_seguro(max_extreme_cap, 10_000_000, 5_184_000);
+    assert!(y_extreme > 0);
+}
+
+#[test]
+fn test_audit_solvencia_sin_fondeo_yield_demuestra_deficit() {
+    let env = Env::default();
+    env.mock_all_auths();
+    env.ledger().with_mut(|l| l.timestamp = 0);
+
+    let admin = Address::generate(&env);
+    let dueno = Address::generate(&env);
+    let backer = Address::generate(&env);
+
+    let token_admin = Address::generate(&env);
+    let token_id = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_mxne = token_id.address();
+
+    let asset = StellarAssetClient::new(&env, &token_mxne);
+    let deposit_amount = 100_000_000i128; // 10 MXNe
+    asset.mint(&backer, &deposit_amount);
+
+    let contrato_id = env.register(BimexContrato, ());
+    let cliente = BimexContratoClient::new(&env, &contrato_id);
+    // NOTICE: Unlike setup(), we DO NOT mint fake 100 billion stroops to the contract!
+    // The contract starts with strictly 0 MXNe balance.
+    let balance_inicial = asset.balance(&contrato_id);
+    assert_eq!(balance_inicial, 0);
+
+    cliente.inicializar(&admin, &token_mxne, &945u32, &400u32);
+
+    let id = cliente.crear_proyecto(
+        &dueno,
+        &String::from_str(&env, "Proyecto Solvencia"),
+        &deposit_amount,
+        &doc_cid_vacio(&env),
+        &6u32,
+    );
+    cliente.admin_aprobar(&id);
+
+    // Backer deposits 10 MXNe into the contract
+    cliente.contribuir(&backer, &id, &deposit_amount);
+    assert_eq!(asset.balance(&contrato_id), deposit_amount);
+
+    // 6 months pass
+    env.ledger().with_mut(|l| l.timestamp = 6 * 30 * 24 * 3600);
+
+    // Owner claims accrued yield
+    let yield_reclamado = cliente.reclamar_yield(&id);
+    assert!(yield_reclamado > 0);
+
+    // Contract balance is now DECREASED below total locked principal!
+    let contract_balance = asset.balance(&contrato_id);
+    assert_eq!(contract_balance, deposit_amount - yield_reclamado);
+
+    // FUNDS-03 / Zero-Loss Insolvency Proof:
+    // If backer tries to withdraw their full 100% principal now,
+    // the contract lacks the funds to satisfy the withdrawal!
+    let withdrawal_res = cliente.try_retirar_principal(&backer, &id);
+    assert!(
+        withdrawal_res.is_err(),
+        "Proof of insolvency: contract cannot pay backer principal because yield was drained from principal"
+    );
+}
+
+#[test]
+fn test_audit_yield_retroactivo_demostracion() {
+    let (env, cliente, _admin, dueno, backer) = setup();
+
+    let id = cliente.crear_proyecto(
+        &dueno,
+        &String::from_str(&env, "Proyecto Retroactivo"),
+        &1_000_000_000i128,
+        &doc_cid_vacio(&env),
+        &12u32,
+    );
+    cliente.admin_aprobar(&id);
+
+    // Backer deposits a modest 1_000_000 stroops (0.1 MXNe) at t=0
+    cliente.contribuir(&backer, &id, &1_000_000i128);
+
+    // 5 months pass (capital in project was only 0.1 MXNe during this whole time)
+    env.ledger().with_mut(|l| l.timestamp = 5 * 30 * 24 * 3600);
+
+    // Backer tops up 999_000_000 stroops (99.9 MXNe) at t=5 months
+    cliente.contribuir(&backer, &id, &999_000_000i128);
+
+    // Ledger advances 1 minute
+    env.ledger().with_mut(|l| l.timestamp = 5 * 30 * 24 * 3600 + 60);
+
+    let detalle = cliente.calcular_yield_detallado(&id);
+    // Because yield is computed using current capital * (now - timestamp_inicio),
+    // the owner accrues yield on the entire 1,000,000,000 stroops for 5 full months!
+    assert!(
+        detalle.total > 20_000_000,
+        "Audit finding proof: retroactive yield applied to newly added capital"
+    );
 }

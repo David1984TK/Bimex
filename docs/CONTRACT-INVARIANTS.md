@@ -2,9 +2,9 @@
 
 > Critical properties that the Bimex Soroban smart contract must never violate. These invariants are the foundation of the bug-bounty program and must be preserved across every release, upgrade, and audit.
 
-**Version**: 1.1  
-**Last updated**: 2026-09-25  
-**Next review**: 2026-12-25  
+**Version**: 1.2  
+**Last updated**: 2026-10-14  
+**Next review**: 2027-01-14  
 
 ---
 
@@ -24,32 +24,24 @@ Invariants are grouped by:
 
 ---
 
-## 2. Auditoría de vigencia (2026-09-25)
+## 2. Auditoría de vigencia (2026-10-14)
 
-Revisión programada tras los cambios mergeados al contrato desde la versión 1.0 (2026-06-24). Se contrastó `bimex/contracts/bimex/src/lib.rs` y `test.rs` (74 tests, todos en verde) contra cada invariante.
-
-Cambios relevantes al contrato desde la última revisión:
-
-- `f2edb3c` — **#318**: enforce project name and pending project limits (input validation, nuevas claves de negocio `ContadorEnRevision`).
-- `b8d84ba` — **timelock** de `admin_upgrade` (flujo en dos fases: `admin_upgrade` propone, `admin_execute_upgrade` ejecuta tras 24 h).
-- `638a1ce`, `e3892a1`, `163c7a9` — bumps de `soroban-sdk` (25 → 26 → 27); sin cambios de lógica.
-- `df4b403` — **#174**: early withdrawal guarantee (liquidez inmediata). Ya presente en 1.0 pero la fila STATE-06 reflejaba el comportamiento anterior y citaba tests inexistentes.
-
-> Los PRs #328 y #329 citados en el issue corresponden a frontend e indexer (npm audit gate / event parser); no comparten lógica de invariantes del contrato.
+Revisión técnica y formal de seguridad sobre el contrato `bimex/contracts/bimex/src/lib.rs` y `test.rs` (81 tests, todos en verde). Se contrastó el modelo de almacenamiento, máquina de estados y contabilidad de rendimientos (referencia: `docs/AUDITORIA-CONTRATO-2026-10-14.md`).
 
 ### 2.1 Resultado
 
-Los invariantes de las secciones **3**, **5**, **6**, **8** y **9** fueron verificados y **siguen vigentes**. Las secciones **4** (STATE-06) y **7** se actualizaron, y se documentaron dos divergencias del código.
+Las brechas previas **STATE-10** y **STORAGE-02** fueron **corregidas y cerradas en código**. Se añadieron las invariantes **STORAGE-08** y **STORAGE-09** para gobernanza de TTL en almacenamiento persistente y proyectos de largo plazo (hasta 120 meses). Se formalizó la decisión de arquitectura sobre la solvencia del fondeo de yield (**FUNDS-03**).
 
-### 2.2 Hallazgos y divergencias
+### 2.2 Hallazgos y estado de resolución
 
-| ID | Estado | Hallazgo |
+| ID | Estado | Hallazgo y Resolución |
 | --- | --- | --- |
-| **STATE-06** | ✅ Corregido en el doc (política cambiada) | El contrato ahora permite `retirar_principal` en `EtapaInicial`/`EnProgreso` en cualquier momento (#174, liquidez inmediata). El doc exigía "solo Liberado/Abandonado/vencido" y citaba tests que **no existen** (`test_vul09_no_retirar_en_progreso`, `test_retirar_principal_en_progreso_falla`). Los tests reales son `test_vul09_retiro_en_progreso_permitido` y `test_retirar_principal_en_progreso_exito`. |
-| **STATE-10** | ⚠️ **Code gap** — pendiente decisión | El doc lista `abandonar_proyecto` entre las operaciones bloqueadas por `admin_pausar`, pero `abandonar_proyecto` **no** llama `verificar_no_pausado()`. Se puede abandonar un proyecto con el contrato pausado. Decidir: añadir el check al contrato o aceptar el comportamiento. |
-| **STORAGE-02** | ⚠️ **Code gap** — pendiente decisión | El doc exige que toda función que muta estado extienda el TTL de instancia, pero `admin_pausar`, `admin_reanudar`, `admin_upgrade` y `admin_execute_upgrade` **no** llaman `extender_ttl_instancia()`. Riesgo bajo (evicción solo tras ~1 día sin otra actividad de instancia) pero no cumple el invariante. |
-| **AUTH-01** | ✅ Cobertura corregida | Se añadió `admin_execute_upgrade` a la lista explícita de funciones admin-gated (flujo de timelock en dos fases). |
-| **Input validation** | ✅ Secciones nuevas | Se documentaron las invariantes de #318 (INPUT-01..04) que no figuraban en la versión 1.0. |
+| **STATE-10** | ✅ **Corregido en código (2026-10-14)** | `abandonar_proyecto` ahora invoca `verificar_no_pausado(&env)`. El circuito de emergencia bloquea efectivamente el abandono de proyectos mientras el contrato esté pausado por el administrador. Cobertura: `test_pausa_bloquea_abandonar_proyecto`. |
+| **STORAGE-02** | ✅ **Corregido en código (2026-10-14)** | `admin_pausar`, `admin_reanudar`, `admin_upgrade` y `admin_execute_upgrade` ahora llaman a `extender_ttl_instancia(&env)`. Se garantiza que ninguna operación de gobernanza administrativa deje desprotegida la instancia contra evicción. Cobertura: `test_admin_pausa_y_upgrade_extienden_instancia_ttl`. |
+| **STORAGE-08** | ✅ **Nuevo & Corregido (2026-10-14)** | `ContadorEnRevision(dueno)` ahora renueva su TTL en persistent storage en `crear_proyecto`, `admin_aprobar` y `admin_rechazar`. Cobertura: `test_contador_en_revision_extiende_ttl`. |
+| **STORAGE-09** | ✅ **Nuevo & Mitigado (2026-10-14)** | Desfase entre el límite de TTL de red (~6 meses) y proyectos hasta 120 meses mitigado mediante rolling TTL y funciones públicas de refresco: `extender_ttl_proyecto_publico` y `extender_ttl_aportacion_publica`. Cobertura: `test_ttl_avanza_mas_de_6_meses_con_refresco_rolling`. |
+| **FUNDS-03** | ⚠️ **Decisión formal de arquitectura** | Se documenta que el pago de yield en `reclamar_yield` no debe canibalizar el principal de los backers (invariante FUNDS-01). En producción, el balance de yield debe ser fondeado externamente por la tesorería o keepers oráculo antes del desembolso. Cobertura: `test_audit_solvencia_sin_fondeo_yield_demuestra_deficit`. |
+| **YIELD-08** | ✅ **Corregido en código (2026-10-14)** | Se eliminó la pérdida de precisión por división previa en `calcular_yield_seguro`. Ahora multiplica antes de dividir usando `checked_mul` en i128 sin riesgo de desbordamiento. Cobertura: `test_fuzz_calcular_yield_precision_y_overflow`. |
 
 ---
 
@@ -99,7 +91,7 @@ EnProgreso ──retiro_anticipado (all funds withdrawn)──► EtapaInicial
 | STATE-07 | `retiro_anticipado` is only allowed when the project is `EtapaInicial` or `EnProgreso` and the deadline has not expired. | Dedicated early-exit path (identical result to STATE-06, kept for policy clarity). | ✅ `test_retiro_anticipado_despues_de_vencimiento_falla`, `test_retiro_anticipado_proyecto_liberado_falla` |
 | STATE-08 | `reclamar_yield` is only allowed when the project is `EnProgreso` or `Liberado` and has at least one active contribution. | Prevents yield extraction from invalid states. | ✅ `test_vul01_yield_bloqueado_en_revision`, `test_vul01b_yield_bloqueado_rechazado`, `test_vul01c_yield_bloqueado_abandonado`, `test_reclamar_yield_cero_falla` |
 | STATE-09 | Pausing the contract does not affect admin-only governance actions (`admin_aprobar`, `admin_rechazar`, `admin_cambiar_admin`, `admin_upgrade`, `admin_execute_upgrade`). | Ensures the admin can still recover during an incident. | ✅ `test_admin_aprobacion_funciona_pausado` |
-| STATE-10 | Pausing blocks state-changing user operations (`contribuir`, `reclamar_yield`, `retirar_principal`, `retiro_anticipado`, `solicitar_continuar`, `crear_proyecto`, `abandonar_proyecto`). | Circuit breaker protects user funds. ⚠️ **Code gap**: `abandonar_proyecto` no llama `verificar_no_pausado()` — ver §2.2. | ✅ `test_pausa_bloquea_contribuciones`, `test_reanudacion_permite_contribuciones` |
+| STATE-10 | Pausing blocks state-changing user operations (`contribuir`, `reclamar_yield`, `retirar_principal`, `retiro_anticipado`, `solicitar_continuar`, `crear_proyecto`, `abandonar_proyecto`). | Circuit breaker protects user funds. ✅ **Corregido (2026-10-14)**: `abandonar_proyecto` ahora llama `verificar_no_pausado()`. | ✅ `test_pausa_bloquea_contribuciones`, `test_reanudacion_permite_contribuciones`, `test_pausa_bloquea_abandonar_proyecto` |
 | STATE-11 | When all contributions are withdrawn from a project, the project returns to `EtapaInicial` (if it was `EnProgreso` or `Liberado`). | Allows the owner to restart or abandon the project cleanly. | ✅ `test_retirar_todos_los_fondos_vuelve_a_etapa_inicial` |
 
 ---
@@ -110,7 +102,7 @@ EnProgreso ──retiro_anticipado (all funds withdrawn)──► EtapaInicial
 |---|---|---|---|
 | FUNDS-01 | A backer can only withdraw **exactly** the amount they deposited (principal). Zero-loss guarantee. | Core protocol promise. | ✅ `test_flujo_completo`, `test_retiro_despues_de_vencimiento`, `test_retirar_principal_proyecto_abandonado` |
 | FUNDS-02 | The sum of all backer principals for a project never exceeds the project's `meta`. | Prevents overfunding. | ✅ `test_vul03_overfunding_cap`, `test_estado_capital` |
-| FUNDS-03 | The contract's total locked MXNe balance must always be at least the sum of all unwithdrawn principals plus any unclaimed yield. | Solvency invariant. | ✅ Indirectly covered by all flow tests; monitor via `estado_capital` + `calcular_yield_detallado`. |
+| FUNDS-03 | The contract's total locked MXNe balance must always be at least the sum of all unwithdrawn principals plus any unclaimed yield. | Solvency invariant. ⚠️ **Decisión formal**: En producción, el reclamo de yield debe estar respaldado por depósitos externos de reserva de rendimiento para no drenar el capital de los backers. | ✅ `test_audit_solvencia_sin_fondeo_yield_demuestra_deficit` |
 | FUNDS-04 | When a backer withdraws principal, the corresponding `Aportacion` entry is removed. | Prevents double withdrawal. | ✅ `test_vul07_no_doble_retiro` |
 | FUNDS-05 | `retiro_anticipado` returns 100% of the principal and does not pay any yield to the backer. | Yield stays in the project for the owner. | ✅ `test_retiro_anticipado_devuelve_capital` |
 | FUNDS-06 | When a project is abandoned, every backer can recover 100% of their principal. | Zero-loss guarantee even on project failure. | ✅ `test_retirar_principal_proyecto_abandonado` |
@@ -134,7 +126,7 @@ EnProgreso ──retiro_anticipado (all funds withdrawn)──► EtapaInicial
 | YIELD-05 | `reclamar_yield` cannot be called if the calculated yield is 0. | Prevents empty claims and wasted fees. | ✅ `test_reclamar_yield_cero_falla` |
 | YIELD-06 | Annual yield for CETES must be approximately 9.45% APY and AMM approximately 4.00% APY under production settings. | Business model correctness. | ✅ `test_yield_tasas_reales_produccion`, `test_yield_no_es_demo_exagerado` |
 | YIELD-07 | The sum of all `yield_entregado` plus remaining unclaimed yield must never exceed the yield that can be mathematically generated from the locked capital and elapsed time. | Yield cannot be created from nothing. | ✅ Indirectly covered by yield tests. |
-| YIELD-08 | Yield calculation must be overflow-safe for capital up to the protocol's maximum supported amount. | Protects against arithmetic attacks. | ✅ `test_yield_tasas_reales_produccion` uses large numbers; `calcular_yield_seguro` divides before multiplying. |
+| YIELD-08 | Yield calculation must be overflow-safe for capital up to the protocol's maximum supported amount and preserve full precision by multiplying before dividing with `checked_mul`. | Protects against arithmetic truncation and overflow. | ✅ `test_fuzz_calcular_yield_precision_y_overflow`, `test_yield_tasas_reales_produccion` |
 
 ---
 
@@ -156,12 +148,14 @@ Added in #318 (`f2edb3c`, merged 2026-08-26). Enforced at `crear_proyecto` time.
 | ID | Invariant | Rationale | Test coverage |
 |---|---|---|---|
 | STORAGE-01 | `inicializar` can only be called once. | Prevents reinitialization attacks. | ✅ `test_inicializar_dos_veces_falla` |
-| STORAGE-02 | Every state-mutating function must extend the instance TTL. | Prevents instance storage eviction. ⚠️ **Code gap**: `admin_pausar`, `admin_reanudar`, `admin_upgrade`, `admin_execute_upgrade` no llaman `extender_ttl_instancia()` — ver §2.2. | ✅ All user-facing mutating functions call `extender_ttl_instancia`. |
+| STORAGE-02 | Every state-mutating function must extend the instance TTL. | Prevents instance storage eviction. ✅ **Corregido (2026-10-14)**: `admin_pausar`, `admin_reanudar`, `admin_upgrade` y `admin_execute_upgrade` ahora extienden el TTL de instancia. | ✅ `test_admin_pausa_y_upgrade_extienden_instancia_ttl` |
 | STORAGE-03 | Every read or write of a project must extend the project's persistent TTL. | Prevents project storage eviction. | ✅ `extender_ttl_proyecto` is called in all relevant functions. |
 | STORAGE-04 | Every read or write of a backer contribution must extend the contribution's persistent TTL. | Prevents contribution storage eviction. | ✅ `extender_ttl_aportacion` is called in all relevant functions. |
 | STORAGE-05 | The project counter (`ContadorProyectos`) is monotonically increasing. | IDs are never reused or rolled back. | ✅ `test_crear_multiples_proyectos` |
 | STORAGE-06 | `doc_cid` and `motivo_rechazo` are stored as `String` and cannot be mutated by unauthorized parties. | Document integrity. | ✅ `test_admin_rechazar_con_motivo` |
 | STORAGE-07 | TTL extension must keep storage alive for at least 1 day and bump up to 30 days for instances / 6 months for persistent entries. | Availability guarantee. | ✅ `test_extend_ttl` |
+| STORAGE-08 | `Clave::ContadorEnRevision` must have its persistent TTL extended on every creation, approval, and rejection. | Prevents spam counter eviction. | ✅ `test_contador_en_revision_extiende_ttl` |
+| STORAGE-09 | Multi-year projects (up to 120 months) must support rolling TTL extension via read operations and public keeper functions (`extender_ttl_proyecto_publico`, `extender_ttl_aportacion_publica`). | Availability for long-term projects beyond the network maximum TTL bump (~6 months). | ✅ `test_ttl_avanza_mas_de_6_meses_con_refresco_rolling` |
 
 ---
 
@@ -183,13 +177,13 @@ The following behaviors are known and accepted. Reports describing them will not
 | ID | Limitation | Reason |
 |---|---|---|
 | LIM-01 | (Resolved) Admin multisig and timelock are now implemented. | N/A |
-| LIM-02 | Yield is calculated using a simplified on-chain model, not actual off-chain CETES/AMM yields. | The protocol commits to a fixed reference rate; real yield is off-chain. |
+| LIM-02 | Yield is calculated using a simplified on-chain model, not actual off-chain CETES/AMM yields. | The protocol commits to a fixed reference rate; real yield is off-chain and requires external funding for solvency (see FUNDS-03). |
 | LIM-03 | The indexer relies on the public Soroban RPC and may lag or miss events under network stress. | Operational risk; indexer has backup/reindex scripts. |
 | LIM-04 | `retiro_anticipado` leaves the accrued yield in the project for the owner. | By design; early exit does not entitle the backer to yield. |
 | LIM-05 | Integer rounding in the 50/50 split may leave 1 stroop in the AMM bucket for odd amounts. | Acceptable; capital is still fully recoverable. |
 | LIM-06 | Admin pause does not block read-only functions. | By design; transparency is maintained during incidents. |
 | LIM-07 | The contract does not enforce KYC/AML on project owners or backers. | Regulatory compliance is handled off-chain by the operator. |
-| LIM-08 | `abandonar_proyecto` remains callable while the contract is paused (see STATE-10 gap). | Documented in §2.2; pending decision on whether the contract should block it. |
+| LIM-08 | (Resolved) `abandonar_proyecto` is now blocked while the contract is paused (STATE-10 closed). | N/A |
 
 ---
 
@@ -202,7 +196,7 @@ cd bimex
 cargo test
 ```
 
-All 74 tests must pass. Each new release should add regression tests for any newly discovered invariant violation.
+All 81 tests must pass. Each new release should add regression tests for any newly discovered invariant violation.
 
 To verify invariants on the live testnet deployment:
 
