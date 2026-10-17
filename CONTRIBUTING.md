@@ -27,7 +27,43 @@ Gracias por aportar. Bimex recibe contribuciones de mucha gente distinta (waves,
 
 ## Si tu PR no se puede mergear directo
 
-A veces un PR llega con conflictos o queda desactualizado antes de revisarse, y el mantenedor reaplica el cambio en un PR nuevo en vez de resolver conflictos sobre el tuyo. Si eso pasa con tu contribución, seguís apareciendo como autor original en el historial de commits y se te agradece explícitamente en el PR/issue relacionado — no se pierde el crédito, pero si puedes, prioriza mantener tu rama actualizada para evitar que esto sea necesario.
+A veces un PR llega con conflictos o queda desactualizado antes de revisarse, y el mantenedor reaplica el cambio en un PR nuevo en vez de resolver conflictos sobre el tuyo. Si eso pasa con tu contribución, sigues apareciendo como autor original en el historial de commits y se te agradece explícitamente en el PR/issue relacionado — no se pierde el crédito, pero si puedes, prioriza mantener tu rama actualizada para evitar que esto sea necesario.
+
+### Ejemplo paso a paso del flujo de reaplicación
+
+Imaginemos un caso concreto:
+
+1. **Situación inicial:**
+   - La colaboradora `@sofia-dev` abrió el PR `#310` para resolver el Issue `#295` (`fix(frontend): corregir modal de confirmación`).
+   - Tras varias semanas, la rama `main` avanzó considerablemente, generando conflictos complejos en `#310`, y `@sofia-dev` no está disponible en ese momento para rebasar.
+
+2. **Acción del mantenedor:**
+   - Para no demorar la entrega del cambio y preservar la autoría, el mantenedor descarga el commit de Sofía y lo reaplica sobre una rama limpia actualizada de `main`:
+     ```bash
+     git checkout main
+     git pull origin main
+     git checkout -b fix/295-reapply-modal-fix
+     git cherry-pick <commit-hash-de-sofia>
+     # Resuelve conflictos manteniendo el código y la lógica de Sofía
+     git commit --amend --no-edit  # Preserva a @sofia-dev como Author del commit
+     git push origin fix/295-reapply-modal-fix
+     ```
+
+3. **Apertura del nuevo PR y atribución explícita:**
+   - El mantenedor abre un nuevo PR (por ejemplo `#342`) acreditando de forma destacada el trabajo original en el título y en el cuerpo:
+     ```markdown
+     ## Resumen
+     Reaplicación del trabajo original de @sofia-dev en #310 sobre el main actual para resolver conflictos de merge.
+     
+     Todo el crédito del diseño y la solución corresponde a @sofia-dev.
+     
+     Closes #295
+     Co-authored-by: Sofia Dev <sofia@example.com>
+     ```
+
+4. **Cierre ordenado y reconocimiento:**
+   - El PR original (`#310`) se cierra con un comentario de agradecimiento que enlaza al nuevo PR: *"Cerrado a favor de #342 donde se reaplicaron tus cambios directamente sobre main. ¡Muchas gracias por tu contribución, @sofia-dev!"*.
+   - El issue `#295` se cierra automáticamente al mergear `#342`, y `@sofia-dev` queda registrada en el historial de Git y en el changelog de la versión.
 
 ## Dependencias (Dependabot)
 
