@@ -67,6 +67,8 @@ jobs:
           cache-dependency-path: bimex-frontend/package-lock.json
       - name: Install dependencies
         run: cd bimex-frontend && npm ci
+      - name: Check env.example synchronization
+        run: node scripts/check-env-example.mjs
       - name: Audit dependencies
         run: cd bimex-frontend && npm run check-audit
       - name: Lint
