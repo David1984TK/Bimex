@@ -101,4 +101,4 @@ jobs:
       - name: Lint
         run: cd bimex-indexer && npm run lint
       - name: Run unit tests
-        run: cd bimex-indexer && npm test
+        run: cd bimex-indexer && npm run test:coverage

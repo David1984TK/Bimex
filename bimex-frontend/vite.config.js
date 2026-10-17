@@ -121,6 +121,15 @@ export default defineConfig(({ mode }) => {
       globals: true,
       setupFiles: './src/test/setup.js',
       include: ['src/**/*.{test,spec}.{js,jsx,ts,tsx}'],
+      coverage: {
+        reporter: ['text', 'lcov'],
+        thresholds: {
+          lines: 55,
+          functions: 45,
+          branches: 45,
+          statements: 50,
+        },
+      },
     },
   }
 })
