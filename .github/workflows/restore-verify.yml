@@ -11,6 +11,12 @@ on:
         required: false
         type: string
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+
 jobs:
   restore-verify:
     name: Restore and Validate Backup
