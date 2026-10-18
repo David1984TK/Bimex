@@ -46,7 +46,7 @@ Ver `CONTRIBUTING.md`: trunk-based (ramas cortas directo a `main`, sin `develop`
 - El root directory de Vercel debe apuntar a `bimex-frontend/` en el dashboard de Vercel
 - Admin address en `VITE_ADMIN_ADDRESS` o hardcoded como fallback en `App.jsx`
 - `bimex/Cargo.lock` está commiteado a propósito (reproducibilidad de builds) — no lo agregues a `.gitignore`. CI corre `cargo test`/`cargo audit` sin `--locked`, así que un `cargo update` local antes de un PR puede cambiar versiones; verifica con `cargo test --locked` que el lock commiteado sigue siendo válido.
-- Tests del contrato: `cd bimex && cargo test` (64 tests a la fecha de este doc, 0 failures)
+- Tests del contrato: `cd bimex && cargo test` (todos los tests deben pasar con 0 failures; no fijar aquí un conteo exacto, se desactualiza solo)
 
 ## Pendientes conocidos
 - **Indexer proxy en producción:** el rewrite `/api/*` y CSP `upgrade-insecure-requests` ya están en `bimex-frontend/vercel.json` (staging host-condicionado; ver `.env.example`). Falta un dominio productivo fijo del indexer — no metas un placeholder falso en `vercel.json` (ver PR #260, cerrado por eso; CI lo bloquea vía `scripts/check-vercel-proxy.mjs`). Al tenerlo: rewrite real + `VITE_API_URL=/api` y `VITE_INDEXER_URL=/api` en Vercel. Runbook completo: `docs/activar-proxy-indexer-produccion.md` (#338).
