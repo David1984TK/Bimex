@@ -2,9 +2,9 @@
 
 > Threat model, trust assumptions, and attack surface for the Bimex zero-loss crowdfunding protocol on Stellar/Soroban.
 
-**Version**: 1.0  
-**Last updated**: 2026-06-24  
-**Next review**: 2026-09-24
+**Version**: 1.1
+**Last updated**: 2026-10-19
+**Next review**: 2027-01-19
 
 ---
 
@@ -29,7 +29,8 @@ Bimex is a zero-loss social-impact crowdfunding platform:
 
 - Contributors lock **MXNe** (a Mexican peso stablecoin on Stellar) into a Soroban smart contract.
 - The contract splits the capital 50/50 into simulated **CETES** and **AMM** yield sources.
-- Yield is streamed to the **project owner** over time.
+- Yield is streamed to the **project owner** only from a separately prefunded
+  MXNe reserve; principal is never a source of yield liquidity.
 - When the project ends or is abandoned, contributors can withdraw **100% of their principal**.
 
 The protocol is designed so that contributors never lose their principal, assuming the contract and its dependencies behave correctly. This threat model documents the assets, trust assumptions, threat actors, and controls that protect those assets.
@@ -43,7 +44,8 @@ The protocol is designed so that contributors never lose their principal, assumi
 | ID | Asset | Location | Criticality |
 |---|---|---|---|
 | A1 | MXNe principal contributed by backers | Locked in the Bimex contract | Critical |
-| A2 | Accrued yield available to project owners | Calculated in the contract; transferred on `reclamar_yield` | High |
+| A2 | Claimable yield for project owners | Calculated in the contract and bounded by `Clave::ReservaYield` | High |
+| A9 | Explicit MXNe yield reserve | Contract instance storage plus token balance; funded by `fondear_yield` | Critical |
 | A3 | Admin role and upgrade capability | Contract instance storage (`Clave::Admin`) | Critical |
 | A4 | Project metadata (name, goal, docs, state) | Contract persistent storage | High |
 | A5 | Backer contribution records | Contract persistent storage (`Clave::Aportacion`) | Critical |
@@ -54,34 +56,24 @@ The protocol is designed so that contributors never lose their principal, assumi
 ### 3.2 Value flow diagram
 
 ```
-┌─────────────┐         contribuir()         ┌──────────────────┐
-│   Backer    │ ───────────────────────────► │ Bimex contract   │
-│  (MXNe)     │                              │ (locks principal)│
-└─────────────┘                              └────────┬─────────┘
-                                                     │
-                              ┌──────────────────────┼──────────────────────┐
-                              │                      │                      │
-                              ▼                      ▼                      ▼
-                        ┌──────────┐          ┌──────────┐           ┌──────────────┐
-                        │  CETES   │          │   AMM    │           │ Project owner│
-                        │  bucket  │          │  bucket  │           │  (yield)     │
-                        └──────────┘          └──────────┘           └──────────────┘
-                              │                      │                      ▲
-                              └──────────────────────┘                      │
-                                         yield                              │
-                                    (reclamar_yield) ──────────────────────┘
+┌─────────────┐ contribuir()  ┌────────────────────────────────────┐
+│   Backer    │ ────────────► │ Bimex: principal custodiado        │
+└─────────────┘               │ (sólo vuelve al backer al retirar) │
+                              └────────────────────────────────────┘
 
-                              ┌─────────────┐
-                              │   Backer    │ ◄──────────────────────────────┐
-                              │  (principal)│    retirar_principal()          │
-                              └─────────────┘                                 │
-                                                                             │
-                                        ┌────────────────────────────────────┘
-                                        │
-                                 ┌──────────────┐
-                                 │ Bimex contract│
-                                 └──────────────┘
+┌─────────────┐ fondear_yield() ┌──────────────────────────────────┐
+│    Admin    │ ──────────────► │ ReservaYield separada (MXNe)     │
+└─────────────┘                 └──────────────┬───────────────────┘
+                                                │ reclamar_yield(),
+                                                │ sólo si reserva >= yield
+                                                ▼
+                                         ┌──────────────┐
+                                         │Project owner │
+                                         └──────────────┘
 ```
+
+`reclamar_yield` disminuye la reserva antes de transferir. Si la reserva no
+alcanza, la invocación revierte y el principal permanece intacto.
 
 ---
 
@@ -94,7 +86,7 @@ The protocol is designed so that contributors never lose their principal, assumi
 | Stellar network | Consensus and ledger integrity | Base layer assumption; out of scope for this program. |
 | Soroban runtime | Correct execution of WASM, auth, and storage | Base layer assumption. |
 | MXNe token issuer | Token is redeemable 1:1 for MXN | Stablecoin assumption; Bimex does not custody the issuer. |
-| Admin | Acts honestly to approve legitimate projects and rotate keys securely | Admin is a privileged role; compromise is critical. |
+| Admin | Approves projects, rotates keys securely, and keeps the explicit yield reserve funded | Admin is a privileged role; a depleted reserve delays yield claims but cannot spend principal. |
 | Project owner | Provides truthful project documentation and claims yield only when entitled | Owner can abandon a project at any time, but cannot steal principal. |
 | Frontend host | Serves the correct application code and keeps secrets safe | Vercel/hosting provider trust. |
 | Indexer operator | Runs the indexer correctly and protects database/API keys | Operational trust. |
@@ -135,7 +127,8 @@ The protocol is designed so that contributors never lose their principal, assumi
 | `crear_proyecto` | Spam, invalid metadata, deadline manipulation | Yes |
 | `admin_aprobar` / `admin_rechazar` | Unauthorized approval/rejection | Yes |
 | `contribuir` | Overfunding, reentrancy, unauthorized state change | Yes |
-| `reclamar_yield` | Yield extraction from non-active projects, double claims | Yes |
+| `reclamar_yield` / `fondear_yield` | Unfunded yield, use of principal, double claims, reserve depletion | Yes |
+| `renovar_ttl_proyecto` / `renovar_ttl_aportacion` | Storage archival and keeper availability | Yes |
 | `retirar_principal` | Unauthorized withdrawal, double withdrawal | Yes |
 | `retiro_anticipado` | Withdrawal after deadline or from wrong state | Yes |
 | `abandonar_proyecto` | Abandonment of non-owned/rejected projects | Yes |
@@ -184,7 +177,7 @@ The protocol is designed so that contributors never lose their principal, assumi
 | TM-01 | Reentrancy on `contribuir` or `retirar_principal` | T1/T3 | A1 | Critical | Low | Medium | CEI pattern; effects before external token transfer. |
 | TM-02 | Admin key compromise → full protocol takeover | T4 | A3, A1 | Critical | Low | Medium | Multi-sig or hardware wallet recommended; key rotation via `admin_cambiar_admin`. |
 | TM-03 | Overfunding beyond project goal | T2 | A1 | Medium | Low | Low | `cantidad = cantidad.min(restante)` cap. |
-| TM-04 | Yield extraction from non-active project | T2 | A2 | High | Low | Medium | `reclamar_yield` restricted to `EnProgreso` or `Liberado`. |
+| TM-04 | Yield extraction from a non-active project | T2 | A2 | High | Low | Medium | `reclamar_yield` restricted to `EnProgreso` or `Liberado`. |
 | TM-05 | Double withdrawal of principal | T3 | A1 | High | Low | Medium | `Aportacion` entry removed after withdrawal; state resets. |
 | TM-06 | Unauthorized project abandonment | T2 | A1 | Medium | Low | Low | `abandonar_proyecto` requires owner auth. |
 | TM-07 | New owner inherits stale yield period | T2 | A2 | High | Low | Medium | `solicitar_continuar` resets `timestamp_inicio`. |
@@ -193,14 +186,17 @@ The protocol is designed so that contributors never lose their principal, assumi
 | TM-10 | Contribution after deadline | T2 | A1 | Low | Low | Low | `assert!(ahora < timestamp_vencimiento)`. |
 | TM-11 | Frontend XSS tricking user into signing | T5 | A1 | High | Medium | High | CSP, input validation, simulated transaction review. |
 | TM-12 | Malicious contract ID in frontend env | T5/T7 | A1 | Critical | Low | Medium | Validate contract ID against known deployments; pinned env. |
-| TM-13 | Indexer data loss due to missed TTL extension | T6 | A7 | High | Low | Medium | Automated TTL extension; periodic re-indexing scripts. |
+| TM-13 | Keeper/indexer misses a TTL renewal window | T6 | A4, A5, A7 | High | Low | Medium | Redundant permissionless renewal transactions, alerting, and a Soroban restoration runbook. |
 | TM-14 | Supabase/Resend credential leak | T7 | A6, A7 | High | Medium | High | Use server-side functions, rotate secrets, least privilege. |
 | TM-15 | Supply-chain attack on Stellar SDK or Freighter | T8 | A1 | Critical | Low | Medium | Pin dependency versions; audit lockfiles; Snyk/Dependabot. |
 | TM-16 | Social engineering of team members | T1 | A6 | Critical | Medium | High | Training, 2FA, hardware keys, no seed sharing. |
 | TM-17 | DoS against public RPC | T1 | Availability | Low | High | Low | Use robust RPC providers; out of scope for bounty. |
-| TM-18 | Storage TTL expiration causing data loss | T1/T6 | A4, A5 | High | Low | Medium | TTL extension on every state-mutating and read call. |
-| TM-19 | Unauthorized WASM upgrade | T4 | Entire contract | Critical | Low | Medium | Admin-only upgrade; plan for multi-sig/timelock in future. |
-| TM-20 | i128 overflow in yield calculation | T1/T2 | A2 | High | Low | Medium | `calcular_yield_seguro` divides before multiplying. |
+| TM-18 | Storage TTL expiration causing data unavailability | T1/T6 | A4, A5 | High | Low | Medium | Network-maximum persistent bumps, permissionless `renovar_ttl_*`, monitored keeper, and Soroban restoration runbook. |
+| TM-19 | Unauthorized WASM upgrade | T4 | Entire contract | Critical | Low | Medium | Admin-only upgrade and 24-hour two-phase timelock. |
+| TM-20 | Arithmetic overflow or premature rounding in yield | T1/T2 | A2 | High | Low | Medium | Exact `U256` mul/div plus carried remainders; property and extreme-value tests. |
+| TM-21 | Yield claim spends backer principal when contract is not externally funded | T2/T4 | A1, A9 | Critical | Low | Medium | `ReservaYield` is funded only by `fondear_yield`; claim requires reserve ≥ payment and decrements it atomically. |
+| TM-22 | New capital or a withdrawal changes a prior period's yield retroactively | T2 | A2 | High | Low | Medium | Checkpoint accrued yield before every capital mutation and reset only the project interval. |
+| TM-23 | `ContadorEnRevision` expires and bypasses the per-owner review limit | T1/T2 | A4 | Medium | Low | Low | Renew its TTL on each mutation and on permissionless project renewal. |
 
 ---
 
@@ -216,10 +212,12 @@ The protocol is designed so that contributors never lose their principal, assumi
 | Yield-rate bounds | `inicializar`: `assert!(bps <= 10_000_000)` | ✅ |
 | State-machine enforcement | `assert!` guards on every state transition | ✅ |
 | Circuit breaker (pause) | `admin_pausar` / `admin_reanudar` | ✅ |
-| Overflow-safe yield math | `calcular_yield_seguro` | ✅ |
-| Top-up preserves yield timestamp | `contribuir` reuses existing `Aportacion.timestamp` | ✅ |
-| New owner resets yield clock | `solicitar_continuar` resets `timestamp_inicio` | ✅ |
-| TTL extension | `extender_ttl_*` helpers | ✅ |
+| Explicit yield reserve | `fondear_yield`, `ReservaYield`, reserve check in `reclamar_yield` | ✅ |
+| Exact overflow-safe yield math | `U256` mul/div and carried remainders in `calcular_yield_divmod` | ✅ |
+| Capital-mutation checkpoint | `acumular_yield_pendiente` before contribution/withdrawal | ✅ |
+| Top-up preserves backer timestamp | `contribuir` reuses existing `Aportacion.timestamp` | ✅ |
+| New owner resets yield clock | `solicitar_continuar` resets `timestamp_inicio` and clears pending yield | ✅ |
+| TTL extension and renewal | `extender_ttl_*`, `renovar_ttl_proyecto`, `renovar_ttl_aportacion` | ✅ |
 | Admin rotation | `admin_cambiar_admin` | ✅ |
 | Upgrade path | `admin_upgrade` (admin-only) | ✅ |
 
@@ -238,7 +236,7 @@ The protocol is designed so that contributors never lose their principal, assumi
 
 | Control | Where implemented | Status |
 |---|---|---|
-| TTL extension on ingestion | `index.js` | ✅ |
+| TTL renewal run | Permissionless `renovar_ttl_*` transactions scheduled by operations | Required before Mainnet |
 | Database schema with constraints | `schema.sql` | ✅ |
 | Backup/restore scripts | `bimex-indexer/scripts/` | ✅ |
 | CI testing for contract and frontend | `.github/workflows/ci.yml` | ✅ |
@@ -252,12 +250,14 @@ These risks are accepted or planned for future mitigation:
 
 | ID | Risk | Owner | Planned mitigation |
 |---|---|---|---|
-| RR-01 | Single admin key with no multi-sig/timelock | Security team | Evaluate multi-sig admin for Mainnet (post-pilot). |
+| RR-01 | Single admin key despite the upgrade timelock | Security team | Evaluate multi-sig admin for Mainnet (post-pilot). |
 | RR-02 | Reliance on public Stellar RPC | DevOps | Add fallback RPC providers and private node option. |
 | RR-03 | No formal external audit yet | Security team | Complete external audit before large-scale Mainnet launch. |
 | RR-04 | Dependence on third-party wallets (Freighter) | Frontend team | Support additional wallets and verify signature integrity. |
 | RR-05 | Off-chain indexer as source of truth for UX | Backend team | Frontend always re-verifies balances and states on-chain. |
 | RR-06 | Social engineering / team credential theft | Operations | 2FA, hardware keys, security training, and incident response plan. |
+| RR-07 | Yield reserve may be depleted, delaying valid owner claims | Treasury / admin | Monitor `reserva_yield`, pre-fund it from a segregated treasury, and publish a funding policy. Principal remains withdrawable. |
+| RR-08 | Keeper may miss a persistent TTL renewal window | Operations | Alert well before `storage().max_ttl`, run redundant permissionless keepers, and rehearse Soroban restoration. |
 
 ---
 
