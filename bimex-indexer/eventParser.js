@@ -12,6 +12,7 @@ export const TOPIC_TO_EVENT = {
   reanudar:   'admin_action',
   prop_upg:   'admin_action',
   upgrade:    'admin_action',
+  fon_yield:  'admin_action',
 };
 
 export const CONTRACT_EVENT_SYMBOLS = [
@@ -25,6 +26,7 @@ export const CONTRACT_EVENT_SYMBOLS = [
   'reanudar',
   'prop_upg',
   'upgrade',
+  'fon_yield',
 ];
 
 function normalizeArg(arg) {
