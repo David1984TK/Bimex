@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { obtenerTodosLosProyectos, calcularYieldDetallado, stroopsAMXNe, urlExplorer, CONFIG } from "../stellar/contrato";
 import { parsearError } from "../utils/errores.js";
 import { esDireccionValida } from "../utils/stellar.js";
 import { escaparCSV, construirCSV } from "../utils/formato.js";
+import { construirAuditParams, construirAuditCsvUrl } from "../utils/audit.js";
 import { createClient } from "@supabase/supabase-js";
 import usePaginacion from "../hooks/usePaginacion";
 import usePaginacionLocal from "../hooks/usePaginacionLocal";
@@ -151,15 +152,21 @@ export default function Transparencia({ onVolver }) {
 
   const auditPaginacion = usePaginacion(
     async (desde, hasta) => {
-      const params = new URLSearchParams({ limit: hasta - desde + 1, offset: desde });
-      if (auditFiltro !== "Todos") params.set("action", auditFiltro);
-      if (auditActor.trim() && esDireccionValida(auditActor.trim())) params.set("actor", auditActor.trim());
-      if (auditStartDate) params.set("start_date", auditStartDate);
-      if (auditEndDate) params.set("end_date", auditEndDate);
+      const params = construirAuditParams(
+        { action: auditFiltro, actor: auditActor, startDate: auditStartDate, endDate: auditEndDate },
+        { limit: hasta - desde + 1, offset: desde }
+      );
       const res = await fetch(`${API_URL}/audit?${params}`);
       if (!res.ok) throw new Error("Error fetching audit");
       return res.json(); // { data, count }
     },
+    [auditFiltro, auditActor, auditStartDate, auditEndDate]
+  );
+
+  const auditCsvUrl = useMemo(
+    () => construirAuditCsvUrl(API_URL, {
+      action: auditFiltro, actor: auditActor, startDate: auditStartDate, endDate: auditEndDate,
+    }),
     [auditFiltro, auditActor, auditStartDate, auditEndDate]
   );
 
@@ -512,7 +519,7 @@ export default function Transparencia({ onVolver }) {
                 </div>
               </div>
               <a
-                href={`${API_URL}/audit?format=csv${auditFiltro !== "Todos" ? `&action=${auditFiltro}` : ""}${auditActor && esDireccionValida(auditActor.trim()) ? `&actor=${auditActor.trim()}` : ""}${auditStartDate ? `&start_date=${auditStartDate}` : ""}${auditEndDate ? `&end_date=${auditEndDate}` : ""}`}
+                href={auditCsvUrl}
                 target="_blank"
                 rel="noreferrer"
                 style={{
