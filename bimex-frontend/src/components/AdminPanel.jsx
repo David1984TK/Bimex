@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { crearThrottle } from "../utils/throttle.js";
+import useFocusTrap from "../hooks/useFocusTrap.js";
 import {
   obtenerTodosLosProyectos,
   aprobarProyecto,
@@ -30,8 +31,7 @@ export default function AdminPanel({ direccion, onCerrar }) {
   const [cargando,   setCargando]   = useState(true);
   const [toast,      setToast]      = useState(null);
   const throttleAdmin = useRef(crearThrottle(3000)).current;
-  const modalRef      = useRef(null);
-  const botonAbrioRef = useRef(null);
+  const modalRef      = useFocusTrap({ onCerrar });
 
   function mostrarToast(msg, tipo = "success") {
     setToast({ msg, tipo });
@@ -50,33 +50,6 @@ export default function AdminPanel({ direccion, onCerrar }) {
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { cargarPendientes(); }, []);
-
-  useEffect(() => {
-    const modal = modalRef.current;
-    if (!modal) return;
-    // Capture the element that opened the panel at the moment the panel becomes active
-    botonAbrioRef.current = document.activeElement;
-    modal.focus();
-    function onKeyDown(e) {
-      if (e.key === "Escape") { onCerrar(); return; }
-      if (e.key !== "Tab") return;
-      const focusables = modal.querySelectorAll(
-        'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      const primero = focusables[0];
-      const ultimo  = focusables[focusables.length - 1];
-      if (e.shiftKey) {
-        if (document.activeElement === primero) { e.preventDefault(); ultimo?.focus(); }
-      } else {
-        if (document.activeElement === ultimo)  { e.preventDefault(); primero?.focus(); }
-      }
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      botonAbrioRef.current?.focus?.();
-    };
-  }, [onCerrar]);
 
   async function manejarAprobar(idProyecto) {
     try {
