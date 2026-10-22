@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
 import { crearThrottle } from "../utils/throttle.js";
 import { parsearError } from "../utils/errores.js";
+import useFocusTrap from "../hooks/useFocusTrap.js";
 import { QRCodeSVG } from "qrcode.react";
 import {
   contribuir as contribuirContrato,
@@ -163,7 +164,8 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
   const [vistaRetirar,      setVistaRetirar]      = useState(false);
   const [confirmarAbandonar,setConfirmarAbandonar]= useState(false);
   const [mostrarQR,         setMostrarQR]         = useState(false);
-  const [toastVisible,      setToastVisible]      = useState(false);
+  const [estadoCopia,       setEstadoCopia]       = useState(null);
+  const timeoutCopiaRef                           = useRef(null);
   const [miAportacion,      setMiAportacion]      = useState(BigInt(0));
   const [miYield,           setMiYield]           = useState(BigInt(0));
   const [balanceMXNe,       setBalanceMXNe]       = useState(null);
@@ -263,17 +265,31 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
     return () => document.removeEventListener("keydown", onKey);
   }, [onCerrar, navigate, mostrarQR]);
 
-  useEffect(() => {
-    if (!mostrarQR) return;
-    const handler = (e) => { if (e.key === "Escape") setMostrarQR(false); };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [mostrarQR]);
+  const modalQRRef = useFocusTrap({
+    activo: mostrarQR,
+    onCerrar: () => setMostrarQR(false),
+  });
 
-  function mostrarToast() {
-    setToastVisible(true);
-    setTimeout(() => setToastVisible(false), 2000);
-  }
+  const manejarCopiar = useCallback(async () => {
+    if (timeoutCopiaRef.current) clearTimeout(timeoutCopiaRef.current);
+    try {
+      if (!navigator?.clipboard?.writeText) {
+        throw new Error("Clipboard API not available");
+      }
+      await navigator.clipboard.writeText(urlProyecto);
+      setEstadoCopia("exito");
+      timeoutCopiaRef.current = setTimeout(() => setEstadoCopia(null), 2500);
+    } catch {
+      setEstadoCopia("error");
+      timeoutCopiaRef.current = setTimeout(() => setEstadoCopia(null), 3500);
+    }
+  }, [urlProyecto]);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutCopiaRef.current) clearTimeout(timeoutCopiaRef.current);
+    };
+  }, []);
 
   function handleCantidadChange(e) {
     const raw = e.target.value;
@@ -865,10 +881,12 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-compartir-titulo"
+          ref={modalQRRef}
+          tabIndex={-1}
           style={{
             position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            zIndex: 1000
+            zIndex: 1000, outline: "none"
           }}
           onClick={(e) => { if (e.target === e.currentTarget) setMostrarQR(false); }}
         >
@@ -897,19 +915,25 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
               />
               <button
                 className="btn btn-secondary"
-                onClick={() => {
-                  navigator.clipboard.writeText(urlProyecto);
-                  mostrarToast();
-                }}
+                onClick={manejarCopiar}
                 type="button"
               >
                 📋 {t("detalle.compartir.copiar")}
               </button>
             </div>
 
-            {toastVisible && (
-              <p style={{ color: "var(--green)", fontSize: "0.85rem", margin: 0 }}>
-                {t("detalle.compartir.copiado")}
+            {estadoCopia && (
+              <p
+                role="status"
+                aria-live="polite"
+                style={{
+                  color: estadoCopia === "error" ? "var(--error)" : "var(--green)",
+                  fontSize: "0.85rem",
+                  margin: 0,
+                  textAlign: "center"
+                }}
+              >
+                {t(estadoCopia === "error" ? "detalle.compartir.errorCopiar" : "detalle.compartir.copiado")}
               </p>
             )}
 
@@ -920,7 +944,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                 onClick={() => navigator.share({
                   title: proyecto.nombre,
                   url: urlProyecto
-                })}
+                }).catch(() => {})}
                 type="button"
               >
                 {t("detalle.compartir.nativo")}

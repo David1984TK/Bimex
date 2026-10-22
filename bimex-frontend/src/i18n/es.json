@@ -143,6 +143,7 @@
       "titulo": "Compartir proyecto",
       "copiar": "Copiar link",
       "copiado": "¡Link copiado!",
+      "errorCopiar": "No se pudo copiar al portapapeles",
       "nativo": "Compartir via...",
       "cerrar": "Cerrar"
     },
