@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { logger } from './logger.js';
 
 const DEFAULT_PUBLIC_LIMIT = 60;
 const DEFAULT_PUBLIC_WINDOW_MS = 60 * 1000;
@@ -261,7 +262,7 @@ async function acquireSupabaseSseConnection(key, limit, config) {
     try {
       await supabase.rpc('release_sse_connection', { p_connection_id: connectionId });
     } catch (err) {
-      console.warn('[rate-limit] failed to release Supabase SSE slot:', err.message);
+      logger.warn('[rate-limit] failed to release Supabase SSE slot', { err });
     }
   };
   if (row.allowed) {
@@ -294,13 +295,13 @@ export async function consumeFixedWindow(key, limit, windowMs, config = getRateL
     return await consumeSupabaseFixedWindow(key, limit, windowMs);
   } catch (err) {
     supabaseDisabledUntil = Date.now() + config.supabaseBackoffMs;
-    console.warn('[rate-limit] Supabase store unavailable; falling back to in-memory:', err.message);
+    logger.warn('[rate-limit] Supabase store unavailable; falling back to in-memory', { err });
     return memoryFixedWindowStore.consume(key, limit, windowMs);
   }
 }
 
 export async function recordRateLimitBlock({ ip, scope, route, key, limit, retryAfter, userAgent }) {
-  console.warn('[rate-limit] blocked request', { ip, scope, route, key, limit, retryAfter });
+  logger.warn('[rate-limit] blocked request', { ip, scope, route, key, limit, retryAfter });
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) return;
   try {
     const supabase = await getSupabaseClient();
@@ -312,7 +313,7 @@ export async function recordRateLimitBlock({ ip, scope, route, key, limit, retry
       user_agent: userAgent ?? null,
     });
   } catch (err) {
-    console.warn('[rate-limit] failed to persist blocked request log:', err.message);
+    logger.warn('[rate-limit] failed to persist blocked request log', { err });
   }
 }
 
@@ -354,7 +355,7 @@ export async function acquireSseConnection(req, res, { limit = getRateLimitConfi
       result = await acquireSupabaseSseConnection(key, limit, config);
     } catch (err) {
       supabaseDisabledUntil = Date.now() + config.supabaseBackoffMs;
-      console.warn('[rate-limit] Supabase SSE store unavailable; falling back to in-memory:', err.message);
+      logger.warn('[rate-limit] Supabase SSE store unavailable; falling back to in-memory', { err });
     }
   }
   if (!result) result = memorySseConnectionStore.acquire(key, limit);
