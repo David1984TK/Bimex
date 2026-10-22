@@ -8,6 +8,7 @@ process.env.TOKEN_MXNE  = 'CA7QYNF7SOWQ3GLR2BGMZEHXR2YW6GKQJ6LMBSEPAMQ';
 // Valid Stellar testnet secret key (fake, but passes Keypair.fromSecret validation)
 process.env.FAUCET_SECRET = 'SCZANGBA5IOZSBA4K5NKMQ6MBWCQELZUYFQ3HMVH7VLEP6HWLDM3NAR';
 process.env.API_PORT = '3009';
+process.env.ETHERFUSE_API_KEY = 'test-etherfuse-secret';
 
 // ─── Mock @supabase/supabase-js (prevents real createClient from throwing) ─
 vi.mock('@supabase/supabase-js', () => {
@@ -295,6 +296,33 @@ describe('api.js REST Endpoints', () => {
       // @SUM in metadata: JSON-stringified starts with {, so no prefix needed;
       // but verify it's still properly quoted
       expect(csv).toContain(`"@SUM(A1:A10)"`);
+    });
+  });
+
+  // ── GET /cetes-rate ───────────────────────────────────────────────────────
+  describe('GET /cetes-rate', () => {
+    it('fetches the CETES rate server-side and caches successful responses', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => [{ symbol: 'MXN-CETES', apy: 9.62 }],
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const first = await req({ path: '/cetes-rate', method: 'GET' });
+      const second = await req({ path: '/cetes-rate', method: 'GET' });
+
+      expect(first.status).toBe(200);
+      expect(first.body).toEqual({ rate: 9.62 });
+      expect(first.headers['cache-control']).toBe('public, max-age=300, stale-while-revalidate=600');
+      expectSecurityHeaders(first.headers);
+      expect(second.body).toEqual({ rate: 9.62 });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://api.sand.etherfuse.com/v1/assets',
+        expect.objectContaining({ headers: { Authorization: 'test-etherfuse-secret' } }),
+      );
+      expect(JSON.stringify(first.body)).not.toContain('test-etherfuse-secret');
+      vi.unstubAllGlobals();
     });
   });
 

@@ -105,6 +105,8 @@ function json(req, res, status, data) {
  */
 const PUBLIC_CACHE_SECONDS = parseInt(process.env.PUBLIC_CACHE_SECONDS ?? '15', 10);
 const PUBLIC_STALE_SECONDS = PUBLIC_CACHE_SECONDS * 2;
+const CETES_CACHE_TTL_MS = 5 * 60 * 1000;
+let cetesRateCache = null;
 
 function jsonCacheable(req, res, status, data) {
   const body = JSON.stringify(data);
@@ -321,6 +323,59 @@ async function route(req, res) {
     });
     if (!publicLimit.allowed)
       return rateLimitExceeded(req, res, publicLimit, 'Demasiadas solicitudes. Intenta de nuevo más tarde.');
+  }
+
+  // GET /cetes-rate — Etherfuse credentials stay server-side.
+  if (parts[0] === 'cetes-rate' && !parts[1]) {
+    const apiKey = process.env.ETHERFUSE_API_KEY;
+    if (!apiKey) {
+      return json(req, res, 503, { error: 'Tasa CETES temporalmente no disponible' });
+    }
+
+    if (cetesRateCache && cetesRateCache.expiresAt > Date.now()) {
+      setCorsHeaders(req, res);
+      setSecurityHeaders(res);
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=300, stale-while-revalidate=600',
+      });
+      return res.end(JSON.stringify({ rate: cetesRateCache.rate }));
+    }
+
+    try {
+      const upstream = await fetch('https://api.sand.etherfuse.com/v1/assets', {
+        headers: { Authorization: apiKey },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!upstream.ok) {
+        logger.warn('[cetes-rate] Etherfuse returned a non-success status', { status: upstream.status });
+        return json(req, res, 502, { error: 'Tasa CETES temporalmente no disponible' });
+      }
+
+      const assets = await upstream.json();
+      const cetes = Array.isArray(assets) ? assets.find(asset =>
+        asset.symbol?.toUpperCase().includes('CETES') ||
+        asset.name?.toUpperCase().includes('CETES') ||
+        asset.asset_type?.toLowerCase().includes('cetes')
+      ) : null;
+      const rate = Number(cetes?.apy ?? cetes?.rate ?? cetes?.annual_yield);
+      if (!Number.isFinite(rate) || rate <= 0) {
+        logger.warn('[cetes-rate] Etherfuse response did not contain a valid CETES rate');
+        return json(req, res, 502, { error: 'Tasa CETES temporalmente no disponible' });
+      }
+
+      cetesRateCache = { rate, expiresAt: Date.now() + CETES_CACHE_TTL_MS };
+      setCorsHeaders(req, res);
+      setSecurityHeaders(res);
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=300, stale-while-revalidate=600',
+      });
+      return res.end(JSON.stringify({ rate }));
+    } catch (err) {
+      logger.warn('[cetes-rate] Unable to fetch Etherfuse rate', { err });
+      return json(req, res, 502, { error: 'Tasa CETES temporalmente no disponible' });
+    }
   }
 
   // GET /proyectos[?estado=X&limit=N&offset=M]

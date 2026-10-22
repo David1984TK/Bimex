@@ -1,38 +1,46 @@
 import { useState, useEffect } from "react";
 import { parsearError } from "../utils/errores.js";
 
-/**
- * Fetches current CETES APY from Etherfuse sandbox.
- * Falls back to 9.45 if API key not set or request fails.
- */
-const ETHERFUSE_API_KEY = import.meta.env.VITE_ETHERFUSE_API_KEY;
+const FALLBACK_RATE = 9.45;
 
+/**
+ * Fetches the CETES rate through the indexer. Etherfuse credentials never
+ * leave the server; a stable fallback keeps the UI usable when the API fails.
+ */
 export function useCetesRate() {
-  const [rate, setRate]     = useState(() => ETHERFUSE_API_KEY ? null : 9.45);
-  const [loading, setLoading] = useState(() => !!ETHERFUSE_API_KEY);
-  const [error, setError]   = useState(null);
+  const [rate, setRate] = useState(FALLBACK_RATE);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!ETHERFUSE_API_KEY) {
-      return;
-    }
-    fetch("https://api.sand.etherfuse.com/v1/assets", {
-      headers: { "Authorization": ETHERFUSE_API_KEY }
-    })
-      .then(r => r.json())
-      .then(data => {
-        // Try to find CETES APY in response - common field names
-        const cetes = Array.isArray(data) ? data.find(a =>
-          a.symbol?.includes("CETES") || a.name?.includes("CETES") || a.asset_type?.includes("cetes")
-        ) : null;
-        const apy = cetes?.apy ?? cetes?.rate ?? cetes?.annual_yield ?? 9.45;
-        setRate(Number(apy));
+    let active = true;
+
+    fetch(`${import.meta.env.VITE_API_URL || "/api"}/cetes-rate`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`CETES rate request failed (${response.status})`);
+        }
+        return response.json();
       })
-      .catch(e => {
-        setError(parsearError(e));
-        setRate(9.45);
+      .then((data) => {
+        const nextRate = Number(data?.rate);
+        if (!Number.isFinite(nextRate) || nextRate <= 0) {
+          throw new Error("Invalid CETES rate response");
+        }
+        if (active) setRate(nextRate);
       })
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (!active) return;
+        setError(parsearError(err));
+        setRate(FALLBACK_RATE);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   return { rate, loading, error };
