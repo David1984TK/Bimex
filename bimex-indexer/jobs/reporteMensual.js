@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-
+import { logger } from '../logger.js';
 /**
  * reporteMensual.js — Monthly recurring report for Bimex contributors.
  *
