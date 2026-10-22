@@ -13,6 +13,9 @@ on:
     paths:
       - 'bimex/**'
 
+permissions:
+  contents: read
+
 jobs:
   clippy-security:
     name: Clippy security lints

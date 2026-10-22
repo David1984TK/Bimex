@@ -7,7 +7,6 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     labels:
-      - dependencies
       - frontend
     groups:
       frontend-dependencies:
@@ -34,7 +33,6 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     labels:
-      - dependencies
       - indexer
     groups:
       indexer-dependencies:
@@ -48,8 +46,7 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     labels:
-      - dependencies
-      - contract
+      - smart-contract
     groups:
       cargo-dependencies:
         patterns:
@@ -62,8 +59,7 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     labels:
-      - dependencies
-      - ci
+      - ci-cd
     groups:
       actions-dependencies:
         patterns:
