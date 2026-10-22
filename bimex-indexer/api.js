@@ -80,6 +80,21 @@ export function parseLimitOffset(searchParams, { defaultLimit = 50, maxLimit = 1
   return { limit, offset };
 }
 
+// ─── Validación de parámetros de ruta ────────────────────────────────────
+
+/** Returns true when `val` is a string representation of a positive integer (1, 2, …). */
+export function isPositiveInt(val) {
+  return /^[1-9]\d*$/.test(val);
+}
+
+/**
+ * Returns true when `val` looks like a valid Stellar ed25519 public key.
+ * A Stellar public address is always 56 characters and starts with 'G'.
+ */
+export function isStellarAddress(val) {
+  return typeof val === 'string' && /^G[A-Z2-7]{55}$/.test(val);
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
 function setSecurityHeaders(res) {
@@ -394,6 +409,9 @@ async function route(req, res) {
 
   // GET /proyectos/:id
   if (parts[0] === 'proyectos' && parts[1] && !parts[2]) {
+    if (!isPositiveInt(parts[1])) {
+      return json(req, res, 400, { error: 'El parámetro :id debe ser un entero positivo' });
+    }
     const { data, error } = await supabase
       .from('proyectos').select('*').eq('id', parts[1]).single();
     if (error) {
@@ -407,6 +425,9 @@ async function route(req, res) {
 
   // GET /proyectos/:id/aportaciones[?limit=N&offset=M]
   if (parts[0] === 'proyectos' && parts[1] && parts[2] === 'aportaciones') {
+    if (!isPositiveInt(parts[1])) {
+      return json(req, res, 400, { error: 'El parámetro :id debe ser un entero positivo' });
+    }
     const limOff = parseLimitOffset(url.searchParams, { defaultLimit: 50, maxLimit: 200 });
     if (limOff.error) return json(req, res, 400, { error: limOff.error });
     const { limit, offset } = limOff;
@@ -420,6 +441,9 @@ async function route(req, res) {
 
   // GET /backers/:address/aportaciones[?limit=N&offset=M]
   if (parts[0] === 'backers' && parts[1] && parts[2] === 'aportaciones') {
+    if (!isStellarAddress(parts[1])) {
+      return json(req, res, 400, { error: 'El parámetro :address debe ser una dirección Stellar válida (G…, 56 caracteres)' });
+    }
     const limOff = parseLimitOffset(url.searchParams, { defaultLimit: 50, maxLimit: 200 });
     if (limOff.error) return json(req, res, 400, { error: limOff.error });
     const { limit, offset } = limOff;
@@ -581,12 +605,13 @@ async function route(req, res) {
         supabase.from('aportaciones').select('*').in('proyecto_id', pids),
         supabase.from('eventos').select('tipo,data,tx_hash,ledger,timestamp')
           .in('tipo', ['nueva_aportacion','retiro_principal','yield_reclamado'])
+          .in('proyecto_id', pids)
           .order('ledger', { ascending: true }),
       ]);
       if (aportacionesRes.error)
-        return errorInterno(req, res, '[db-read] GET /impacto', aportacionesRes.error, 'Error de base de datos');
+        return errorInterno(req, res, '[db-read] GET /impacto', aportacionesRes.error, 'Error interno del servidor');
       if (eventosRes.error)
-        return errorInterno(req, res, '[db-read] GET /impacto', eventosRes.error, 'Error de base de datos');
+        return errorInterno(req, res, '[db-read] GET /impacto', eventosRes.error, 'Error interno del servidor');
 
       const aportaciones = aportacionesRes.data ?? [];
       const eventos = eventosRes.data ?? [];
