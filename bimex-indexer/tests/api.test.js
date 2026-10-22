@@ -45,6 +45,7 @@ vi.mock('@supabase/supabase-js', () => {
     gte:    vi.fn().mockReturnThis(),
     lte:    vi.fn().mockReturnThis(),
     range:  vi.fn().mockReturnThis(),
+    in:     vi.fn().mockReturnThis(),
     single: vi.fn().mockReturnThis(),
     insert: vi.fn().mockImplementation(function(row) {
       this._isInsert = true;
@@ -115,7 +116,7 @@ vi.mock('@stellar/stellar-sdk', () => {
 });
 
 // ─── Import the server (starts listening on port 3009) ─────────────────────
-import '../api.js';
+import { isPositiveInt, isStellarAddress } from '../api.js';
 import http from 'node:http';
 import mockSupabase from '../database.js';
 
@@ -378,6 +379,59 @@ describe('api.js REST Endpoints', () => {
       expect(res.body.error).toBe('Proyecto no encontrado');
       expectNoCacheHeaders(res.headers);
     });
+
+    it('returns 400 when :id is not a positive integer (e.g. abc)', async () => {
+      const res = await req({ path: '/proyectos/abc', method: 'GET' });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('El parámetro :id debe ser un entero positivo');
+      expectNoCacheHeaders(res.headers);
+    });
+
+    it('returns 400 when :id is 0', async () => {
+      const res = await req({ path: '/proyectos/0', method: 'GET' });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('El parámetro :id debe ser un entero positivo');
+    });
+
+    it('returns 400 when :id is negative', async () => {
+      const res = await req({ path: '/proyectos/-1', method: 'GET' });
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 400 when :id is decimal', async () => {
+      const res = await req({ path: '/proyectos/1.5', method: 'GET' });
+      expect(res.status).toBe(400);
+    });
+  });
+
+  // ── GET /proyectos/:id/aportaciones ──────────────────────────────────────
+  describe('GET /proyectos/:id/aportaciones', () => {
+    it('returns 400 when :id is not a positive integer', async () => {
+      const res = await req({ path: '/proyectos/abc/aportaciones', method: 'GET' });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('El parámetro :id debe ser un entero positivo');
+      expectNoCacheHeaders(res.headers);
+    });
+  });
+
+  // ── GET /backers/:address/aportaciones ───────────────────────────────────
+  describe('GET /backers/:address/aportaciones', () => {
+    it('returns 400 when :address is not a valid Stellar address', async () => {
+      const res = await req({ path: '/backers/no-es-direccion/aportaciones', method: 'GET' });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('El parámetro :address debe ser una dirección Stellar válida (G…, 56 caracteres)');
+      expectNoCacheHeaders(res.headers);
+    });
+
+    it('returns 400 when :address is too short', async () => {
+      const res = await req({ path: '/backers/short/aportaciones', method: 'GET' });
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 400 when :address is a secret key (S...)', async () => {
+      const res = await req({ path: '/backers/SABC234567ABCDEF234567ABCDEF234567ABCDEF234567ABCDEF2345/aportaciones', method: 'GET' });
+      expect(res.status).toBe(400);
+    });
   });
 
   // ── GET /eventos ─────────────────────────────────────────────────────────
@@ -483,5 +537,162 @@ describe('api.js REST Endpoints', () => {
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ exito: true, cantidad: 100 });
     });
+  });
+
+  // ── GET /impacto ──────────────────────────────────────────────────────────
+  describe('GET /impacto (Issue #396)', () => {
+    function makeChain(result) {
+      const chain = {};
+      chain.select = vi.fn().mockReturnValue(chain);
+      chain.eq = vi.fn().mockReturnValue(chain);
+      chain.in = vi.fn().mockReturnValue(chain);
+      chain.order = vi.fn().mockReturnValue(chain);
+      chain.then = vi.fn().mockImplementation((resolve) => Promise.resolve(result).then(resolve));
+      return chain;
+    }
+
+    it('returns 200 with empty array when no projects are Liberado', async () => {
+      mockSupabase.from.mockImplementation(() => makeChain({ data: [], error: null }));
+
+      const res = await req({ path: '/impacto', method: 'GET' });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([]);
+      expectCacheHeaders(res.headers);
+    });
+
+    it('returns 500 when aportaciones query fails (not silently ignored)', async () => {
+      mockSupabase.from.mockImplementation((table) => {
+        if (table === 'proyectos') {
+          return makeChain({ data: [{ id: 1, estado: 'Liberado', nombre: 'P1' }], error: null });
+        }
+        if (table === 'aportaciones') {
+          return makeChain({ data: null, error: { message: 'connection timeout' } });
+        }
+        if (table === 'eventos') {
+          return makeChain({ data: [], error: null });
+        }
+        return makeChain({ data: null, error: null });
+      });
+
+      const res = await req({ path: '/impacto', method: 'GET' });
+      expect(res.status).toBe(500);
+      expect(res.body.error).toBe('Error interno del servidor');
+      expect(JSON.stringify(res.body)).not.toContain('connection timeout');
+      expectNoCacheHeaders(res.headers);
+    });
+
+    it('returns 500 when eventos query fails (not silently ignored)', async () => {
+      mockSupabase.from.mockImplementation((table) => {
+        if (table === 'proyectos') {
+          return makeChain({ data: [{ id: 1, estado: 'Liberado', nombre: 'P1' }], error: null });
+        }
+        if (table === 'aportaciones') {
+          return makeChain({ data: [], error: null });
+        }
+        if (table === 'eventos') {
+          return makeChain({ data: null, error: { message: 'table not found' } });
+        }
+        return makeChain({ data: null, error: null });
+      });
+
+      const res = await req({ path: '/impacto', method: 'GET' });
+      expect(res.status).toBe(500);
+      expect(res.body.error).toBe('Error interno del servidor');
+      expect(JSON.stringify(res.body)).not.toContain('table not found');
+      expectNoCacheHeaders(res.headers);
+    });
+
+    it('filters aportaciones and eventos by liberado project_ids and returns 200', async () => {
+      const inCalls = [];
+      function makeTrackedChain(result) {
+        const chain = {};
+        chain.select = vi.fn().mockReturnValue(chain);
+        chain.eq = vi.fn().mockReturnValue(chain);
+        chain.in = vi.fn().mockImplementation((col, vals) => {
+          inCalls.push({ col, vals });
+          return chain;
+        });
+        chain.order = vi.fn().mockReturnValue(chain);
+        chain.then = vi.fn().mockImplementation((resolve) => Promise.resolve(result).then(resolve));
+        return chain;
+      }
+
+      mockSupabase.from.mockImplementation((table) => {
+        if (table === 'proyectos') {
+          return makeTrackedChain({
+            data: [
+              { id: 42, nombre: 'Proyecto 42', estado: 'Liberado', total_aportado: '100', yield_entregado: '10' },
+            ],
+            error: null,
+          });
+        }
+        if (table === 'aportaciones') {
+          return makeTrackedChain({
+            data: [
+              { proyecto_id: 42, contribuidor: 'GCONTRIB1', monto: '100', retirado: true },
+            ],
+            error: null,
+          });
+        }
+        if (table === 'eventos') {
+          return makeTrackedChain({
+            data: [
+              { tipo: 'nueva_aportacion', data: [42, 'GCONTRIB1', '100'], tx_hash: 'tx1', ledger: 10, timestamp: '2026-01-01' },
+              { tipo: 'retiro_principal', data: [42, 'GCONTRIB1', '100'], tx_hash: 'tx2', ledger: 20, timestamp: '2026-01-02' },
+            ],
+            error: null,
+          });
+        }
+        return makeTrackedChain({ data: null, error: null });
+      });
+
+      const res = await req({ path: '/impacto', method: 'GET' });
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBe(1);
+      expect(res.body[0].id).toBe(42);
+
+      // Verify scoping: both aportaciones and eventos MUST be scoped with .in('proyecto_id', [42])
+      const scopedAport = inCalls.find(c => c.col === 'proyecto_id' && c.vals.includes(42));
+      expect(scopedAport).toBeDefined();
+    });
+  });
+});
+
+describe('Unit: isPositiveInt', () => {
+  it.each([
+    ['1', true],
+    ['42', true],
+    ['999', true],
+    ['0', false],
+    ['-1', false],
+    ['abc', false],
+    ['1.5', false],
+    ['', false],
+    ['01', false],
+  ])('isPositiveInt(%s) === %s', (input, expected) => {
+    expect(isPositiveInt(input)).toBe(expected);
+  });
+});
+
+describe('Unit: isStellarAddress', () => {
+  it('accepts a valid 56-char G… address', () => {
+    expect(isStellarAddress('GABC234567ABCDEF234567ABCDEF234567ABCDEF234567ABCDEF2345')).toBe(true);
+  });
+  it('rejects lowercase letters', () => {
+    expect(isStellarAddress('gabc234567abcdef234567abcdef234567abcdef234567abcdef2345')).toBe(false);
+  });
+  it("rejects strings that don't start with G", () => {
+    expect(isStellarAddress('SABC234567ABCDEF234567ABCDEF234567ABCDEF234567ABCDEF2345')).toBe(false);
+  });
+  it('rejects short strings', () => {
+    expect(isStellarAddress('GABC')).toBe(false);
+  });
+  it('rejects non-strings', () => {
+    expect(isStellarAddress(123)).toBe(false);
+    expect(isStellarAddress(null)).toBe(false);
+  });
+  it('rejects a plain word', () => {
+    expect(isStellarAddress('no-es-direccion')).toBe(false);
   });
 });
