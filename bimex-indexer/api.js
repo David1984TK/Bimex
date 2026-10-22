@@ -18,6 +18,7 @@ import {
   agregarYieldHistorico,
   esGranularidadValida,
 } from './yieldHistorico.js';
+import { logger } from './logger.js';
 
 function buildAllowedOrigins() {
   const envOrigins = process.env.ALLOWED_ORIGINS
@@ -128,7 +129,7 @@ function jsonCacheable(req, res, status, data) {
  * @param {string} mensaje   — the safe message sent to the client
  */
 function errorInterno(req, res, contexto, err, mensaje) {
-  console.error(`${contexto}`, err);
+  logger.error(contexto, { err });
   return json(req, res, 500, { error: mensaje });
 }
 
@@ -209,7 +210,7 @@ function getFaucetKeypair(secret) {
   try {
     return Keypair.fromSecret(secret);
   } catch (err) {
-    console.warn('[faucet] Invalid FAUCET_SECRET:', err.message);
+    logger.warn('[faucet] Invalid FAUCET_SECRET', { err });
     return null;
   }
 }
@@ -636,10 +637,10 @@ server.on('error', (err) => {
   if (err.code === 'EADDRINUSE' && (process.env.NODE_ENV === 'test' || process.env.VITEST)) {
     return;
   }
-  console.error('[server error]', err);
+  logger.error('[server error]', { err });
 });
 
 server.headersTimeout = 30_000;
 server.requestTimeout = 60_000;
 
-server.listen(PORT, () => console.log(`Bimex API listening on port ${PORT}`));
+server.listen(PORT, () => logger.info('Bimex API listening', { port: PORT }));

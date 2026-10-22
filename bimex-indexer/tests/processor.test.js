@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { processBatch } from '../processor.js';
+import { logger } from '../logger.js';
 
 const CONTRACT_ID = 'CCONTRACT_TEST';
 
@@ -40,8 +41,8 @@ describe('processor.js — cursor-hold and retry', () => {
       ciclosAtascado: 0,
     };
     notificarClientes = vi.fn();
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(logger, 'error').mockImplementation(() => {});
+    vi.spyOn(logger, 'info').mockImplementation(() => {});
   });
 
   it('advances cursor when all writes succeed', async () => {
@@ -104,7 +105,10 @@ describe('processor.js — cursor-hold and retry', () => {
     // second event in batch must NOT be processed after first failure
     expect(insertEvento).toHaveBeenCalledTimes(1);
     expect(upsertAportacion).not.toHaveBeenCalled();
-    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[ALERTA]'));
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('[processor]'),
+      expect.objectContaining({ ledger: 20, tx_hash: 'tx_fail' })
+    );
     expect(estado.escriturasFallidas).toBe(1);
     expect(estado.ledgerAtascado).toBe(20);
     expect(estado.ultimoErrorEscritura).toMatchObject({ tx_hash: 'tx_fail', ledger: 20 });
@@ -283,7 +287,10 @@ describe('processor.js — cursor-hold and retry', () => {
     expect(estado.ciclosAtascado).toBe(10);
     expect(estado.escriturasFallidas).toBe(10);
     // escalation alert every 10 cycles
-    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('atascado en ledger 60 durante 10 ciclos'));
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('Indexer atascado'),
+      expect.objectContaining({ ledger: 60, ciclos: 10 })
+    );
   });
 });
 
@@ -303,8 +310,8 @@ describe('processor.js — notificaciones por hitos de fondeo', () => {
       ciclosAtascado: 0,
     };
     notificarClientes = vi.fn();
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(logger, 'error').mockImplementation(() => {});
+    vi.spyOn(logger, 'info').mockImplementation(() => {});
   });
 
   function contribuirEvent({ monto, ledger = 10, txHash = 'tx_hito' } = {}) {

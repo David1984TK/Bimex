@@ -1,6 +1,7 @@
 import { xdr } from '@stellar/stellar-sdk';
 import { parseEvent, CONTRACT_EVENT_SYMBOLS } from './eventParser.js';
 import { hitosCruzados, payloadHito } from './milestones.js';
+import { logger } from './logger.js';
 
 export function buildEventFilters(contractId) {
   const symbols = [...CONTRACT_EVENT_SYMBOLS, 'contribuir'];
@@ -132,8 +133,12 @@ export async function processBatch(startLedger, deps) {
       if (aportacion) await upsertAportacion(aportacion);
       if (audit) await insertAuditLog(audit);
     } catch (err) {
-      const msg = `[ALERTA] Escritura fallida ledger=${evento.ledger} tipo=${evento.tipo} tx=${evento.tx_hash}: ${err.message}. Cursor no avanza, se reintentará.`;
-      console.error(msg);
+      logger.error('[processor] Escritura fallida, cursor no avanza, se reintentará', {
+        ledger: evento.ledger,
+        tipo: evento.tipo,
+        tx_hash: evento.tx_hash,
+        err,
+      });
       if (estado) {
         estado.escriturasFallidas = (estado.escriturasFallidas ?? 0) + 1;
         estado.ledgerAtascado = evento.ledger;
@@ -146,9 +151,10 @@ export async function processBatch(startLedger, deps) {
         };
         estado.ciclosAtascado = (estado.ciclosAtascado ?? 0) + 1;
         if (estado.ciclosAtascado % 10 === 0) {
-          console.error(
-            `[ALERTA] Indexer atascado en ledger ${estado.ledgerAtascado} durante ${estado.ciclosAtascado} ciclos. Supabase no disponible o evento corrupto. Requiere intervención.`
-          );
+          logger.error('[processor] Indexer atascado, requiere intervención', {
+            ledger: estado.ledgerAtascado,
+            ciclos: estado.ciclosAtascado,
+          });
         }
       }
       return { ok: false, retryFromLedger: evento.ledger, failedTxHash: evento.tx_hash, error: err };
@@ -171,7 +177,11 @@ export async function processBatch(startLedger, deps) {
       try { notificarClientes('yield_reclamado', { proyectoId: proyecto?.id ?? null, monto: proyecto?.yield_entregado_delta ?? null }); } catch (_) {}
     }
 
-    console.log(`[${new Date().toISOString()}] ${evento.tipo} ledger=${evento.ledger} tx=${evento.tx_hash}`);
+    logger.info('[processor] evento procesado', {
+      tipo: evento.tipo,
+      ledger: evento.ledger,
+      tx_hash: evento.tx_hash,
+    });
   }
 
   // All events in batch persisted — clear stuck state

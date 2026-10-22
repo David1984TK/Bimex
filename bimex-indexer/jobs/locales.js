@@ -1,6 +1,6 @@
 // i18n strings for monthly report emails
 // Keys: 'es' (Spanish) and 'en' (English)
-import { logger } from '../logger.js';
+
 const LOCALES = {
   es: {
     subject: 'Tu reporte mensual Bimex — {{mes}} {{ano}}',
