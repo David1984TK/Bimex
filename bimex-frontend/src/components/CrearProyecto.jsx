@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { crearThrottle } from "../utils/throttle.js";
+import useFocusTrap from "../hooks/useFocusTrap.js";
 import { parsearError } from "../utils/errores.js";
 import {
   crearProyecto as crearProyectoContrato,
@@ -186,35 +187,9 @@ function Stepper({ pasos, pasoActual }) {
 
 export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }) {
   const { t } = useTranslation();
-  const modalRef = useRef(null);
-  const botonAbrioRef = useRef(document.activeElement);
+  const modalRef = useFocusTrap({ onCerrar });
   const [paso, setPaso] = useState(1);
   const throttleCrear = useRef(crearThrottle(5000)).current;
-
-  useEffect(() => {
-    const modal = modalRef.current;
-    if (!modal) return;
-    modal.focus();
-    function onKeyDown(e) {
-      if (e.key === "Escape") { onCerrar(); return; }
-      if (e.key !== "Tab") return;
-      const focusables = modal.querySelectorAll(
-        'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      const primero = focusables[0];
-      const ultimo  = focusables[focusables.length - 1];
-      if (e.shiftKey) {
-        if (document.activeElement === primero) { e.preventDefault(); ultimo?.focus(); }
-      } else {
-        if (document.activeElement === ultimo)  { e.preventDefault(); primero?.focus(); }
-      }
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      botonAbrioRef.current?.focus?.();
-    };
-  }, [onCerrar]);
 
   const PASOS = [
     { n: 1, label: t("crear.step1") },
