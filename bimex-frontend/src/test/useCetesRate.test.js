@@ -19,7 +19,7 @@ describe("useCetesRate", () => {
 
     expect(result.current.rate).toBe(9.7);
     expect(result.current.error).toBeNull();
-    expect(fetch).toHaveBeenCalledWith("/api/cetes-rate");
+    expect(fetch).toHaveBeenCalledWith(`${import.meta.env.VITE_API_URL || "/api"}/cetes-rate`);
   });
 
   it("falls back when the HTTP response is not successful", async () => {
