@@ -159,4 +159,121 @@ describe("DetalleProyecto", () => {
     });
     expect(screen.queryByPlaceholderText("Ej. 10,000")).not.toBeInTheDocument();
   });
+
+  it("el modal de compartir atrapa el foco y lo devuelve al botón de compartir al cerrar", async () => {
+    const user = userEvent.setup();
+    obtenerProyecto.mockResolvedValueOnce(proyecto());
+
+    renderDetalle();
+
+    await screen.findByRole("heading", { name: "Huerto Comunitario", level: 1 });
+    const botonCompartir = screen.getByRole("button", { name: /compartir/i });
+
+    await user.click(botonCompartir);
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toBeInTheDocument();
+    expect(dialog).toHaveFocus();
+
+    const inputUrl = screen.getByDisplayValue(window.location.href);
+    const botonCopiar = screen.getByRole("button", { name: /copiar link/i });
+    const botonCerrar = screen.getByRole("button", { name: /cerrar/i });
+
+    // Tab navega a través de los elementos del modal
+    await user.tab();
+    expect(inputUrl).toHaveFocus();
+
+    await user.tab();
+    expect(botonCopiar).toHaveFocus();
+
+    await user.tab();
+    expect(botonCerrar).toHaveFocus();
+
+    // Tab en el último cicla al primero
+    await user.tab();
+    expect(inputUrl).toHaveFocus();
+
+    // Shift+Tab en el primero cicla al último
+    await user.tab({ shift: true });
+    expect(botonCerrar).toHaveFocus();
+
+    // Cerrar con Escape devuelve el foco al botón disparador
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(botonCompartir).toHaveFocus();
+  });
+
+  it("muestra mensaje de éxito en role='status' al copiar el link al portapapeles", async () => {
+    const user = userEvent.setup();
+    obtenerProyecto.mockResolvedValueOnce(proyecto());
+
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: writeTextMock },
+      configurable: true,
+      writable: true,
+    });
+
+    renderDetalle();
+
+    await screen.findByRole("heading", { name: "Huerto Comunitario", level: 1 });
+    await user.click(screen.getByRole("button", { name: /compartir/i }));
+
+    const botonCopiar = screen.getByRole("button", { name: /copiar link/i });
+    await user.click(botonCopiar);
+
+    expect(writeTextMock).toHaveBeenCalledWith(window.location.href);
+
+    const statusMsg = await screen.findByRole("status");
+    expect(statusMsg).toHaveTextContent("¡Link copiado!");
+  });
+
+  it("muestra mensaje de error traducido en role='status' si clipboard.writeText falla", async () => {
+    const user = userEvent.setup();
+    obtenerProyecto.mockResolvedValueOnce(proyecto());
+
+    const writeTextMock = vi.fn().mockRejectedValue(new Error("Permission denied"));
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: writeTextMock },
+      configurable: true,
+      writable: true,
+    });
+
+    renderDetalle();
+
+    await screen.findByRole("heading", { name: "Huerto Comunitario", level: 1 });
+    await user.click(screen.getByRole("button", { name: /compartir/i }));
+
+    const botonCopiar = screen.getByRole("button", { name: /copiar link/i });
+    await user.click(botonCopiar);
+
+    expect(writeTextMock).toHaveBeenCalledWith(window.location.href);
+
+    const statusMsg = await screen.findByRole("status");
+    expect(statusMsg).toHaveTextContent("No se pudo copiar al portapapeles");
+  });
+
+  it("muestra mensaje de error traducido en inglés si clipboard.writeText falla en idioma 'en'", async () => {
+    await i18n.changeLanguage("en");
+    const user = userEvent.setup();
+    obtenerProyecto.mockResolvedValueOnce(proyecto());
+
+    const writeTextMock = vi.fn().mockRejectedValue(new Error("Permission denied"));
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: writeTextMock },
+      configurable: true,
+      writable: true,
+    });
+
+    renderDetalle();
+
+    await screen.findByRole("heading", { name: "Huerto Comunitario", level: 1 });
+    await user.click(screen.getByRole("button", { name: /share/i }));
+
+    const botonCopiar = screen.getByRole("button", { name: /copy link/i });
+    await user.click(botonCopiar);
+
+    const statusMsg = await screen.findByRole("status");
+    expect(statusMsg).toHaveTextContent("Could not copy to clipboard");
+  });
 });
