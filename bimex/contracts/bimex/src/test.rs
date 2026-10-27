@@ -1308,6 +1308,124 @@ fn test_reanudacion_permite_contribuciones() {
 }
 
 #[test]
+fn test_reanudacion_permite_crear_proyecto() {
+    let (env, cliente, admin, dueno, _backer) = setup();
+    cliente.admin_pausar(&admin);
+    cliente.admin_reanudar(&admin);
+
+    let id = cliente.crear_proyecto(
+        &dueno,
+        &String::from_str(&env, "Reanudado"),
+        &100_000_000i128,
+        &doc_cid_vacio(&env),
+        &6u32,
+    );
+
+    assert_eq!(
+        cliente.obtener_proyecto(&id).estado,
+        EstadoProyecto::EnRevision
+    );
+}
+
+#[test]
+fn test_reanudacion_permite_reclamar_yield() {
+    let (env, cliente, admin, dueno, backer) = setup();
+    let id = cliente.crear_proyecto(
+        &dueno,
+        &String::from_str(&env, "Reanudado yield"),
+        &500_000_000i128,
+        &doc_cid_vacio(&env),
+        &6u32,
+    );
+    cliente.admin_aprobar(&id);
+    cliente.contribuir(&backer, &id, &100_000_000i128);
+
+    env.ledger().with_mut(|l| l.timestamp = 30 * 60);
+    let detalle = cliente.calcular_yield_detallado(&id);
+
+    cliente.admin_pausar(&admin);
+    cliente.admin_reanudar(&admin);
+
+    let yield_reclamado = cliente.reclamar_yield(&id);
+    assert_eq!(yield_reclamado, detalle.total);
+}
+
+#[test]
+fn test_reanudacion_permite_retirar_principal() {
+    let (env, cliente, admin, dueno, backer) = setup();
+    let id = cliente.crear_proyecto(
+        &dueno,
+        &String::from_str(&env, "Reanudado principal"),
+        &100_000_000i128,
+        &doc_cid_vacio(&env),
+        &6u32,
+    );
+    cliente.admin_aprobar(&id);
+    cliente.contribuir(&backer, &id, &100_000_000i128);
+    assert_eq!(
+        cliente.obtener_proyecto(&id).estado,
+        EstadoProyecto::Liberado
+    );
+
+    cliente.admin_pausar(&admin);
+    cliente.admin_reanudar(&admin);
+
+    let monto = cliente.retirar_principal(&backer, &id);
+    assert_eq!(monto, 100_000_000i128);
+    assert_eq!(cliente.obtener_proyecto(&id).total_aportado, 0);
+}
+
+#[test]
+fn test_reanudacion_permite_retiro_anticipado() {
+    let (env, cliente, admin, dueno, backer) = setup();
+    let id = cliente.crear_proyecto(
+        &dueno,
+        &String::from_str(&env, "Reanudado anticipado"),
+        &500_000_000i128,
+        &doc_cid_vacio(&env),
+        &6u32,
+    );
+    cliente.admin_aprobar(&id);
+    cliente.contribuir(&backer, &id, &100_000_000i128);
+
+    env.ledger().with_mut(|l| l.timestamp = 30 * 60);
+
+    cliente.admin_pausar(&admin);
+    cliente.admin_reanudar(&admin);
+
+    let monto = cliente.retiro_anticipado(&backer, &id);
+    assert_eq!(monto, 100_000_000i128);
+    assert_eq!(cliente.obtener_proyecto(&id).total_aportado, 0);
+}
+
+#[test]
+fn test_reanudacion_permite_solicitar_continuar() {
+    let (env, cliente, admin, dueno, backer) = setup();
+    let id = cliente.crear_proyecto(
+        &dueno,
+        &String::from_str(&env, "Reanudado continuar"),
+        &10_000_000i128,
+        &doc_cid_vacio(&env),
+        &6u32,
+    );
+    cliente.admin_aprobar(&id);
+    cliente.abandonar_proyecto(&id);
+    assert_eq!(
+        cliente.obtener_proyecto(&id).estado,
+        EstadoProyecto::Abandonado
+    );
+
+    cliente.admin_pausar(&admin);
+    cliente.admin_reanudar(&admin);
+
+    cliente.solicitar_continuar(&backer, &id);
+
+    let p = cliente.obtener_proyecto(&id);
+    assert_eq!(p.estado, EstadoProyecto::EtapaInicial);
+    assert_eq!(p.dueno, backer);
+}
+
+#[test]
 #[should_panic(expected = "Solo el admin puede pausar")]
 fn test_solo_admin_puede_pausar() {
     let (_env, cliente, _admin, _dueno, backer) = setup();
