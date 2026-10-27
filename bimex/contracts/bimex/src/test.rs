@@ -1237,6 +1237,52 @@ fn test_pausa_bloquea_contribuciones() {
 }
 
 #[test]
+#[should_panic(expected = "Contrato pausado por el administrador")]
+fn test_pausa_bloquea_crear_proyecto() {
+    let (env, cliente, admin, dueno, _backer) = setup();
+    cliente.admin_pausar(&admin);
+    cliente.crear_proyecto(
+        &dueno,
+        &String::from_str(&env, "Bloqueado"),
+        &100_000_000i128,
+        &doc_cid_vacio(&env),
+        &6u32,
+    );
+}
+
+#[test]
+#[should_panic(expected = "Contrato pausado por el administrador")]
+fn test_pausa_bloquea_reclamar_yield() {
+    let (_env, cliente, admin, _dueno, _backer) = setup();
+    cliente.admin_pausar(&admin);
+    cliente.reclamar_yield(&0);
+}
+
+#[test]
+#[should_panic(expected = "Contrato pausado por el administrador")]
+fn test_pausa_bloquea_retirar_principal() {
+    let (_env, cliente, admin, backer, _otro) = setup();
+    cliente.admin_pausar(&admin);
+    cliente.retirar_principal(&backer, &0);
+}
+
+#[test]
+#[should_panic(expected = "Contrato pausado por el administrador")]
+fn test_pausa_bloquea_retiro_anticipado() {
+    let (_env, cliente, admin, backer, _otro) = setup();
+    cliente.admin_pausar(&admin);
+    cliente.retiro_anticipado(&backer, &0);
+}
+
+#[test]
+#[should_panic(expected = "Contrato pausado por el administrador")]
+fn test_pausa_bloquea_solicitar_continuar() {
+    let (_env, cliente, admin, nuevo_dueno, _backer) = setup();
+    cliente.admin_pausar(&admin);
+    cliente.solicitar_continuar(&nuevo_dueno, &0);
+}
+
+#[test]
 fn test_reanudacion_permite_contribuciones() {
     let (env, cliente, admin, dueno, backer) = setup();
     let id = cliente.crear_proyecto(
