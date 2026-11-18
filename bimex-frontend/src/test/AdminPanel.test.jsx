@@ -127,7 +127,8 @@ describe("AdminPanel", () => {
     renderPanel();
 
     await user.click(await screen.findByRole("button", { name: i18n.t("admin.reject") }));
-    await user.type(screen.getByLabelText(i18n.t("admin.rejectReason")), "Documentos ilegibles");
+    await user.click(screen.getByLabelText(i18n.t("admin.rejectReason")));
+    await user.paste("Documentos ilegibles");
     await user.click(screen.getByRole("button", { name: i18n.t("admin.confirmReject") }));
 
     await waitFor(() =>

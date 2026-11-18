@@ -35,10 +35,16 @@ function renderCrear(props = {}) {
   return handlers;
 }
 
+// Pegar en vez de teclear: un solo evento de cambio por campo, mucho más rápido.
+async function escribir(user, label, valor) {
+  await user.click(screen.getByLabelText(label));
+  await user.paste(valor);
+}
+
 async function llenarPaso1(user, { nombre = "Huerto Comunitario", meta = "5000", meses = "12" } = {}) {
-  if (nombre) await user.type(screen.getByLabelText(i18n.t("crear.nameLabel")), nombre);
-  if (meta) await user.type(screen.getByLabelText(i18n.t("crear.goalLabel")), meta);
-  if (meses) await user.type(screen.getByLabelText(i18n.t("crear.timeLabel")), meses);
+  if (nombre) await escribir(user, i18n.t("crear.nameLabel"), nombre);
+  if (meta) await escribir(user, i18n.t("crear.goalLabel"), meta);
+  if (meses) await escribir(user, i18n.t("crear.timeLabel"), meses);
   await user.click(screen.getByRole("button", { name: i18n.t("crear.nextDocs") }));
 }
 
@@ -47,6 +53,13 @@ async function subirDocs(user, archivos = {}) {
   await user.upload(document.getElementById("doc-ine"), ine);
   await user.upload(document.getElementById("doc-plan"), plan);
   await user.upload(document.getElementById("doc-presupuesto"), presupuesto);
+}
+
+async function enviarFormulario(user) {
+  await llenarPaso1(user);
+  await subirDocs(user);
+  await user.click(screen.getByRole("button", { name: i18n.t("crear.generateHash") }));
+  await user.click(await screen.findByRole("button", { name: i18n.t("crear.submit") }));
 }
 
 beforeEach(async () => {
@@ -138,10 +151,7 @@ describe("CrearProyecto: paso 3", () => {
     crearProyecto.mockResolvedValueOnce();
     const { onCreado } = renderCrear();
 
-    await llenarPaso1(user);
-    await subirDocs(user);
-    await user.click(screen.getByRole("button", { name: i18n.t("crear.generateHash") }));
-    await user.click(await screen.findByRole("button", { name: i18n.t("crear.submit") }));
+    await enviarFormulario(user);
 
     expect(hashearDocumentos).not.toHaveBeenCalled();
     expect(crearProyecto).toHaveBeenCalledWith(
@@ -164,10 +174,7 @@ describe("CrearProyecto: paso 3", () => {
     crearProyecto.mockResolvedValueOnce();
     renderCrear();
 
-    await llenarPaso1(user);
-    await subirDocs(user);
-    await user.click(screen.getByRole("button", { name: i18n.t("crear.generateHash") }));
-    await user.click(await screen.findByRole("button", { name: i18n.t("crear.submit") }));
+    await enviarFormulario(user);
 
     expect(hashearDocumentos).toHaveBeenCalledTimes(1);
     expect(crearProyecto).toHaveBeenCalledWith(
@@ -186,10 +193,7 @@ describe("CrearProyecto: paso 3", () => {
     crearProyecto.mockRejectedValueOnce(err);
     const { onCreado, onError } = renderCrear();
 
-    await llenarPaso1(user);
-    await subirDocs(user);
-    await user.click(screen.getByRole("button", { name: i18n.t("crear.generateHash") }));
-    await user.click(await screen.findByRole("button", { name: i18n.t("crear.submit") }));
+    await enviarFormulario(user);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(parsearError(err));
     expect(onError).toHaveBeenCalledWith(err);
