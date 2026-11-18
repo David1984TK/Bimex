@@ -10,18 +10,22 @@
 [![Security](https://img.shields.io/badge/Security-Open-green)](./.github/SECURITY.md)
 For responsible disclosure, see our [Security Policy](.github/SECURITY.md).
 
-Contributors lock MXNe stablecoin into the contract. The yield (~13.45% APY) funds the project. When the project completes, every contributor gets their exact principal back — zero loss.
+Contributors lock MXNe stablecoin into the contract. The yield (~6.725% APY) funds the project. When the project completes, every contributor gets their exact principal back — zero loss.
 
 ## How it works
 
 ```
 Contributor locks MXNe
         │
-        ├─ 50% → CETES (9.45% APY) ─┐
-        ├─ 50% → AMM   (4.00% APY) ─┴─→ Yield goes to project owner
+        ├─ 50% → CETES pool (9.45% APY on that half → 4.725% of total) ─┐
+        ├─ 50% → AMM pool   (4.00% APY on that half → 2.000% of total) ─┴─→ Yield goes to project owner
         │
         └─ Project completes → contributor withdraws 100% of principal
 ```
+
+> **APY note:** each rate applies only to its half of the capital, so the
+> combined effective yield on the full contribution is **6.725% APY**
+> (4.725% from CETES + 2.00% from AMM).
 
 ## 🚀 Pilot Project
 

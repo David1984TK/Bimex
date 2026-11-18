@@ -128,8 +128,17 @@ pub enum Clave {
 
 // Tasas reales de producción en puntos base (bps).
 // 10 000 bps = 100 % anual. Fórmula: capital × bps × minutos / 10_000 / 525_600
-const DEFAULT_CETES_BPS: u32 = 945; // 9.45 % anual (CETES referencia)
-const DEFAULT_AMM_BPS: u32 = 400; // 4.00 % anual (liquidez AMM)
+//
+// NOTA DE AUDITORÍA (fix #466):
+// Cada contribución se divide en partes iguales: 50 % a CETES y 50 % a AMM.
+// La tasa de cada pool se aplica sólo a la mitad del capital, por lo que el
+// rendimiento efectivo sobre el total es:
+//   CETES: 9.45 % × 50 % = 4.725 %
+//   AMM:   4.00 % × 50 % = 2.000 %
+//   APY efectivo total    = 6.725 %
+// Las cifras publicadas en README/FAQ/docs deben reflejar 6.725 %, no 13.45 %.
+const DEFAULT_CETES_BPS: u32 = 945; // 9.45 % anual sobre capital_en_cetes (50 % del total)
+const DEFAULT_AMM_BPS: u32 = 400; // 4.00 % anual sobre capital_en_amm   (50 % del total)
 
 // Segundos por mes (30 días)
 const SEGUNDOS_POR_MES: u64 = 30 * 24 * 3_600;

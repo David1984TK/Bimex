@@ -54,7 +54,7 @@ México para nuestro primer proyecto piloto en Mainnet.
 
 ¿Qué significa "sin pérdida"?
 Los contribuyentes bloquean pesos mexicanos (MXNe) en un contrato inteligente. 
-El capital genera rendimiento (~13% anual) que va 100% a tu proyecto. Cuando 
+El capital genera rendimiento (~6.73% APY efectivo) que va 100% a tu proyecto. Cuando 
 el proyecto se completa, cada contribuyente recupera su capital íntegro.
 
 Beneficios para tu organización:
@@ -156,7 +156,7 @@ Organización: [Nombre]
 
 ¿Cómo funciona?
 ✅ Contribuyes con MXNe (stablecoin peso mexicano)
-✅ Tu capital genera ~13% APY
+✅ Tu capital genera ~6.73% APY efectivo
 ✅ El rendimiento va 100% al proyecto
 ✅ Recuperas tu capital íntegro al finalizar
 

@@ -601,7 +601,7 @@ export default function CrearProyecto({ direccion, onCerrar, onCreado, onError }
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <span style={estilos.badgeVerde}>9.45% CETES · Etherfuse</span>
                     <span style={estilos.badgeNavy}>4% AMM · Stellar</span>
-                    <span style={estilos.badgeAmber}>= 13.45% anual</span>
+                    <span style={estilos.badgeAmber}>= 6.725% efectivo anual</span>
                   </div>
                 </div>
               </div>

@@ -41,7 +41,8 @@ Bimex es una dApp de crowdfunding sin pérdida construida sobre Stellar/Soroban.
 
 Modelo:
 - Los backers bloquean MXNe (stablecoin peso mexicano) en el contrato.
-- El capital se divide 50/50 entre CETES y AMM, generando ~13.45% APY.
+- El capital se divide 50/50 entre CETES y AMM, generando ~6.725% APY efectivo.
+  (CETES 9.45% × 50% del capital = 4.725%; AMM 4.00% × 50% del capital = 2.00%).
 - El yield va al dueño del proyecto; el principal siempre es recuperable.
 - Al completarse el proyecto (estado Liberado), el dueño reclama el yield
   acumulado y los backers retiran su principal íntegro.
@@ -288,9 +289,9 @@ REGLAS CLAVE:
 ================================================================================
 
 TASAS (basis points, 1 bps = 0.01%):
-  CETES: 945 bps = 9.45% APY
-  AMM:   400 bps = 4.00% APY
-  Total: ~13.45% APY
+  CETES: 945 bps = 9.45% APY  — aplicado sobre capital_en_cetes (50% del total)
+  AMM:   400 bps = 4.00% APY  — aplicado sobre capital_en_amm   (50% del total)
+  Efectivo sobre el total: 4.725% + 2.00% = ~6.725% APY
 
 DISTRIBUCIÓN DEL CAPITAL:
   Al contribuir, el capital se divide exactamente:
@@ -684,7 +685,7 @@ SCRIPT DE DESPLIEGUE:
 PARÁMETROS DE PRODUCCIÓN:
   - yield_cetes_bps : 945   (9.45% APY — CETES via Etherfuse Stablebonds)
   - yield_amm_bps   : 400   (4.00% APY — AMM Stellar)
-  - Total APY       : ~13.45%
+  - Total APY       : ~6.725% efectivo (CETES 9.45% × 50% + AMM 4.00% × 50%)
 
 CONTRACT ID MAINNET:
   REEMPLAZAR_CON_CONTRACT_ID_TRAS_DESPLIEGUE

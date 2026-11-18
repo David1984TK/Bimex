@@ -96,14 +96,19 @@ If you need to cancel the project, use **"Abandon project"** — this lets backe
 ## Calculating the yield you'll receive
 
 ```
-estimated_yield = goal_mxne × 13.45% × (months / 12)
+estimated_yield = goal_mxne × 6.725% × (months / 12)
 
 Example:
   Goal: 50,000 MXNe
   Estimated duration: 12 months
-  Total yield: 50,000 × 0.1345 × 1 = 6,725 MXNe ≈ $6,725 MXN
+  Total yield: 50,000 × 0.06725 × 1 = 3,362.5 MXNe ≈ $3,362 MXN
 ```
 
+> **How it's calculated:** the contract splits each contribution 50/50 between the
+> CETES pool (9.45% APY on that half) and the AMM liquidity pool (4.00% APY on that
+> half). The effective yield on the full contribution is
+> 4.725% + 2.00% = **6.725% APY**.
+>
 > The actual yield depends on how much capital is effectively locked and for how long.
 
 ---

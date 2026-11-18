@@ -12,7 +12,7 @@ If the project owner marks it as Abandoned, you can withdraw your full principal
 
 **3. How much yield does my contribution generate?**
 
-Approximately **13.45% APY** (9.45% from CETES + 4% from AMM). Example: 1,000 MXNe locked for 12 months generates ~134.5 MXNe in yield for the project. You get your 1,000 MXNe back in full.
+Approximately **6.725% effective APY** on your total contribution. The contract splits your deposit 50/50: one half goes to the CETES pool (9.45% APY on that half → 4.725% of your total) and the other to the AMM liquidity pool (4.00% APY on that half → 2.00% of your total). Example: 1,000 MXNe locked for 12 months generates ~67.25 MXNe in yield for the project. You get your 1,000 MXNe back in full.
 
 **4. When can I withdraw my principal?**
 

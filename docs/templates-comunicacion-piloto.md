@@ -19,7 +19,7 @@ un candidato ideal por [razón específica relacionada con su trabajo].
 ¿Qué es Bimex?
 Es una plataforma donde los contribuyentes bloquean pesos mexicanos (MXNe, 
 un stablecoin) en un contrato inteligente. El capital genera rendimiento 
-(~13% anual) que va 100% a tu proyecto. Cuando el proyecto se completa, 
+(~6.73% APY efectivo) que va 100% a tu proyecto. Cuando el proyecto se completa, 
 cada contribuyente recupera su capital íntegro — sin pérdida.
 
 Beneficios para tu organización:
@@ -59,7 +59,7 @@ recibiste mi mensaje anterior.
 
 En resumen:
 - Crowdfunding sin pérdida (contribuyentes recuperan su capital)
-- ~13% APY va 100% a tu proyecto
+- ~6.73% APY efectivo va 100% a tu proyecto
 - Acompañamiento técnico completo
 - Visibilidad en la comunidad Stellar
 
@@ -184,7 +184,7 @@ Me comprometo a:
 3. ENTENDIMIENTO
 Entiendo que:
 - Este es el primer proyecto piloto de Bimex en Mainnet
-- Los contribuyentes bloquean capital que genera rendimiento (~13% APY)
+- Los contribuyentes bloquean capital que genera rendimiento (~6.73% APY efectivo)
 - El rendimiento generado va 100% a mi proyecto
 - Los contribuyentes recuperan su capital íntegro al finalizar
 - Todas las transacciones son verificables en blockchain
@@ -227,7 +227,7 @@ Presentamos: [Nombre del Proyecto]
 
 ¿Cómo funciona el crowdfunding sin pérdida?
 ✅ Contribuyes con MXNe (stablecoin peso mexicano)
-✅ Tu capital genera ~13% APY
+✅ Tu capital genera ~6.73% APY efectivo
 ✅ El rendimiento va 100% al proyecto
 ✅ Recuperas tu capital íntegro al finalizar
 
@@ -281,7 +281,7 @@ We just launched our first real-world pilot project on Mainnet!
 **Goal**: $[X] MXN (~$[Y] USD)
 **Model**: Zero-loss crowdfunding
 
-Contributors lock MXNe stablecoin → capital generates ~13% APY → 
+Contributors lock MXNe stablecoin → capital generates ~6.73% effective APY → 
 yield goes 100% to the project → contributors get their principal back.
 
 This is the first verifiable use case of Bimex with real transactions 
@@ -378,7 +378,7 @@ inmediatamente vio el potencial:
 A diferencia del crowdfunding tradicional, donde los contribuyentes 
 "pierden" su dinero, en Bimex:
 - Los contribuyentes bloquean MXNe (stablecoin peso mexicano)
-- El capital genera ~13% APY (CETES + AMM)
+- El capital genera ~6.73% APY efectivo (CETES + AMM, cada uno sobre su mitad del capital)
 - El rendimiento va 100% al proyecto
 - Los contribuyentes recuperan su capital íntegro
 

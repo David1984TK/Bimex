@@ -12,7 +12,7 @@ Si el dueño del proyecto lo marca como Abandonado, puedes retirar tu principal 
 
 **3. ¿Cuánto rendimiento genera mi aportación?**
 
-Aproximadamente **13.45% APY** (9.45% de CETES + 4% de AMM). Ejemplo: 1,000 MXNe durante 12 meses generan ~134.5 MXNe de rendimiento para el proyecto. Tú recuperas tus 1,000 MXNe íntegros.
+Aproximadamente **6.725% APY** efectivo sobre tu capital total. El contrato divide tu aportación en dos mitades iguales: una se destina al pool de CETES (9.45% APY sobre esa mitad → 4.725% del total) y la otra al pool de liquidez AMM (4.00% APY sobre esa mitad → 2.00% del total). Ejemplo: 1,000 MXNe durante 12 meses generan ~67.25 MXNe de rendimiento para el proyecto. Tú recuperas tus 1,000 MXNe íntegros.
 
 **4. ¿Cuándo puedo retirar mi principal?**
 
