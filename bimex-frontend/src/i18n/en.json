@@ -303,7 +303,16 @@
     "toastApproved": "✅ Project #{{id}} approved",
     "toastRejected": "❌ Project #{{id}} rejected",
     "errLoad": "Could not load projects: {{msg}}",
-    "loadingProjectsAria": "Loading projects"
+    "loadingProjectsAria": "Loading projects",
+    "checklistTitle": "Approval criteria",
+    "checklistHint": "Tick every criterion to enable Approve.",
+    "criteria": {
+      "tipo": "It is a social-impact project from an identifiable organization and fits a Bimex category",
+      "monto": "The goal is proportional to the budget (pilot reference: $50,000–$200,000 MXN)",
+      "plazo": "The term (1–120 months) is consistent with the work plan",
+      "evidencia": "I reviewed the 3 documents (ID, plan and budget): they are legible, from the same person and match the document fingerprint",
+      "hitos": "The plan defines verifiable milestones for progress reports"
+    }
   },
   "transp": {
     "title": "Public Transparency",

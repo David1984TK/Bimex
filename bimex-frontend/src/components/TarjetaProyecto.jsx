@@ -36,13 +36,19 @@ const IconLock = () => (
   </svg>
 );
 
+// Criterios de docs/criterios-aprobacion-proyectos.md; el admin los confirma antes de aprobar.
+const CRITERIOS = ["tipo", "monto", "plazo", "evidencia", "hitos"];
+
 export default function TarjetaProyecto({ proyecto, onAprobar, onRechazar }) {
   const { t } = useTranslation();
   const [rechazando, setRechazando] = useState(false);
   const [motivo, setMotivo] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [revisados, setRevisados] = useState({});
 
-  const fingerprint = proyecto.doc_cid ? acortarCid(proyecto.doc_cid) : null;
+  // obtenerProyecto() expone el doc_cid del contrato como `doc_hash`.
+  const fingerprint = proyecto.doc_hash ? acortarCid(proyecto.doc_hash) : null;
+  const checklistCompleto = CRITERIOS.every((c) => revisados[c]);
 
   async function handleConfirmarRechazo() {
     if (!motivo.trim()) return;
@@ -96,6 +102,27 @@ export default function TarjetaProyecto({ proyecto, onAprobar, onRechazar }) {
         )}
       </div>
 
+      {!rechazando && (
+        <fieldset style={estilos.checklist}>
+          <legend style={estilos.metaLabel}>{t("admin.checklistTitle")}</legend>
+          {CRITERIOS.map((c) => (
+            <label key={c} style={estilos.checkItem}>
+              <input
+                type="checkbox"
+                checked={!!revisados[c]}
+                onChange={(e) => setRevisados((r) => ({ ...r, [c]: e.target.checked }))}
+              />
+              {t(`admin.criteria.${c}`)}
+            </label>
+          ))}
+          {!checklistCompleto && (
+            <p id={`checklist-hint-${proyecto.id}`} style={estilos.checklistHint}>
+              {t("admin.checklistHint")}
+            </p>
+          )}
+        </fieldset>
+      )}
+
       {/* Formulario de rechazo inline */}
       {rechazando ? (
         <div style={estilos.rechazoForm}>
@@ -141,6 +168,8 @@ export default function TarjetaProyecto({ proyecto, onAprobar, onRechazar }) {
             className="btn btn-primary"
             style={{ flex: 1, minWidth: "120px", justifyContent: "center" }}
             onClick={() => onAprobar(proyecto.id)}
+            disabled={!checklistCompleto}
+            aria-describedby={checklistCompleto ? undefined : `checklist-hint-${proyecto.id}`}
           >
             {t("admin.approve")}
           </button>
@@ -167,4 +196,7 @@ const estilos = {
   metaValor: { fontFamily: "'DM Mono'", fontSize: "0.80rem", color: "var(--text)" },
   fingerprintBadge: { display: "inline-flex", alignItems: "center", gap: "5px", background: "var(--green-dim)", border: "1px solid rgba(22,163,74,0.22)", borderRadius: "4px", padding: "3px 8px", fontSize: "0.72rem", color: "var(--green)", fontWeight: 600 },
   rechazoForm: { marginTop: "14px", background: "rgba(220,38,38,0.04)", border: "1.5px solid rgba(220,38,38,0.18)", borderRadius: "var(--radius-sm)", padding: "14px" },
+  checklist: { marginTop: "14px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "10px 12px", display: "flex", flexDirection: "column", gap: "6px" },
+  checkItem: { display: "flex", alignItems: "flex-start", gap: "8px", fontSize: "0.82rem", color: "var(--text)", cursor: "pointer" },
+  checklistHint: { margin: "2px 0 0", fontSize: "0.74rem", color: "var(--muted)" },
 };

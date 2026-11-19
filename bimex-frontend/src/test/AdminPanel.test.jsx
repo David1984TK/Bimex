@@ -43,6 +43,11 @@ function renderPanel(onCerrar = vi.fn()) {
   return onCerrar;
 }
 
+// Marca las casillas del checklist de aprobación (por defecto, todas las visibles).
+async function marcarCriterios(user, casillas = screen.getAllByRole("checkbox")) {
+  for (const casilla of casillas) await user.click(casilla);
+}
+
 beforeEach(async () => {
   vi.clearAllMocks();
   await i18n.changeLanguage("es");
@@ -64,6 +69,17 @@ describe("AdminPanel", () => {
     expect(await screen.findByText("Huerto Comunitario")).toBeInTheDocument();
     expect(screen.queryByText("Escuela Rural")).not.toBeInTheDocument();
     expect(screen.getByText(i18n.t("admin.pending", { count: 1 }))).toBeInTheDocument();
+  });
+
+  it("muestra la huella documental del proyecto para revisarla", async () => {
+    obtenerTodosLosProyectos.mockResolvedValueOnce([
+      proyecto({ doc_hash: "bafybeigdyrztexample000000000000000000000|cid2|cid3" }),
+    ]);
+
+    renderPanel();
+
+    expect(await screen.findByText(i18n.t("admin.docHash"))).toBeInTheDocument();
+    expect(screen.getByText("bafybeigdyrz…2|cid3")).toBeInTheDocument();
   });
 
   it("muestra el estado vacío cuando no hay proyectos pendientes", async () => {
@@ -92,7 +108,9 @@ describe("AdminPanel", () => {
 
     renderPanel();
 
-    await user.click(await screen.findByRole("button", { name: i18n.t("admin.approve") }));
+    await screen.findByText("Huerto Comunitario");
+    await marcarCriterios(user);
+    await user.click(screen.getByRole("button", { name: i18n.t("admin.approve") }));
 
     expect(aprobarProyecto).toHaveBeenCalledWith(ADMIN, 1);
     expect(await screen.findByRole("status")).toHaveTextContent(
@@ -110,14 +128,16 @@ describe("AdminPanel", () => {
 
     renderPanel();
 
-    await user.click(await screen.findByRole("button", { name: i18n.t("admin.approve") }));
+    await screen.findByText("Huerto Comunitario");
+    await marcarCriterios(user);
+    await user.click(screen.getByRole("button", { name: i18n.t("admin.approve") }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(parsearError(err));
     expect(screen.getByText("Huerto Comunitario")).toBeInTheDocument();
     expect(obtenerTodosLosProyectos).toHaveBeenCalledTimes(1);
   });
 
-  it("rechaza un proyecto con el motivo escrito", async () => {
+  it("rechaza un proyecto con el motivo escrito sin necesitar el checklist", async () => {
     const user = userEvent.setup();
     obtenerTodosLosProyectos
       .mockResolvedValueOnce([proyecto()])
@@ -126,7 +146,8 @@ describe("AdminPanel", () => {
 
     renderPanel();
 
-    await user.click(await screen.findByRole("button", { name: i18n.t("admin.reject") }));
+    expect(await screen.findByRole("button", { name: i18n.t("admin.approve") })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: i18n.t("admin.reject") }));
     await user.click(screen.getByLabelText(i18n.t("admin.rejectReason")));
     await user.paste("Documentos ilegibles");
     await user.click(screen.getByRole("button", { name: i18n.t("admin.confirmReject") }));
@@ -137,6 +158,46 @@ describe("AdminPanel", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(
       i18n.t("admin.toastRejected", { id: 1 }),
     );
+  });
+
+  it("deshabilita Aprobar hasta marcar todos los criterios", async () => {
+    const user = userEvent.setup();
+    obtenerTodosLosProyectos.mockResolvedValueOnce([proyecto()]);
+
+    renderPanel();
+
+    const aprobar = await screen.findByRole("button", { name: i18n.t("admin.approve") });
+    const casillas = screen.getAllByRole("checkbox");
+    expect(casillas).toHaveLength(5);
+    expect(aprobar).toBeDisabled();
+    expect(aprobar).toHaveAccessibleDescription(i18n.t("admin.checklistHint"));
+
+    await marcarCriterios(user, casillas.slice(0, 4));
+    expect(aprobar).toBeDisabled();
+
+    await user.click(casillas[4]);
+    expect(aprobar).toBeEnabled();
+
+    await user.click(casillas[0]);
+    expect(aprobar).toBeDisabled();
+    expect(aprobarProyecto).not.toHaveBeenCalled();
+  });
+
+  it("el checklist es independiente en cada tarjeta", async () => {
+    const user = userEvent.setup();
+    obtenerTodosLosProyectos.mockResolvedValueOnce([
+      proyecto(),
+      proyecto({ id: 2, nombre: "Escuela Rural" }),
+    ]);
+
+    renderPanel();
+
+    await screen.findByText("Escuela Rural");
+    await marcarCriterios(user, screen.getAllByRole("checkbox").slice(0, 5));
+
+    const [aprobar1, aprobar2] = screen.getAllByRole("button", { name: i18n.t("admin.approve") });
+    expect(aprobar1).toBeEnabled();
+    expect(aprobar2).toBeDisabled();
   });
 
   it("se cierra con Escape, con el botón de cerrar y al hacer clic fuera del modal", async () => {
