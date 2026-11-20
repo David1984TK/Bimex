@@ -32,6 +32,6 @@
     "postcss": "8.5.23",
     "smol-toml": "1.9.1",
     "source-map-js": "1.2.2",
-    "follow-redirects": "1.16.1"
+    "follow-redirects": "1.16.3"
   }
 }
