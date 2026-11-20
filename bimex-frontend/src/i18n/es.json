@@ -462,7 +462,8 @@
   },
   "footer": {
     "terms": "Términos",
-    "privacy": "Privacidad"
+    "privacy": "Privacidad",
+    "marcoLegalMx": "Marco Legal MX"
   },
   "pwa": {
     "title": "Instala Bimex",
@@ -798,5 +799,29 @@
     "faucetTitle": "Obtener 100 MXNe de prueba (solo testnet)",
     "cerrarToastAria": "Cerrar notificación",
     "volver": "← Volver"
+  },
+  "avisosLegalesMexico": {
+    "title": "Avisos Legales - Marco Regulatorio Mexico",
+    "updated": "Ultima actualizacion: noviembre 2026",
+    "back": "Volver",
+    "backAria": "Volver a la pagina anterior",
+    "riskWarningTitle": "AVISO DE RIESGO",
+    "riskWarningBody": "Bimex es una plataforma de financiamiento participativo en blockchain (Stellar/Soroban). Este aviso es de caracter informativo.\n\nRIESGOS CRITICOS:\n\n1. Riesgo de Perdida Total: Aunque la devolucion de principal es \"cero-perdida\", existe riesgo de fracaso del proyecto, fallo del protocolo blockchain, o imposibilidad de liquidacion. Bimex NO garantiza ni respalda las aportaciones con fondos propios.\n\n2. Riesgo de Mercado: El rendimiento esperado (~6.725% APY efectivo) NO es garantizado y puede variar. Depende de tasas CETES (Banco de Mexico) y liquidez de AMM.\n\n3. Riesgo de Liquidez: Las aportaciones estan bloqueadas durante la duracion del proyecto. No es posible retirar fondos antes de que el proyecto se complete.\n\n4. Riesgo Tecnologico: Fallos en smart contract, ataques de seguridad, o vulnerabilidades. Perdida de acceso a wallet = perdida de fondos.\n\n5. Riesgo Regulatorio: Marco legal en Mexico es INCIERTO. Cambios regulatorios pueden afectar operacion de plataforma. Bimex NO es autorizado por CNBV, CNV o autoridades financieras mexicanas.\n\n6. Riesgo de Contraparte: El proyecto que recibe capital podria incumplir o cerrar operaciones.\n\nNO hay seguro de depositos, garantia estatal, o proteccion de fondos.\n\nAL PARTICIPAR EN BIMEX, ACEPTAS ESTOS RIESGOS EN SU TOTALIDAD.",
+    "regulatoryTitle": "AVISO DE CUMPLIMIENTO REGULATORIO",
+    "regulatoryBody": "Bimex captura capital de usuarios mexicanos pero opera en ambiente descentralizado. El marco regulatorio es INCIERTO:\n\nNO esta autorizado por la Comision Nacional de Valores (CNV)\nNO esta regulado por la Comision Nacional Bancaria y de Valores (CNBV)\nNO esta registrado ante CONDUSEF\nNO tiene licencia de Institucion Financiera\n\nLa participacion en Bimex es responsabilidad personal de cada usuario. Mexico NO tiene regulacion clara de crowdfunding/stablecoins (a nov 2026).\n\nBimex recomienda consultar con un abogado mexicano especializado en fintech antes de participar.",
+    "taxTitle": "AVISO FISCAL",
+    "taxBody": "El rendimiento generado en Bimex constituye INGRESO sujeto a impuestos en tu pais de residencia.\n\nEN MEXICO:\n- Declarar como \"Otros ingresos\" en Declaracion Anual (SAT)\n- ISR aproximado: 24% + cuotas de seguridad social (~34.63%)\n- Responsabilidad: Usuario debe consultar con contador publico o asesor fiscal\n\nEN OTROS PAISES:\n- Consulta con asesor fiscal local\n\nBimex NO retiene impuestos. TU eres responsable de calcular y pagar impuestos segun tu jurisdiccion.",
+    "s1Title": "1. Analisis del Modelo de Bimex",
+    "s1Body": "Bimex opera como plataforma de financiamiento participativo donde contribuyentes aportan MXNe a proyectos sociales a cambio de devolucion de capital garantizada. El rendimiento generado (~6.725% APY efectivo) financia el proyecto.\n\nConforme a la Ley Federal de Proteccion al Consumidor (LPDC), Bimex debe proporcionar informacion clara, veraz y oportuna sobre:\n- Riesgos de la inversion\n- Ausencia de garantia estatal\n- Terminos de liquidez y devolucion\n- Funcionamiento del protocolo blockchain\n- Tratamiento fiscal de rendimientos\n\nEste documento fue elaborado consultando fuentes publicas de:\n- Ley Fintech (DOF 9 enero 2018)\n- Ley del Mercado de Valores\n- Ley Federal de Proteccion al Consumidor\n- Documentacion de Banco de Mexico y CNBV\n- Regulacion de Instituciones de Credito\n\nPara analisis completo, ver docs/marco-legal-mexico.md en el repositorio.",
+    "s2Title": "2. Posible Aplicabilidad de la Ley del Mercado de Valores",
+    "s2Body": "La Ley del Mercado de Valores (LMV) regula la oferta publica de valores. Bimex PODRIA caer bajo esta regulacion porque:\n\n- La LMV incluye en su definicion de \"valor\" obligaciones, bonos y certificados de participacion\n- Las \"aportaciones a Bimex con promesa de rendimiento\" podrian clasificarse como valores\n- La plataforma en internet es considerada \"oferta publica\" si es accesible a multiples usuarios mexicanos\n- Los requisitos de autorizacion incluyen: registro ante CNV, prospecto de informacion, auditorias periodicas\n\nEsta es UNA de las interpretaciones posibles. El Marco Legal completo esta en docs/marco-legal-mexico.md.\n\nCONCLUSION: Existe riesgo regulatorio. Usuarios asumen responsabilidad de cumplimiento en su jurisdiccion.",
+    "s3Title": "3. Responsabilidades del Usuario",
+    "s3Body": "Al usar Bimex, el usuario es responsable de:\n\n- Leer y comprender todos los avisos legales\n- Asumir perdida total de su inversion sin recurso legal\n- Declarar impuestos sobre rendimientos en su pais de residencia\n- Cumplir con leyes AML/KYC de su jurisdiccion\n- Mantener seguro su wallet y claves privadas (Bimex NUNCA solicitara tu clave privada)\n- NO usar la plataforma para actividades ilicitas\n\nBimex NO es responsable por:\n- Perdida de fondos por error tecnico, hack, o vulnerabilidad\n- Fracaso del proyecto o incumplimiento del gestor\n- Cambios regulatorios que suspendan operacion\n- Perdida de acceso a wallet por olvido de contrasena o perdida de dispositivo\n- Errores de usuario (envio incorrecto, direccion equivocada)\n\nBimex proporciona acceso \"TAL CUAL\" (AS-IS) sin garantias de funcionamiento o exito financiero.",
+    "s4Title": "4. Datos Fiscales en Mexico",
+    "s4Body": "Los rendimientos generados en Bimex estan sujetos a Impuesto sobre la Renta (ISR):\n\nTRIBUTACION EN MEXICO:\n- Clasificacion: \"Otros ingresos\" (Art. 1, Ley del ISR)\n- Tasa: 24% ISR + ~10.63% Cuotas de Seguridad Social = ~34.63% total\n- Responsable del calculo y pago: El usuario\n- Retencion: Incierto en ambiente blockchain (posiblemente usuario responsable)\n\nBENEFICIARIOS EXTRANJEROS:\n- Si NO eres residente fiscal de Mexico, podrias estar exento de ISR mexicano\n- Pero estarias sujeto a impuestos en tu pais de residencia\n- Consulta con asesor fiscal local\n\nIMPORTANTE: Bimex NO proporciona asesoria fiscal. El usuario es responsable de cumplir con sus obligaciones tributarias.",
+    "s5Title": "5. Datos de Contacto y Recursos",
+    "s5Body": "Para consultas sobre marco legal Mexico:\n\nEmail: legal@bimex.app\nDocumento completo: docs/marco-legal-mexico.md\n\nFUENTES CONSULTADAS:\n- Ley Fintech: https://www.diputados.gob.mx/LeyesBiblio/pdf/LRIFFFA.pdf\n- Ley del Mercado de Valores: https://www.gob.mx/cnbv\n- LPDC: https://www.gob.mx/profeco\n- Banco de Mexico: https://www.banxico.gob.mx\n- SAT (Impuestos): https://www.gob.mx/sat\n- CONDUSEF: https://www.condusef.gob.mx\n\nDESCARGO DE RESPONSABILIDAD FINAL: Este documento es un analisis documentado de fuentes publicas. NO constituye asesoria legal vinculante. Para asuntos legales especificos, consulta abogado mexicano especializado en fintech.",
+    "disclaimerTitle": "DESCARGO DE RESPONSABILIDAD LEGAL",
+    "disclaimerBody": "Este documento es un ANALISIS INFORMATIVO basado en fuentes publicas de regulacion mexicana. NO es asesoria legal vinculante. Bimex recomienda enfaticamente que consultes con profesionales legales en tu jurisdiccion antes de participar. La interpretacion del marco regulatorio es incierta y podra cambiar. Al usar Bimex, aceptas que Bimex, sus operadores, y desarrolladores no son responsables por interpretaciones legales, cambios regulatorios, o consecuencias fiscales de tu participacion."
   }
 }

@@ -462,7 +462,8 @@
   },
   "footer": {
     "terms": "Terms",
-    "privacy": "Privacy"
+    "privacy": "Privacy",
+    "marcoLegalMx": "MX Legal Framework"
   },
   "pwa": {
     "title": "Install Bimex",
@@ -798,5 +799,29 @@
     "faucetTitle": "Get 100 test MXNe (testnet only)",
     "cerrarToastAria": "Dismiss notification",
     "volver": "← Back"
+  },
+  "avisosLegalesMexico": {
+    "title": "Legal Notices — Mexican Regulatory Framework",
+    "updated": "Last updated: November 2026",
+    "back": "Back",
+    "backAria": "Go back to previous page",
+    "riskWarningTitle": "RISK WARNING",
+    "riskWarningBody": "Bimex is a crowdfunding platform on blockchain (Stellar/Soroban). This notice is for informational purposes only.\n\nCRITICAL RISKS:\n\n1. Risk of Total Loss: Although principal return is \"zero-loss,\" there is risk of project failure, blockchain protocol failure, or inability to liquidate. Bimex does NOT guarantee or back contributions with its own funds.\n\n2. Market Risk: Expected returns (~6.725% effective APY) are NOT guaranteed and may vary. Depends on CETES rates (Bank of Mexico) and AMM liquidity.\n\n3. Liquidity Risk: Contributions are locked during project duration. It is not possible to withdraw funds before project completes.\n\n4. Technology Risk: Smart contract failures, security attacks, or vulnerabilities. Loss of wallet access = loss of funds.\n\n5. Regulatory Risk: Legal framework in Mexico is UNCERTAIN. Regulatory changes may affect platform operation. Bimex is NOT authorized by CNBV, CNV, or Mexican financial authorities.\n\n6. Counterparty Risk: The project receiving capital could default or cease operations.\n\nThere is NO deposit insurance, government guarantee, or fund protection.\n\nBY PARTICIPATING IN BIMEX, YOU ACCEPT THESE RISKS IN FULL.",
+    "regulatoryTitle": "REGULATORY COMPLIANCE NOTICE",
+    "regulatoryBody": "Bimex captures capital from Mexican users but operates in a decentralized environment. The regulatory framework is UNCERTAIN:\n\nNOT authorized by the National Securities Commission (CNV)\nNOT regulated by the National Banking and Securities Commission (CNBV)\nNOT registered with CONDUSEF\ndoes NOT hold a Financial Institution license\n\nParticipation in Bimex is the personal responsibility of each user. Mexico does NOT have clear crowdfunding/stablecoin regulation (as of Nov 2026).\n\nBimex recommends consulting with a Mexican lawyer specializing in fintech before participating.",
+    "taxTitle": "TAX WARNING",
+    "taxBody": "Returns generated in Bimex constitute INCOME subject to taxation in your country of residence.\n\nIN MEXICO:\n- Report as \"Other income\" in Annual Return (SAT)\n- Approximate taxes: 24% ISR + social security fees (~34.63%)\n- Responsibility: User must consult with CPA or tax advisor\n\nIN OTHER COUNTRIES:\n- Consult with local tax advisor\n\nBimex does NOT withhold taxes. YOU are responsible for calculating and paying taxes according to your jurisdiction.",
+    "s1Title": "1. Analysis of Bimex Model",
+    "s1Body": "Bimex operates as a crowdfunding platform where contributors deposit MXNe into social projects in exchange for guaranteed principal return. Returns generated (~6.725% effective APY) fund the project.\n\nUnder the Federal Consumer Protection Law (LPDC), Bimex must provide clear, truthful, and timely information about:\n- Investment risks\n- Absence of government guarantee\n- Terms of liquidity and return\n- Blockchain protocol operation\n- Tax treatment of returns\n\nThis document was prepared consulting public sources from:\n- Fintech Law (DOF January 9, 2018)\n- Securities Market Law\n- Federal Consumer Protection Law\n- Bank of Mexico and CNBV documentation\n- Credit Institution Regulation\n\nFor complete analysis, see docs/marco-legal-mexico.md in repository.",
+    "s2Title": "2. Possible Applicability of Securities Market Law",
+    "s2Body": "The Securities Market Law (LMV) regulates public offerings of securities. Bimex COULD fall under this regulation because:\n\n- The LMV definition of \"security\" includes obligations, bonds, and participation certificates\n- \"Contributions to Bimex with promise of returns\" could be classified as securities\n- An internet platform is considered a \"public offering\" if accessible to multiple Mexican users\n- Authorization requirements include: CNV registration, information prospectus, periodic audits\n\nThis is ONE possible interpretation. The complete Legal Framework is in docs/marco-legal-mexico.md.\n\nCONCLUSION: Regulatory risk exists. Users assume responsibility for compliance in their jurisdiction.",
+    "s3Title": "3. User Responsibilities",
+    "s3Body": "By using Bimex, the user is responsible for:\n\n- Reading and understanding all legal notices\n- Assuming total loss of investment without legal recourse\n- Filing taxes on returns in your country of residence\n- Complying with AML/KYC laws of your jurisdiction\n- Keeping your wallet and private keys secure (Bimex NEVER asks for private key)\n- NOT using the platform for illegal activities\n\nBimex is NOT responsible for:\n- Loss of funds due to technical error, hack, or vulnerability\n- Project failure or manager default\n- Regulatory changes that suspend operation\n- Loss of wallet access due to forgotten password or device loss\n- User errors (incorrect send, wrong address)\n\nBimex provides access \"AS-IS\" with no warranties of operation or financial success.",
+    "s4Title": "4. Tax Information in Mexico",
+    "s4Body": "Returns generated in Bimex are subject to Income Tax (ISR):\n\nTAXATION IN MEXICO:\n- Classification: \"Other income\" (Art. 1, ISR Law)\n- Rate: 24% ISR + ~10.63% Social Security fees = ~34.63% total\n- Responsible for calculation and payment: The user\n- Withholding: Uncertain in blockchain environment (possibly user responsible)\n\nFOREIGN RESIDENTS:\n- If you are NOT a tax resident of Mexico, you may be exempt from Mexican ISR\n- But you would be subject to taxes in your country of residence\n- Consult with local tax advisor\n\nIMPORTANT: Bimex does NOT provide tax advice. User is responsible for compliance with tax obligations.",
+    "s5Title": "5. Contact Information and Resources",
+    "s5Body": "For inquiries about Mexican legal framework:\n\nEmail: legal@bimex.app\nComplete document: docs/marco-legal-mexico.md\n\nSOURCES CONSULTED:\n- Fintech Law: https://www.diputados.gob.mx/LeyesBiblio/pdf/LRIFFFA.pdf\n- Securities Market Law: https://www.gob.mx/cnbv\n- LPDC: https://www.gob.mx/profeco\n- Bank of Mexico: https://www.banxico.gob.mx\n- SAT (Taxes): https://www.gob.mx/sat\n- CONDUSEF: https://www.condusef.gob.mx\n\nFINAL LEGAL DISCLAIMER: This document is an informative analysis of public sources of Mexican regulation. It does NOT constitute binding legal advice. For specific legal matters, consult a Mexican lawyer specializing in fintech.",
+    "disclaimerTitle": "LEGAL DISCLAIMER",
+    "disclaimerBody": "This document is an INFORMATIVE ANALYSIS based on public sources of Mexican regulation. It is NOT binding legal advice. Bimex strongly recommends that you consult with legal professionals in your jurisdiction before participating. Interpretation of the regulatory framework is uncertain and may change. By using Bimex, you agree that Bimex, its operators, and developers are not responsible for legal interpretations, regulatory changes, or tax consequences of your participation."
   }
 }
