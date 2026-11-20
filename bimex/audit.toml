@@ -7,4 +7,14 @@ ignore = [
                          # but elliptic-curve 0.13.8 (pinned by soroban-env-host 28.0.2,
                          # which soroban-sdk 28.0.0 pins exactly) requires crypto-bigint ^0.5.
                          # No upgrade path until soroban-sdk bumps past k256/p256 0.13.x.
+  "RUSTSEC-2026-0543",  # chrono — unmaintained; optional dep of serde_with, pulled in by
+                         # stellar-xdr/soroban-ledger-snapshot (soroban-sdk 28.0.0). Not
+                         # reachable from our own code (absent from `cargo tree`). No fixed
+                         # upgrade is available upstream.
+  "RUSTSEC-2026-0574", "RUSTSEC-2026-0575", "RUSTSEC-2026-0576", "RUSTSEC-2026-0577",
+  "RUSTSEC-2026-0578", "RUSTSEC-2026-0579", "RUSTSEC-2026-0580", "RUSTSEC-2026-0581",
+  "RUSTSEC-2026-0582",
+  # heapless 0.8.0 — 9 unsound advisories, fix needs >=0.9.4, but stellar-strkey 0.0.16
+  # (pinned exactly by soroban-sdk 28.0.0) requires heapless ^0.8. No upgrade path until
+  # soroban-sdk bumps past stellar-strkey 0.0.16.
 ]
