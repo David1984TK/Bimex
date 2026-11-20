@@ -4,12 +4,15 @@
 
 ## ¿Qué es Bimex?
 
-Bimex es una plataforma de crowdfunding construida sobre Stellar donde **tu capital siempre es recuperable**. En lugar de donar dinero, lo bloqueas temporalmente en un contrato inteligente. Ese capital genera rendimiento (~13.45% APY), y ese rendimiento es el que financia el proyecto. Cuando el proyecto termina, recibes exactamente lo que pusiste.
+Bimex es una plataforma de crowdfunding construida sobre Stellar donde **tu capital siempre es recuperable**. En lugar de donar dinero, lo bloqueas temporalmente en un contrato inteligente. Ese capital genera rendimiento (~6.725% APY efectivo), y ese rendimiento es el que financia el proyecto. Cuando el proyecto termina, recibes exactamente lo que pusiste.
 
 ```
 Tú depositas 1,000 MXNe
         │
-        ├─ El rendimiento (~134 MXNe/año) va al proyecto
+        ├─ 50 % → pool CETES: 9.45 % APY sobre esa mitad → 4.725 % del total
+        ├─ 50 % → pool AMM:   4.00 % APY sobre esa mitad → 2.000 % del total
+        │         Rendimiento total efectivo ≈ 6.725 % APY (~67 MXNe/año)
+        │         → va al proyecto
         │
         └─ Tú recuperas tus 1,000 MXNe al final
 ```
@@ -98,7 +101,7 @@ El contrato es inmutable una vez desplegado. Nadie puede mover tu principal sin 
 Freighter es la wallet oficial de Stellar Foundation. Tu clave privada nunca sale de tu dispositivo.
 
 **¿Cuánto yield genera mi aportación?**
-Aproximadamente 13.45% APY (9.45% de CETES + 4% de AMM). Ejemplo: 1,000 MXNe durante 6 meses generan ~67 MXNe de yield para el proyecto.
+Aproximadamente **6.725% APY efectivo** sobre el total depositado. El contrato divide tu aportación 50/50 entre el pool de CETES (9.45% APY sobre esa mitad = 4.725% del total) y el pool AMM (4.00% APY sobre esa mitad = 2.00% del total). Ejemplo: 1,000 MXNe durante 6 meses generan ~33.6 MXNe de yield para el proyecto.
 
 ---
 

@@ -29,7 +29,7 @@ test.describe('Landing – sin wallet', () => {
 
   test('muestra la tarjeta de distribución del rendimiento', async ({ page }) => {
     await expect(page.getByText('Distribución del rendimiento')).toBeVisible()
-    await expect(page.getByText('13.45%', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('6.725%', { exact: true }).first()).toBeVisible()
   })
 
   test('muestra los pasos de cómo funciona Bimex', async ({ page }) => {

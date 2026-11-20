@@ -555,7 +555,7 @@ export default function DetalleProyecto({ direccion, onCerrar, onError, onToast 
                 </div>
                 <div style={{ padding: "12px 18px", background: "var(--bg)", borderTop: "2px solid var(--border)", display: "flex", justifyContent: "space-between", fontSize: "0.82rem" }}>
                   <span style={{ color: "var(--muted)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("detalle.totalYield")}</span>
-                  <strong style={{ color: "var(--text)" }}>13.45% {t("detalle.perYear")}</strong>
+                  <strong style={{ color: "var(--text)" }}>6.725% {t("detalle.perYear")}</strong>
                 </div>
               </div>
             </div>

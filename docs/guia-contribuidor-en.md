@@ -4,12 +4,15 @@
 
 ## What is Bimex?
 
-Bimex is a crowdfunding platform built on Stellar where **your capital is always recoverable**. Instead of donating money, you lock it temporarily in a smart contract. That capital generates yield (~13.45% APY), and that yield is what funds the project. When the project ends, you get back exactly what you put in.
+Bimex is a crowdfunding platform built on Stellar where **your capital is always recoverable**. Instead of donating money, you lock it temporarily in a smart contract. That capital generates yield (~6.725% effective APY), and that yield is what funds the project. When the project ends, you get back exactly what you put in.
 
 ```
 You deposit 1,000 MXNe
         │
-        ├─ The yield (~134 MXNe/year) goes to the project
+        ├─ 50% → CETES pool: 9.45% APY on that half → 4.725% of total
+        ├─ 50% → AMM pool:   4.00% APY on that half → 2.000% of total
+        │        Combined effective yield ≈ 6.725% APY (~67 MXNe/year)
+        │        → goes to the project
         │
         └─ You recover your 1,000 MXNe at the end
 ```
@@ -98,7 +101,7 @@ The contract is immutable once deployed. Nobody can move your principal without 
 Freighter is the official wallet from the Stellar Foundation. Your private key never leaves your device.
 
 **How much yield does my contribution generate?**
-About 13.45% APY (9.45% from CETES + 4% from AMM). Example: 1,000 MXNe for 6 months generates ~67 MXNe of yield for the project.
+About **6.725% effective APY** on your total deposit. The contract splits your contribution 50/50 between the CETES pool (9.45% APY on that half = 4.725% of your total) and the AMM pool (4.00% APY on that half = 2.00% of your total). Example: 1,000 MXNe for 6 months generates ~33.6 MXNe of yield for the project.
 
 ---
 

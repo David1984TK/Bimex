@@ -96,14 +96,19 @@ Si necesitas cancelar el proyecto, usa **"Abandonar proyecto"** — esto permite
 ## Cálculo del yield que recibirás
 
 ```
-yield_estimado = meta_mxne × 13.45% × (meses / 12)
+yield_estimado = meta_mxne × 6.725% × (meses / 12)
 
 Ejemplo:
   Meta: 50,000 MXNe
   Duración estimada: 12 meses
-  Yield total: 50,000 × 0.1345 × 1 = 6,725 MXNe ≈ $6,725 MXN
+  Yield total: 50,000 × 0.06725 × 1 = 3,362.5 MXNe ≈ $3,362 MXN
 ```
 
+> **Cómo se calcula:** el contrato divide cada aportación 50/50 entre el pool de
+> CETES (9.45% APY sobre esa mitad) y el pool de liquidez AMM (4.00% APY sobre
+> esa mitad). El rendimiento efectivo sobre el capital total es
+> 4.725% + 2.00% = **6.725% APY**.
+>
 > El yield real depende de cuánto capital esté efectivamente bloqueado y por cuánto tiempo.
 
 ---

@@ -210,7 +210,7 @@
 
 ¿Cómo funciona?
 ✅ Contribuyes con MXNe
-✅ Tu capital genera ~13% APY
+✅ Tu capital genera ~6.73% APY efectivo
 ✅ El yield va 100% al proyecto
 ✅ Recuperas tu capital íntegro
 
@@ -261,7 +261,7 @@ Su meta de fondeo es $[X] MXN.
 ¿Cómo funciona el crowdfunding sin pérdida?
 
 Los contribuyentes bloquean MXNe (stablecoin peso mexicano) en un contrato 
-inteligente. El capital genera rendimiento (~13% APY) que va 100% al proyecto. 
+inteligente. El capital genera rendimiento (~6.73% APY efectivo) que va 100% al proyecto. 
 Cuando el proyecto se completa, cada contribuyente recupera su capital íntegro.
 
 Es decir: solo "donas" el rendimiento, no tu capital.
@@ -294,7 +294,7 @@ We just launched our first real-world pilot project on Mainnet!
 **Model**: Zero-loss crowdfunding
 
 **How it works**:
-Contributors lock MXNe stablecoin → capital generates ~13% APY → 
+Contributors lock MXNe stablecoin → capital generates ~6.73% effective APY → 
 yield goes 100% to the project → contributors get their principal back.
 
 **Why this matters**:

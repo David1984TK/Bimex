@@ -817,7 +817,7 @@ function Landing({ autoConectar, onConectado, onTransparencia, onCasosDeExito, o
             ))}
             <div style={st.yieldTotal}>
               <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{t("landing.yieldCard.totalDistributed")}</span>
-              <strong style={{ fontSize: "1rem", color: "var(--navy)" }}>13.45%</strong>
+              <strong style={{ fontSize: "1rem", color: "var(--navy)" }}>6.725%</strong>
             </div>
           </div>
         </div>
