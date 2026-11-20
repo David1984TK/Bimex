@@ -303,7 +303,16 @@
     "toastApproved": "✅ Proyecto #{{id}} aprobado",
     "toastRejected": "❌ Proyecto #{{id}} rechazado",
     "errLoad": "No se pudieron cargar los proyectos: {{msg}}",
-    "loadingProjectsAria": "Cargando proyectos"
+    "loadingProjectsAria": "Cargando proyectos",
+    "checklistTitle": "Criterios de aprobación",
+    "checklistHint": "Marca todos los criterios para habilitar Aprobar.",
+    "criteria": {
+      "tipo": "Es un proyecto de impacto social de una organización identificable y encaja en una categoría de Bimex",
+      "monto": "La meta es proporcional al presupuesto (referencia del piloto: $50,000–$200,000 MXN)",
+      "plazo": "El plazo (1–120 meses) es coherente con el plan de trabajo",
+      "evidencia": "Revisé los 3 documentos (INE, plan y presupuesto): son legibles, del mismo responsable y coinciden con la huella documental",
+      "hitos": "El plan define hitos verificables para reportar avances"
+    }
   },
   "transp": {
     "title": "Transparencia pública",
