@@ -10,6 +10,7 @@ import MiCuenta         from "./components/MiCuenta";
 import Changelog        from "./components/Changelog";
 import Terminos         from "./components/Terminos";
 import Privacidad       from "./components/Privacidad";
+import AvisosLegalesMexico from "./components/AvisosLegalesMexico";
 import OnboardingTour from "./components/OnboardingTour";
 import SimuladorImpacto from "./components/SimuladorImpacto";
 import AuditoriaBadge from "./components/AuditoriaBadge";
@@ -562,6 +563,7 @@ export default function App() {
                   onChangelog={() => navigate("/novedades")}
                   onTerminos={() => navigate("/terminos")}
                   onPrivacidad={() => navigate("/privacidad")}
+                  onAvisosLegalesMexico={() => navigate("/avisos-legales-mexico")}
                   tema={tema}
                   setTema={setTema}
                   onInstallPwa={instalarPwa}
@@ -618,6 +620,7 @@ export default function App() {
           <Route path="/novedades" element={<div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)" }}><button type="button" className="btn btn-ghost" onClick={() => navigate(direccion ? "/proyectos" : "/")} style={{ fontSize: "0.84rem" }}>{t("comun.volver")}</button><Changelog /></div>} />
           <Route path="/terminos" element={<Terminos onVolver={() => navigate(direccion ? "/proyectos" : "/")} />} />
           <Route path="/privacidad" element={<Privacidad onVolver={() => navigate(direccion ? "/proyectos" : "/")} />} />
+          <Route path="/avisos-legales-mexico" element={<AvisosLegalesMexico onVolver={() => navigate(direccion ? "/proyectos" : "/")} />} />
           <Route
             path="/admin"
             element={
@@ -672,6 +675,11 @@ export default function App() {
               {t("footer.privacy")}
             </button>
             <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
+            <button type="button" onClick={() => navigate("/avisos-legales-mexico")}
+              style={st.footerLink}>
+              {t("footer.marcoLegalMx")}
+            </button>
+            <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
             <span style={{ color: "rgba(255,255,255,0.65)", fontSize: "0.78rem" }}>Bimex · Stellar Testnet</span>
           </div>
         </footer>
@@ -681,7 +689,7 @@ export default function App() {
 }
 
 // ── Landing ──────────────────────────────────────────────────────────────────
-function Landing({ autoConectar, onConectado, onTransparencia, onCasosDeExito, onChangelog, onTerminos, onPrivacidad, tema, setTema, onInstallPwa, installReady }) {
+function Landing({ autoConectar, onConectado, onTransparencia, onCasosDeExito, onChangelog, onTerminos, onPrivacidad, onAvisosLegalesMexico, tema, setTema, onInstallPwa, installReady }) {
   const { t } = useTranslation();
   const liveStats = useLiveStats();
   const { rate: cetesRate, error: cetesError } = useCetesRate();
@@ -950,6 +958,10 @@ function Landing({ autoConectar, onConectado, onTransparencia, onCasosDeExito, o
           <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
           <button type="button" onClick={onPrivacidad} style={st.footerLinkLanding}>
             {t("footer.privacy")}
+          </button>
+          <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.78rem" }}>·</span>
+          <button type="button" onClick={onAvisosLegalesMexico} style={st.footerLinkLanding}>
+            {t("footer.marcoLegalMx")}
           </button>
         </div>
       </footer>
