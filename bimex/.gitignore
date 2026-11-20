@@ -4,3 +4,6 @@ target
 # Local settings
 .soroban
 .stellar
+
+# Transaction XDR files (unsigned or signed) must never be committed
+*.xdr
