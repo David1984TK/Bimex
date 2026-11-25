@@ -432,6 +432,43 @@ describe('api.js REST Endpoints', () => {
       const res = await req({ path: '/backers/SABC234567ABCDEF234567ABCDEF234567ABCDEF234567ABCDEF2345/aportaciones', method: 'GET' });
       expect(res.status).toBe(400);
     });
+
+    const direccion = 'GABC234567ABCDEF234567ABCDEF234567ABCDEF234567ABCDEF2345';
+
+    it('returns 200 and the backer\'s aportaciones with Cache-Control', async () => {
+      const aportaciones = [
+        { id: 1, proyecto_id: 7, contribuidor: direccion, monto: '100', proyectos: { nombre: 'A', estado: 'EnProgreso' } },
+      ];
+      mockSupabase._data  = aportaciones;
+      mockSupabase._error = null;
+
+      const res = await req({ path: `/backers/${direccion}/aportaciones`, method: 'GET' });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual(aportaciones);
+      expectCacheHeaders(res.headers);
+    });
+
+    it('returns 200 and an empty list when the backer has no aportaciones', async () => {
+      mockSupabase._data  = [];
+      mockSupabase._error = null;
+
+      const res = await req({ path: `/backers/${direccion}/aportaciones`, method: 'GET' });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([]);
+      expectCacheHeaders(res.headers);
+    });
+
+    it('returns 500 without Cache-Control when supabase errors', async () => {
+      mockSupabase._data  = null;
+      mockSupabase._error = { message: 'relation "aportaciones" does not exist' };
+
+      const res = await req({ path: `/backers/${direccion}/aportaciones`, method: 'GET' });
+      expect(res.status).toBe(500);
+      // Must NOT expose raw Supabase internals to the client
+      expect(res.body.error).toBe('Error de base de datos');
+      expect(res.body.error).not.toContain('relation');
+      expectNoCacheHeaders(res.headers);
+    });
   });
 
   // ── GET /eventos ─────────────────────────────────────────────────────────
