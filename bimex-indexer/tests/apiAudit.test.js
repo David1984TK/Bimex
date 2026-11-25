@@ -27,6 +27,11 @@ vi.mock('@supabase/supabase-js', () => {
 
 import { parseLimitOffset, publicRateLimitedEndpoint } from '../api.js';
 
+// NOTE: Tests for GET /backers/:address/aportaciones and GET /impacto (issue: endpoints sin tests)
+// are expected to live in tests/api.test.js with Supabase mocked, covering: happy path,
+// empty result, generic 500 on DB error without leaking details (see #250), and cache headers.
+// This file only covers helper/coverage-matrix/benchmark concerns.
+
 describe('API Audit & Hardening (Issue #411)', () => {
   describe('Helper: parseLimitOffset', () => {
     it('uses defaults when parameters are absent', () => {
